@@ -35,7 +35,7 @@ func init() {
 			{Tool: "growthbook_get_feature_staleness", Args: map[string]any{"feature_ids": "live-checkout-express,live-beta-banner"}, Expect: []string{"live-checkout-express", "staleByEnv"}},
 			{Tool: "growthbook_list_feature_revisions", Args: map[string]any{"feature_id": "live-beta-banner", "status": "published"}, Expect: []string{"live-beta-banner", "published", "Created via REST API"}},
 			{Tool: "growthbook_list_experiments", Expect: []string{"Live Checkout Test", "Live Banner Test", "won"}},
-			{Tool: "growthbook_list_experiments", Args: map[string]any{"status": "stopped"}, Expect: []string{"Live Banner Test", `"total":1`}},
+			{Tool: "growthbook_list_experiments", Args: map[string]any{"status": "stopped", "search": "Banner"}, Expect: []string{"Live Banner Test", `"total":1`}},
 			{Tool: "growthbook_get_experiment", Args: map[string]any{"experiment_id": "${stopped_id}"}, Expect: []string{"Live Banner Test", "live-banner-flow", "Banner won"}},
 			{Tool: "growthbook_get_experiment_results", Args: map[string]any{"experiment_id": "${experiment_id}"}, Expect: []string{"Purchase Rate", "chanceToBeatControl", "Express", `"totalUsers":400`}},
 			{Tool: "growthbook_refresh_experiment_results", Args: map[string]any{"experiment_id": "${stopped_id}"}, Expect: []string{"snp_", "${stopped_id}"}},
@@ -59,6 +59,27 @@ func init() {
 			{Tool: "growthbook_list_members", Expect: []string{"admin@example.test", "admin"}},
 			{Tool: "growthbook_toggle_feature", Args: map[string]any{"feature_id": "live-checkout-express", "environment": "production", "enabled": true, "reason": "switchboard live"}, Expect: []string{`"status":"updated"`, `"enabled":true`, "production"}},
 			{Tool: "growthbook_create_feature", Args: map[string]any{"feature_id": "live-agent-flag", "value_type": "boolean", "default_value": "false", "description": "Created by the live test", "owner": "admin@example.test", "tags": "agent"}, Expect: []string{"live-agent-flag", `"enabled":false`}},
+			// Rule writes stage a draft seeded in Provision, then publish it.
+			{Tool: "growthbook_add_feature_rule", Args: map[string]any{"feature_id": "live-agent-rules", "version": "${draft_version}",
+				"rule": `{"type":"force","value":"on","condition":"{\"country\":\"US\"}","environments":["staging"],"description":"US staging"}`},
+				Expect: []string{`"status":"draft"`, "US staging", "${rule_id}"}},
+			{Tool: "growthbook_update_feature_rule", Args: map[string]any{"feature_id": "live-agent-rules", "version": "${draft_version}", "rule_id": "${rule_id}",
+				"rule": `{"description":"Beta testers, updated live"}`}, Expect: []string{"Beta testers, updated live"}},
+			{Tool: "growthbook_delete_feature_rule", Args: map[string]any{"feature_id": "live-agent-rules", "version": "${draft_version}", "rule_id": "${rollout_rule_id}"},
+				Expect: []string{`"status":"draft"`, "US staging"}},
+			{Tool: "growthbook_publish_feature_revision", Args: map[string]any{"feature_id": "live-agent-rules", "version": "${draft_version}", "comment": "switchboard live publish"},
+				Expect: []string{`"status":"published"`, "live-agent-rules"}},
+			{Tool: "growthbook_discard_feature_revision", Args: map[string]any{"feature_id": "live-checkout-express", "version": "${discard_version}"},
+				Expect: []string{"discarded"}},
+			{Tool: "growthbook_create_experiment", Args: map[string]any{"experiment": `{"trackingKey":"live-agent-test","name":"Live Agent Test","project":"${project_id}","owner":"admin@example.test",
+"datasourceId":"${datasource_id}","assignmentQuery":{"id":"${assignment_id}"},"hashAttribute":"id","metrics":["${metric_id}"],
+"variations":[{"key":"0","name":"Control"},{"key":"1","name":"Treatment"}]}`},
+				Expect: []string{"live-agent-test", `"status":"draft"`, "Treatment"}},
+			{Tool: "growthbook_update_experiment", Args: map[string]any{"experiment_id": "${draft_experiment_id}", "changes": `{"name":"Live Draft Test, renamed"}`},
+				Expect: []string{"Live Draft Test, renamed"}},
+			{Tool: "growthbook_start_experiment", Args: map[string]any{"experiment_id": "${draft_experiment_id}"}, Expect: []string{`"status":"running"`}},
+			{Tool: "growthbook_stop_experiment", Args: map[string]any{"experiment_id": "${draft_experiment_id}", "results": "inconclusive", "reason": "switchboard live stop"},
+				Expect: []string{`"status":"stopped"`, "inconclusive"}},
 		},
 	})
 }
@@ -261,6 +282,27 @@ func liveGrowthBookProvision(t *testing.T) liveProvision {
 	require.NoError(t, err)
 	require.Equal(t, http.StatusBadRequest, status, "stopped experiment must start without results: %s", data)
 	rest(http.MethodPost, "/v2/features/live-beta-banner/toggle", map[string]any{"environments": map[string]any{"production": true}, "reason": "live launch"})
+	// Rule writes work on their own flag, and the experiment writes on their
+	// own draft experiment linked to its own flag, so the read cases (which
+	// are replayed through scripts after every case) see unchanged data.
+	rest(http.MethodPost, "/v2/features", map[string]any{"id": "live-agent-rules", "description": "Rule writes", "owner": "admin@example.test", "project": projectID, "valueType": "string", "defaultValue": "off", "environments": disabled,
+		"rules": []any{
+			map[string]any{"type": "force", "description": "Agent rule one", "value": "on", "condition": `{"country":"CA"}`, "environments": []string{"staging"}},
+			map[string]any{"type": "rollout", "description": "Agent rollout", "value": "on", "coverage": 0.2, "hashAttribute": "id", "environments": []string{"staging"}},
+		}})
+	draft := liveObject(rest(http.MethodPost, "/v2/features/live-agent-rules/revisions", map[string]any{"comment": "live draft"}), "revision")
+	draftRules, _ := draft["rules"].([]any)
+	require.Len(t, draftRules, 2)
+	ruleID, _ := draftRules[0].(map[string]any)["id"].(string)
+	rolloutRuleID, _ := draftRules[1].(map[string]any)["id"].(string)
+	discard := liveObject(rest(http.MethodPost, "/v2/features/live-checkout-express/revisions", map[string]any{"comment": "to discard"}), "revision")
+	draftExperiment := liveObject(rest(http.MethodPost, "/v1/experiments", map[string]any{
+		"datasourceId": dataSourceID, "assignmentQueryId": assignmentID, "trackingKey": "live-draft-test", "name": "Live Draft Test", "hypothesis": "Drafts start",
+		"owner": "admin@example.test", "project": projectID, "metrics": []string{metricID}, "status": "draft", "hashAttribute": "id",
+		"variations": []any{map[string]any{"key": "0", "name": "Control"}, map[string]any{"key": "1", "name": "Treatment"}},
+		"phases":     []any{map[string]any{"name": "Main", "dateStarted": time.Now().UTC().Format(time.RFC3339), "coverage": 1, "variationWeights": []float64{0.5, 0.5}}},
+	}), "experiment")
+	linkFeature("live-draft-flow", draftExperiment, [2]string{"control", "treatment"})
 	rest(http.MethodPost, "/v1/code-refs", map[string]any{"branch": "main", "repoName": "acme/web", "refs": []any{map[string]any{"filePath": "src/checkout.ts", "startingLineNumber": 42, "lines": "if (gb.isOn('live-checkout-express')) {", "flagKey": "live-checkout-express", "contentHash": "live"}}})
 
 	target, err := url.Parse(api.base)
@@ -285,5 +327,8 @@ func liveGrowthBookProvision(t *testing.T) liveProvision {
 	return liveProvision{Credentials: creds, Values: map[string]string{
 		"project_id": projectID, "group_id": groupID, "metric_id": metricID, "fact_table_id": factTableID,
 		"experiment_id": fmt.Sprint(running["id"]), "stopped_id": fmt.Sprint(stopped["id"]), "snapshot_id": snapshotID,
+		"datasource_id": dataSourceID, "assignment_id": assignmentID,
+		"draft_version": fmt.Sprint(draft["version"]), "rule_id": ruleID, "rollout_rule_id": rolloutRuleID,
+		"discard_version": fmt.Sprint(discard["version"]), "draft_experiment_id": fmt.Sprint(draftExperiment["id"]),
 	}}
 }

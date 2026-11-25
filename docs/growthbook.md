@@ -1,6 +1,6 @@
 # GrowthBook feature flags and experiments
 
-The GrowthBook adapter reads feature flags, A/B test experiments and their results, metrics, and the configuration around them (projects, environments, SDK connections, saved groups, attributes, data sources, segments, audit log, code references, settings and members) through the GrowthBook REST API. It can also make three explicit changes: turn one flag on or off in one environment, create a flag that starts disabled everywhere, and start a new experiment analysis.
+The GrowthBook adapter reads feature flags, A/B test experiments and their results, metrics, and the configuration around them (projects, environments, SDK connections, saved groups, attributes, data sources, segments, audit log, code references, settings and members) through the GrowthBook REST API. It can also make explicit changes: turn one flag on or off in one environment, create a flag that starts disabled everywhere, edit a flag's targeting rules in a draft and publish it, create, update, start and stop experiments, and start a new experiment analysis.
 
 It targets the REST API served by GrowthBook Cloud, which runs GrowthBook's main branch. Feature flag tools use the `/v2` endpoints GrowthBook recommends; the deprecated `/v1` feature flag routes are not used. Live acceptance pins a main-branch image (version 5.2.0, commit `ffe6dab`). Older self-hosted releases may lack some newer endpoints (the tagged 5.2.0 image has no REST data source creation, for example); a tool that calls a missing endpoint returns GrowthBook's `Unknown API endpoint` error rather than empty data.
 
@@ -21,7 +21,7 @@ The base URL must be HTTPS without credentials, query, fragment, encoded path or
 Give the key the smallest role that covers the tools you enable:
 
 - **Read-only use**: a Secret Key with the `readonly` role. Every read tool works with it.
-- **Toggling or creating flags, refreshing results**: a role that can publish features and run experiment queries in the environments you intend to change, such as `engineer` or a custom role limited to those environments and projects.
+- **Toggling or creating flags, editing rules, running experiments, refreshing results**: a role that can publish features and run experiment queries in the environments you intend to change, such as `engineer` or a custom role limited to those environments and projects.
 - **Keep people in the loop**: GrowthBook can require a person to confirm risky writes for a key. When it does, the write returns `status: pending_confirmation` with a confirmation link and nothing changes until a person approves it in GrowthBook. The adapter never retries or works around this, and never sends override fields such as `ignoreWarnings`.
 
 Self-hosted GrowthBook without a commercial license only offers the `admin` role for keys. In that case, treat the key as an administrator credential: store it carefully, set an expiration, and disable the write tools with a tool policy if you only need reads.
@@ -52,6 +52,19 @@ Self-hosted GrowthBook without a commercial license only offers the `admin` role
 | `growthbook_toggle_feature` | write | Turn one flag on or off in exactly one environment |
 | `growthbook_create_feature` | write | Create a flag disabled in every environment, with no rules |
 | `growthbook_refresh_experiment_results` | write | Run a new analysis against the warehouse (costs warehouse compute) |
+| `growthbook_add_feature_rule` | write | Add a force, rollout or experiment-ref rule to a draft revision (a new one unless `version` is given) |
+| `growthbook_update_feature_rule`, `growthbook_delete_feature_rule` | write | Change or remove one rule in a draft revision |
+| `growthbook_publish_feature_revision` | write | Make a draft live; needs an audit `comment` |
+| `growthbook_discard_feature_revision` | write | Drop a draft without publishing |
+| `growthbook_create_experiment` | write | Create an experiment, always as a draft |
+| `growthbook_update_experiment` | write | Change an experiment's settings (not its status) |
+| `growthbook_start_experiment`, `growthbook_stop_experiment` | write | Launch a draft; stop with a result and optional temporary rollout |
+
+### Changing rules and running experiments
+
+Rule edits always land in a draft revision and nothing reaches an SDK until `growthbook_publish_feature_revision`, so an agent can stage a change, show it (`growthbook_list_feature_revisions`), and publish only when a person asks. A new rule must name its environments (`environments` or `allEnvironments: true`) so production is never targeted by accident. Experiments are created as drafts and go live only through `growthbook_start_experiment`; linking one to a flag is an `experiment-ref` rule.
+
+GrowthBook's gates are never bypassed. Required reviews, warnings, schema and hook failures, and the experiment launch checklist come back as errors naming the gate, for a person to resolve in GrowthBook. Override fields (`ignoreWarnings`, `skipSchemaValidation`, `skipHooks`, `skipChecklist`, `bypassApproval`, `allowUnscopedRules`) are rejected rather than forwarded, and ramp schedules are left to the app. If your organization lets the REST API bypass reviews (`restApiBypassesReviews`), a publish or start goes live at once; restrict these tools with a tool policy if agents should only read.
 
 List tools take `limit` (1..100, default 20) and `offset`, and return GrowthBook's `total`, `hasMore` and `nextOffset`. The audit log pages with `before`, using `nextCursor` from the previous page.
 
