@@ -117,6 +117,10 @@ Masked screenshots are named `openproject-desktop.png` and `openproject-mobile.p
 
 Real-product validation is separate: run the live target against the disposable pinned product and inspect its outcomes and masked evidence before claiming it passed. Without a successful real-product run or explicitly supplied dedicated credentials and safe reads, **live authentication is unverified**. Never use a personal browser profile, production mutation probes or copied host configuration for acceptance testing.
 
+To inspect the collection-route evidence, find `Verified real OpenProject v17.9.2 GET /api/v3/workspaces/{id}/work_packages` in the verbose `make test-live INTEGRATION=openproject` output. That message is emitted only after the non-admin reader request returns HTTP 200 and the seeded closed record and exact second-page metadata pass their assertions. It contains no token, dynamic identifier or response body. A missing message is not a successful route check; inspect the test failure before drawing a routing conclusion.
+
+The same run writes `dist/live-artifacts/live-openproject.json`, recording each MCP case's outcome and byte count, raw-script verification, checked compaction fields, restart persistence and masked screenshot names. For the current six-case spec, require all six cases to pass, `script_verified` and `persisted_across_restart` to be true, 86 compaction-field checks and no skipped tools. Inspect the masked desktop/mobile screenshots as well. Bind these artifacts and the command's successful exit to the tested head SHA; an old artifact or the route message alone does not prove the complete acceptance gate passed.
+
 ## Upstream references
 
 The contract and setup guidance were checked against the released v17.9.2 sources:
