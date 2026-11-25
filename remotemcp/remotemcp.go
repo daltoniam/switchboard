@@ -191,11 +191,11 @@ func (r *remote) connect(ctx context.Context) (*liveSession, error) {
 	}
 }
 
-// dial opens a session without holding mu. closes is the Close count
-// when the caller entered connect; any Close since then rejects the attempt. If Configure replaced the token
-// meanwhile, the new session is closed and retry is true; if Close ran at
-// all, the session is closed and an error returned so a closed adapter
-// stays closed even if the token also changed.
+// dial opens a session without holding mu. closes is the Close count when
+// the caller entered connect. If Close ran since then, any session is closed
+// and an error returned, so a closed adapter stays closed. Otherwise, if
+// Configure replaced the token meanwhile, retry is true whether the attempt
+// succeeded (its session is closed) or failed.
 func (r *remote) dial(ctx context.Context, closes uint64) (sess *liveSession, retry bool, err error) {
 	r.mu.RLock()
 	if r.closes != closes {
@@ -227,6 +227,15 @@ func (r *remote) dial(ctx context.Context, closes uint64) (sess *liveSession, re
 
 	session, err := client.Connect(ctx, transport, nil)
 	if err != nil {
+		r.mu.RLock()
+		closed, replaced := r.closes != closes, r.generation != generation
+		r.mu.RUnlock()
+		if closed {
+			return nil, false, fmt.Errorf("%s: closed while connecting", r.name)
+		}
+		if replaced {
+			return nil, true, nil
+		}
 		return nil, false, fmt.Errorf("connect to %s: %w", r.serverURL, err)
 	}
 	if r.afterDial != nil {

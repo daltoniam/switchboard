@@ -327,3 +327,33 @@ func TestConnect_QueuedCallDoesNotReopenAfterClose(t *testing.T) {
 	defer r.mu.RUnlock()
 	assert.Nil(t, r.session, "no session may be published after Close")
 }
+
+// A dial rejected because it used a token that Configure has since replaced
+// is retried with the new token.
+func TestConnect_RetriesRejectedDialAfterTokenChange(t *testing.T) {
+	server := mcpsdk.NewServer(&mcpsdk.Implementation{Name: "auth", Version: "1"}, nil)
+	stream := mcpsdk.NewStreamableHTTPHandler(func(*http.Request) *mcpsdk.Server { return server }, &mcpsdk.StreamableHTTPOptions{JSONResponse: true, Stateless: true})
+	var r *remote
+	var once sync.Once
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if req.Header.Get("Authorization") != "Bearer new" {
+			once.Do(func() {
+				assert.NoError(t, r.Configure(context.Background(), mcp.Credentials{"access_token": "new"}))
+			})
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		stream.ServeHTTP(w, req)
+	}))
+	t.Cleanup(srv.Close)
+	r = New("test", srv.URL).(*remote)
+	t.Cleanup(func() { _ = r.Close() })
+	require.NoError(t, r.Configure(context.Background(), mcp.Credentials{"access_token": "old"}))
+
+	session, err := r.connect(context.Background())
+	require.NoError(t, err)
+	require.NotNil(t, session)
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	assert.Equal(t, "new", r.sessionToken)
+}
