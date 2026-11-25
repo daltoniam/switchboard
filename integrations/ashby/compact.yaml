@@ -1,0 +1,885 @@
+# Switchboard compaction specs for the ashby integration (API key mode).
+#
+# Schema: tools.<tool_name>: { spec: [<spec_lines>], max_bytes?: <int> }
+#
+# The `spec` array is a WHITELIST: only fields whose paths are listed survive
+# compaction; everything else is stripped from the response. Within a kept
+# parent, use `-field` or `-*_pattern` for explicit exclusions.
+#
+# These specs apply only to the native REST tools. Hosted MCP responses (sign
+# in with Ashby) are shaped by Ashby's server and are never compacted, even
+# where a tool name is shared (ashby_get_candidate).
+#
+# Handler output: {"results": <records>, "moreDataAvailable", "nextCursor",
+# "syncToken"}; the pagination keys appear on paginated endpoints only.
+#
+# Inside results[] a nested path keeps only its leaf name, so two nested
+# fields with the same leaf (candidate.id and job.id) would overwrite each
+# other. Lists therefore keep small nested objects whole (job,
+# currentInterviewStage) or one uniquely named leaf (candidate.name).
+#
+# Recruiting data is PII-heavy. Lists keep identifiers, names, stages,
+# statuses, dates, and job/application links, plus a primary email where it
+# is the identifier people search by. Phone numbers, social links, addresses,
+# resumes and file handles, custom fields, form answers, and full nested user
+# objects are dropped; get_* tools and scripts return them when needed.
+#
+# List tools with live cases (web/live_ashby_test.go) keep fields Ashby's
+# schema marks required, or that every real record has (a job's department
+# and location), so a live run does not flag a field that is merely empty on
+# one page. Single-record get_* tools keep optional fields too.
+#
+# Override at runtime: set $SWITCHBOARD_COMPACT_DIR=/path; place ashby.yaml
+# there with only the tools you want to change.
+#
+# Full spec syntax: docs/field-compaction.md.
+
+version: 1
+tools:
+  # ── Jobs, job postings, openings ──────────────────────────────────
+  ashby_list_jobs:
+    spec:
+      - results[].id
+      - results[].title
+      - results[].status
+      - results[].employmentType
+      - results[].confidential
+      - results[].departmentId
+      - results[].locationId
+      - results[].brandId
+      - results[].createdAt
+      - results[].updatedAt
+      - moreDataAvailable
+      - nextCursor
+      - syncToken
+
+  ashby_search_jobs:
+    spec:
+      - results[].id
+      - results[].title
+      - results[].status
+      - results[].employmentType
+      - results[].confidential
+      - results[].departmentId
+      - results[].locationId
+      - results[].createdAt
+      - results[].updatedAt
+      - moreDataAvailable
+
+  ashby_get_job:
+    spec:
+      - results.id
+      - results.title
+      - results.status
+      - results.employmentType
+      - results.confidential
+      - results.brandId
+      - results.createdAt
+      - results.updatedAt
+      - results.locationId
+      - results.departmentId
+      - results.defaultInterviewPlanId
+      - results.interviewPlanIds
+      - results.jobPostingIds
+      - results.customRequisitionId
+      - results.openedAt
+      - results.closedAt
+      - results.hiringTeam
+
+  ashby_get_job_interview_plan:
+    spec:
+      - results.jobId
+      - results.interviewPlanId
+      - results.stages[].id
+      - results.stages[].title
+      - results.stages[].type
+      - results.stages[].orderInInterviewPlan
+
+  ashby_list_job_templates:
+    spec:
+      - results[].id
+      - results[].title
+      - results[].status
+      - results[].locationId
+      - results[].departmentId
+      - results[].defaultInterviewPlanId
+      - moreDataAvailable
+      - nextCursor
+      - syncToken
+
+  ashby_list_job_boards:
+    spec:
+      - results[].id
+      - results[].title
+      - results[].isInternal
+
+  ashby_list_job_postings:
+    spec:
+      - results[].id
+      - results[].title
+      - results[].jobId
+      - results[].status
+      - results[].departmentName
+      - results[].teamName
+      - results[].locationName
+      - results[].workplaceType
+      - results[].employmentType
+      - results[].isListed
+      - results[].publishedDate
+      - results[].applyLink
+      - results[].updatedAt
+
+  ashby_get_job_posting:
+    spec:
+      - results.id
+      - results.title
+      - results.jobId
+      - results.status
+      - results.descriptionPlain
+      - results.departmentName
+      - results.teamName
+      - results.locationName
+      - results.workplaceType
+      - results.employmentType
+      - results.isListed
+      - results.publishedDate
+      - results.applicationDeadline
+      - results.externalLink
+      - results.applyLink
+      - results.compensation
+      - results.updatedAt
+
+  ashby_list_openings:
+    spec:
+      - results[].id
+      - results[].openingState
+      - results[].isArchived
+      - results[].openedAt
+      - results[].closedAt
+      - results[].latestVersion.identifier
+      - results[].latestVersion.jobIds
+      - results[].latestVersion.teamId
+      - results[].latestVersion.targetHireDate
+      - results[].latestVersion.isBackfill
+      - moreDataAvailable
+      - nextCursor
+      - syncToken
+
+  ashby_search_openings:
+    spec:
+      - results[].id
+      - results[].openingState
+      - results[].isArchived
+      - results[].openedAt
+      - results[].closedAt
+      - results[].latestVersion.identifier
+      - results[].latestVersion.jobIds
+      - results[].latestVersion.targetHireDate
+
+  ashby_get_opening:
+    spec:
+      - results.id
+      - results.openingState
+      - results.isArchived
+      - results.openedAt
+      - results.closedAt
+      - results.closeReasonId
+      - results.latestVersion.identifier
+      - results.latestVersion.description
+      - results.latestVersion.jobIds
+      - results.latestVersion.locationIds
+      - results.latestVersion.teamId
+      - results.latestVersion.targetHireDate
+      - results.latestVersion.targetStartDate
+      - results.latestVersion.isBackfill
+      - results.latestVersion.employmentType
+      - results.latestVersion.hiringTeam
+
+  # ── Candidates and projects ───────────────────────────────────────
+  ashby_search_candidates:
+    spec:
+      - results[].id
+      - results[].name
+      - results[].primaryEmailAddress
+      - results[].applicationIds
+      - results[].createdAt
+      - results[].updatedAt
+      - moreDataAvailable
+
+  ashby_list_candidates:
+    spec:
+      - results[].id
+      - results[].name
+      - results[].primaryEmailAddress
+      - results[].applicationIds
+      - results[].createdAt
+      - results[].updatedAt
+      - moreDataAvailable
+      - nextCursor
+      - syncToken
+
+  ashby_get_candidate:
+    spec:
+      - results.id
+      - results.name
+      - results.primaryEmailAddress.value
+      - results.position
+      - results.company
+      - results.school
+      - results.tags[].title
+      - results.applicationIds
+      - results.source.title
+      - results.profileUrl
+      - results.doNotContact
+      - results.createdAt
+      - results.updatedAt
+
+  ashby_list_candidate_notes:
+    spec:
+      - results[].id
+      - results[].createdAt
+      - results[].isPrivate
+      - results[].content
+      - results[].author.firstName
+      - results[].author.lastName
+      - moreDataAvailable
+      - nextCursor
+
+  ashby_list_candidate_projects:
+    spec:
+      - results[].id
+      - results[].title
+      - results[].isArchived
+      - results[].createdAt
+      - moreDataAvailable
+      - nextCursor
+
+  ashby_list_candidate_emails:
+    spec:
+      - results[].recordId
+      - results[].subject
+      - results[].from
+      - results[].to
+      - results[].sentAt
+      - results[].threadId
+      - results[].userIsSender
+      - results[].body
+      - results[].bodyTruncated
+      - moreDataAvailable
+      - nextCursor
+
+  ashby_list_projects:
+    spec:
+      - results[].id
+      - results[].title
+      - results[].isArchived
+      - results[].confidential
+      - results[].createdAt
+      - moreDataAvailable
+      - nextCursor
+      - syncToken
+
+  ashby_get_project:
+    spec:
+      - results.id
+      - results.title
+      - results.isArchived
+      - results.confidential
+      - results.descriptionPlain
+      - results.authorId
+      - results.createdAt
+
+  ashby_search_projects:
+    spec:
+      - results[].id
+      - results[].title
+      - results[].isArchived
+      - results[].createdAt
+
+  # ── Applications and feedback ─────────────────────────────────────
+  ashby_list_applications:
+    spec:
+      - results[].id
+      - results[].status
+      - results[].candidate.name
+      - results[].job
+      - results[].currentInterviewStage
+      - results[].createdAt
+      - results[].updatedAt
+      - moreDataAvailable
+      - nextCursor
+      - syncToken
+
+  ashby_get_application:
+    spec:
+      - results.id
+      - results.status
+      - results.candidate.id
+      - results.candidate.name
+      - results.job.id
+      - results.job.title
+      - results.currentInterviewStage.id
+      - results.currentInterviewStage.title
+      - results.currentInterviewStage.type
+      - results.currentInterviewStage.interviewPlanId
+      - results.createdAt
+      - results.updatedAt
+      - results.source.title
+      - results.archiveReason.text
+      - results.archivedAt
+      - results.hiringTeam
+      - results.applicationHistory
+      - results.appliedViaJobPostingId
+
+  ashby_list_application_history:
+    spec:
+      - results[].id
+      - results[].stageId
+      - results[].title
+      - results[].enteredStageAt
+      - results[].leftStageAt
+      - results[].stageNumber
+      - results[].actorId
+      - moreDataAvailable
+      - nextCursor
+
+  ashby_list_application_criteria_evaluations:
+    spec:
+      - results[].id
+      - results[].criterion
+      - results[].status
+      - results[].outcome
+      - results[].reasoning
+      - results[].evaluatedAt
+      - moreDataAvailable
+      - nextCursor
+
+  ashby_list_application_hiring_team_roles:
+    spec:
+      - results[].id
+      - results[].title
+
+  ashby_list_application_feedback:
+    spec:
+      - results[].id
+      - results[].applicationId
+      - results[].feedbackFormDefinitionId
+      - results[].interviewId
+      - results[].interviewEventId
+      - results[].submittedAt
+      - results[].submittedByUser.firstName
+      - results[].submittedByUser.lastName
+      - results[].submittedValues
+      - moreDataAvailable
+      - nextCursor
+      - syncToken
+
+  ashby_list_application_feedback_requests:
+    spec:
+      - results[].interviewEventId
+      - results[].interviewerUserId
+      - results[].applicationId
+      - results[].interviewId
+      - results[].requestedAt
+      - results[].hasSubmittedFeedback
+      - results[].feedbackSubmittedAt
+      - moreDataAvailable
+      - nextCursor
+      - syncToken
+
+  # ── Interviews and schedules ──────────────────────────────────────
+  ashby_list_interview_schedules:
+    spec:
+      - results[].id
+      - results[].status
+      - results[].applicationId
+      - results[].interviewStageId
+      - results[].createdAt
+      - results[].interviewEvents
+      - moreDataAvailable
+      - nextCursor
+      - syncToken
+
+  ashby_get_interview_schedule:
+    spec:
+      - results.id
+      - results.status
+      - results.applicationId
+      - results.interviewStageId
+      - results.createdAt
+      - results.updatedAt
+      - results.interviewEvents
+
+  ashby_list_interview_events:
+    spec:
+      - results[].id
+      - results[].interviewId
+      - results[].interviewScheduleId
+      - results[].interviewerUserIds
+      - results[].startTime
+      - results[].endTime
+      - results[].location
+      - results[].meetingLink
+      - results[].feedbackLink
+      - results[].hasSubmittedFeedback
+      - results[].notetakerTranscriptId
+      - moreDataAvailable
+      - nextCursor
+      - syncToken
+
+  ashby_get_interview_briefing:
+    spec:
+      - results.id
+      - results.applicationId
+      - results.interviewId
+      - results.interviewStageId
+      - results.hasSubmittedFeedback
+      - results.feedbackFormDefinitionId
+      - results.candidate.id
+      - results.candidate.name
+      - results.job.id
+      - results.job.title
+      - results.interview.title
+      - results.interviewers
+
+  ashby_list_interviews:
+    spec:
+      - results[].id
+      - results[].title
+      - results[].type
+      - results[].isArchived
+      - results[].isDebrief
+      - results[].jobId
+      - results[].feedbackFormDefinitionId
+      - moreDataAvailable
+      - nextCursor
+      - syncToken
+
+  ashby_get_interview:
+    spec:
+      - results.id
+      - results.title
+      - results.externalTitle
+      - results.type
+      - results.isArchived
+      - results.isDebrief
+      - results.instructionsPlain
+      - results.jobId
+      - results.feedbackFormDefinitionId
+
+  ashby_list_interview_plans:
+    spec:
+      - results[].id
+      - results[].title
+      - results[].isArchived
+      - results[].createdAt
+      - results[].updatedAt
+      - moreDataAvailable
+      - nextCursor
+      - syncToken
+
+  ashby_list_interview_stages:
+    spec:
+      - results[].id
+      - results[].title
+      - results[].type
+      - results[].orderInInterviewPlan
+      - results[].interviewPlanId
+      - moreDataAvailable
+
+  ashby_get_interview_stage:
+    spec:
+      - results.id
+      - results.title
+      - results.type
+      - results.orderInInterviewPlan
+      - results.interviewPlanId
+      - results.interviewStageGroupId
+
+  ashby_list_interview_stage_groups:
+    spec:
+      - results[].id
+      - results[].title
+      - results[].order
+      - results[].stageType
+
+  ashby_list_interviewer_pools:
+    spec:
+      - results[].id
+      - results[].title
+      - results[].isArchived
+      - moreDataAvailable
+      - nextCursor
+      - syncToken
+
+  ashby_get_interviewer_pool:
+    spec:
+      - results.id
+      - results.title
+      - results.isArchived
+      - results.qualifiedMembers
+      - results.trainees
+
+  ashby_list_feedback_forms:
+    spec:
+      - results[].id
+      - results[].title
+      - results[].isArchived
+      - results[].isDefaultForm
+      - results[].interviewId
+      - moreDataAvailable
+      - nextCursor
+      - syncToken
+
+  # Submitting feedback needs every field path, so the form stays whole.
+  ashby_get_feedback_form:
+    spec:
+      - results.id
+      - results.title
+      - results.isArchived
+      - results.interviewId
+      - results.formDefinition
+
+  ashby_list_take_home_assignments:
+    spec:
+      - results[].id
+      - results[].applicationId
+      - results[].candidateId
+      - results[].interviewId
+      - results[].status
+      - results[].createdAt
+      - results[].submission.submittedAt
+      - results[].reviewers
+      - moreDataAvailable
+      - nextCursor
+      - syncToken
+
+  ashby_get_take_home_assignment:
+    spec:
+      - results.id
+      - results.applicationId
+      - results.candidateId
+      - results.interviewId
+      - results.interviewStageId
+      - results.status
+      - results.createdAt
+      - results.updatedAt
+      - results.submission
+      - results.reviewers
+
+  # ── Hiring process ────────────────────────────────────────────────
+  ashby_list_archive_reasons:
+    spec:
+      - results[].id
+      - results[].text
+      - results[].reasonType
+      - results[].isArchived
+
+  ashby_list_close_reasons:
+    spec:
+      - results[].id
+      - results[].reasonText
+      - results[].isArchived
+
+  ashby_list_sources:
+    spec:
+      - results[].id
+      - results[].title
+      - results[].isArchived
+      - results[].sourceType
+
+  ashby_list_source_tracking_links:
+    spec:
+      - results[].id
+      - results[].code
+      - results[].enabled
+      - results[].sourceId
+      - results[].link
+      - moreDataAvailable
+      - nextCursor
+      - syncToken
+
+  ashby_list_candidate_tags:
+    spec:
+      - results[].id
+      - results[].title
+      - results[].isArchived
+      - moreDataAvailable
+      - nextCursor
+      - syncToken
+
+  ashby_list_communication_templates:
+    spec:
+      - results[].id
+      - results[].title
+      - results[].intendedTypes
+      - results[].updatedAt
+
+  ashby_get_communication_template:
+    spec:
+      - results.id
+      - results.title
+      - results.intendedTypes
+      - results.isArchived
+      - results.subjectTemplate
+      - results.bodyHtml
+      - results.defaultCc
+      - results.defaultBcc
+
+  ashby_list_custom_fields:
+    spec:
+      - results[].id
+      - results[].title
+      - results[].objectType
+      - results[].fieldType
+      - results[].isArchived
+      - results[].isPrivate
+      - results[].isRequired
+      - moreDataAvailable
+      - nextCursor
+      - syncToken
+
+  ashby_get_custom_field:
+    spec:
+      - results.id
+      - results.referenceIdentifier
+      - results.title
+      - results.description
+      - results.objectType
+      - results.fieldType
+      - results.isArchived
+      - results.isPrivate
+      - results.isRequired
+      - results.selectableValues
+
+  ashby_list_referrals:
+    spec:
+      - results[].id
+      - results[].applicationId
+      - results[].candidateId
+      - results[].jobId
+      - results[].referralType
+      - results[].referrer.firstName
+      - results[].referrer.lastName
+      - results[].createdAt
+      - moreDataAvailable
+      - nextCursor
+      - syncToken
+
+  # Creating a referral needs every field path, so the form stays whole.
+  ashby_get_referral_form:
+    spec:
+      - results.id
+      - results.title
+      - results.formDefinition
+
+  ashby_list_survey_forms:
+    spec:
+      - results[].id
+      - results[].title
+      - results[].surveyType
+      - results[].isArchived
+      - moreDataAvailable
+      - nextCursor
+      - syncToken
+
+  ashby_get_survey_form:
+    spec:
+      - results.id
+      - results.title
+      - results.surveyType
+      - results.isArchived
+      - results.formDefinition
+
+  ashby_list_survey_requests:
+    spec:
+      - results[].id
+      - results[].surveyUrl
+      - results[].surveyFormDefinitionId
+      - results[].applicationId
+      - results[].candidateId
+      - moreDataAvailable
+      - nextCursor
+      - syncToken
+
+  ashby_list_survey_submissions:
+    spec:
+      - results[].id
+      - results[].surveyFormDefinitionId
+      - results[].surveyType
+      - results[].submittedAt
+      - results[].candidateId
+      - results[].applicationId
+      - results[].submittedValues
+      - moreDataAvailable
+      - nextCursor
+      - syncToken
+
+  # ── Organization ──────────────────────────────────────────────────
+  ashby_list_users:
+    spec:
+      - results[].id
+      - results[].firstName
+      - results[].lastName
+      - results[].globalRole
+      - results[].isEnabled
+      - results[].updatedAt
+      - moreDataAvailable
+      - nextCursor
+      - syncToken
+
+  ashby_get_user:
+    spec:
+      - results.id
+      - results.firstName
+      - results.lastName
+      - results.email
+      - results.globalRole
+      - results.isEnabled
+      - results.managerId
+      - results.updatedAt
+
+  ashby_search_users:
+    spec:
+      - results[].id
+      - results[].firstName
+      - results[].lastName
+      - results[].email
+      - results[].globalRole
+      - results[].isEnabled
+
+  ashby_list_departments:
+    spec:
+      - results[].id
+      - results[].name
+      - results[].isArchived
+      - results[].createdAt
+      - results[].updatedAt
+      - moreDataAvailable
+      - nextCursor
+      - syncToken
+
+  ashby_get_department:
+    spec:
+      - results.id
+      - results.name
+      - results.externalName
+      - results.parentId
+      - results.isArchived
+
+  ashby_list_locations:
+    spec:
+      - results[].id
+      - results[].name
+      - results[].isArchived
+      - results[].type
+      - moreDataAvailable
+      - nextCursor
+      - syncToken
+
+  ashby_get_location:
+    spec:
+      - results.id
+      - results.name
+      - results.externalName
+      - results.isArchived
+      - results.isRemote
+      - results.workplaceType
+      - results.type
+      - results.parentLocationId
+
+  ashby_list_hiring_team_roles:
+    spec:
+      - results
+
+  ashby_list_brands:
+    spec:
+      - results[].id
+      - results[].name
+      - results[].hostedJobsPageSlug
+      - moreDataAvailable
+      - nextCursor
+
+  ashby_list_approvals:
+    spec:
+      - results[].id
+      - results[].entityId
+      - results[].entityType
+      - results[].status
+      - results[].createdAt
+      - results[].submittedAt
+      - results[].completedAt
+      - results[].steps
+      - moreDataAvailable
+      - nextCursor
+      - syncToken
+
+  ashby_list_audit_logs:
+    spec:
+      - results[].id
+      - results[].timestamp
+      - results[].category
+      - results[].description
+      - results[].actor
+      - results[].target
+      - results[].channel
+      - moreDataAvailable
+      - nextCursor
+
+  ashby_list_sequences:
+    spec:
+      - results[].id
+      - results[].candidateId
+      - results[].applicationId
+      - results[].sequenceTemplateId
+      - results[].status
+      - results[].createdAt
+      - moreDataAvailable
+      - nextCursor
+      - syncToken
+
+  ashby_get_sequence:
+    spec:
+      - results.id
+      - results.candidateId
+      - results.applicationId
+      - results.sequenceTemplateId
+      - results.status
+      - results.createdAt
+      - results.stages
+
+  ashby_list_sequence_templates:
+    spec:
+      - results[].id
+      - results[].title
+      - results[].isArchived
+      - results[].updatedAt
+      - moreDataAvailable
+      - nextCursor
+      - syncToken
+
+  # ── Offers ────────────────────────────────────────────────────────
+  ashby_list_offers:
+    spec:
+      - results[].id
+      - results[].applicationId
+      - results[].offerStatus
+      - results[].acceptanceStatus
+      - results[].decidedAt
+      - results[].latestVersion.startDate
+      - results[].latestVersion.salary
+      - results[].latestVersion.approvalStatus
+      - results[].latestVersion.createdAt
+      - moreDataAvailable
+      - nextCursor
+      - syncToken
+
+  ashby_get_offer:
+    spec:
+      - results.id
+      - results.applicationId
+      - results.offerStatus
+      - results.acceptanceStatus
+      - results.decidedAt
+      - results.latestVersion
+      - results.versions

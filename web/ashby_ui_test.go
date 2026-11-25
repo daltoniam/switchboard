@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/url"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/integrations/ashby"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 	playwright "github.com/mxschmitt/playwright-go"
 	"github.com/stretchr/testify/require"
@@ -96,9 +98,20 @@ func TestUIAshby(t *testing.T) {
 	uiText(t, page.Locator(".badge").First(), "Not Connected")
 	uiText(t, page.Locator("body"), "Opt-In Features")
 	uiText(t, page.Locator("#ashby-oauth-start"), "Sign in with Ashby")
+	uiText(t, page.Locator("#ashby-api-key"), "Option 2: API key")
+	uiText(t, page.Locator("body"), "Admin → API Keys")
+	// The only inputs are the API key card's enabled toggle and key field,
+	// and a fresh install pre-fills neither the key nor a sign-in.
 	inputs, err := page.Locator("main input").Count()
 	require.NoError(t, err)
-	require.Zero(t, inputs)
+	require.Equal(t, 2, inputs)
+	keyInput := page.Locator("#cred_api_key")
+	value, err := keyInput.InputValue()
+	require.NoError(t, err)
+	require.Empty(t, value)
+	placeholder, err := keyInput.GetAttribute("placeholder")
+	require.NoError(t, err)
+	require.Equal(t, "Paste your Ashby API key", placeholder)
 	require.Empty(t, uiAshbySearch(t, app))
 	uiCapture(t, page, "ashby-fresh-desktop")
 
@@ -155,6 +168,105 @@ func TestUIAshby(t *testing.T) {
 	uiText(t, page.Locator(".badge").First(), "Disabled")
 	require.Empty(t, uiAshbySearch(t, app))
 	uiCapture(t, page, "ashby-disabled-desktop")
+
+	// API key mode: the second option switches Ashby to the REST API, using
+	// a local fixture in place of api.ashbyhq.com.
+	api := ashbyAPIFixture(t, "fixture-api-key")
+	app.stop()
+	saved = uiAshbySaved(t, app)
+	saved.Credentials["api_base_url"] = api.URL
+	uiAshbyWrite(t, app, saved)
+	app.start()
+	uiNavigate(t, page, app.URL+"/integrations/ashby/setup")
+	uiAshbySaveAPIKey(t, page, "wrong-fixture-key")
+	uiText(t, page.Locator(".badge").First(), "Connection Error")
+	uiText(t, page.Locator("#ashby-mode"), "API key")
+	saved = uiAshbySaved(t, app)
+	require.Equal(t, "wrong-fixture-key", saved.Credentials["api_key"])
+	require.Empty(t, saved.Credentials["mcp_access_token"], "saving a key replaces the sign-in")
+	require.Empty(t, saved.Credentials["mcp_refresh_token"])
+
+	uiAshbySaveAPIKey(t, page, "fixture-api-key")
+	uiText(t, page.Locator(".badge").First(), "Connected")
+	content, err = page.Content()
+	require.NoError(t, err)
+	require.NotContains(t, content, "fixture-api-key", "the saved key is never rendered")
+	placeholder, err = page.Locator("#cred_api_key").GetAttribute("placeholder")
+	require.NoError(t, err)
+	require.Equal(t, "Saved; leave blank to keep the current key", placeholder)
+	uiNavigate(t, page, app.URL+"/integrations")
+	apiCard := page.Locator(`a.integration-card[href="/integrations/ashby"]`)
+	uiText(t, apiCard, fmt.Sprintf("%d tools", uiAshbyNativeToolCount(t)))
+	uiText(t, apiCard, "Connected")
+	uiAshbyAPISearch(t, app)
+	uiNavigate(t, page, app.URL+"/integrations/ashby/setup")
+	uiCapture(t, page, "ashby-api-key-desktop")
+	require.NoError(t, page.SetViewportSize(390, 844))
+	uiNavigate(t, page, app.URL+"/integrations/ashby/setup")
+	uiCapture(t, page, "ashby-api-key-mobile")
+	require.NoError(t, page.SetViewportSize(1280, 900))
+
+	app.restart()
+	uiNavigate(t, page, app.URL+"/integrations/ashby/setup")
+	uiText(t, page.Locator(".badge").First(), "Connected")
+	uiAshbyAPISearch(t, app)
+
+	// Signing in again replaces the API key, so only one mode is active.
+	require.NoError(t, page.Locator("#ashby-oauth-start").Click())
+	uiText(t, page.Locator(".flash-success"), "Connected via MCP OAuth")
+	saved = uiAshbySaved(t, app)
+	require.Empty(t, saved.Credentials["api_key"])
+	require.Equal(t, "ashby-oauth-token", saved.Credentials["mcp_access_token"])
+	uiText(t, page.Locator("#ashby-mode"), "Sign in with Ashby")
+	require.Contains(t, uiAshbySearch(t, app), "ashby_get_pending_tasks")
+}
+
+func uiAshbySaveAPIKey(t *testing.T, page playwright.Page, key string) {
+	t.Helper()
+	require.NoError(t, page.Locator("#cred_api_key").Fill(key))
+	enabled := page.Locator(`#ashby-api-key-form input[type="checkbox"][name="enabled"]`)
+	checked, err := enabled.IsChecked()
+	require.NoError(t, err)
+	if !checked {
+		require.NoError(t, page.Locator("#ashby-api-key-form .toggle").Click())
+	}
+	uiSave(t, page)
+}
+
+func uiAshbyNativeToolCount(t *testing.T) int {
+	t.Helper()
+	integration := ashby.New()
+	require.NoError(t, integration.Configure(t.Context(), mcp.Credentials{"api_key": "count-only"}))
+	return len(integration.Tools())
+}
+
+// uiAshbyAPISearch finds and runs a native read over the binary's MCP
+// endpoint. The compacted result keeps the candidate's name but not the
+// phone number the fixture returns.
+func uiAshbyAPISearch(t *testing.T, app *uiApp) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(t.Context(), 20*time.Second)
+	defer cancel()
+	client := mcpsdk.NewClient(&mcpsdk.Implementation{Name: "ui-acceptance", Version: "1"}, nil)
+	session, err := client.Connect(ctx, &mcpsdk.StreamableClientTransport{Endpoint: app.URL + "/mcp", DisableStandaloneSSE: true}, nil)
+	require.NoError(t, err)
+	defer func() { require.NoError(t, session.Close()) }()
+	result, err := session.CallTool(ctx, &mcpsdk.CallToolParams{Name: "search", Arguments: map[string]any{"query": "search candidates applicants by name", "integration": "ashby", "limit": 5}})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+	text, ok := result.Content[0].(*mcpsdk.TextContent)
+	require.True(t, ok)
+	require.Contains(t, text.Text, "ashby_search_candidates")
+	require.NotContains(t, text.Text, "ashby_get_pending_tasks", "hosted-only tools are not offered in API key mode")
+	result, err = session.CallTool(ctx, &mcpsdk.CallToolParams{Name: "execute", Arguments: map[string]any{"tool_name": "ashby_search_candidates", "arguments": map[string]any{"name": "Fixture"}}})
+	require.NoError(t, err)
+	require.NotEmpty(t, result.Content)
+	text, ok = result.Content[0].(*mcpsdk.TextContent)
+	require.True(t, ok)
+	require.False(t, result.IsError, text.Text)
+	require.Contains(t, text.Text, "Fixture Candidate")
+	require.Contains(t, text.Text, "cand-fixture")
+	require.NotContains(t, text.Text, "+1 555 0100", "compaction drops candidate phone numbers")
 }
 
 func uiAshbyRecheck(t *testing.T, page playwright.Page, app *uiApp, want string) {

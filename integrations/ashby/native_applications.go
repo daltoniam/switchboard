@@ -1,0 +1,173 @@
+package ashby
+
+import mcp "github.com/daltoniam/switchboard"
+
+var applicationEndpoints = []endpoint{
+	{
+		tool:   "ashby_list_applications",
+		path:   "application.list",
+		access: mcp.AccessRead,
+		desc:   "List Ashby applications (candidates and applicants in a job's hiring pipeline) with candidate, job, current interview stage, status, source, and archive reason. Start here for recruiting pipeline questions such as who is interviewing for a role; filter by job_id and status.",
+		params: params(synced(), ps(
+			str("job_id", "Only applications for this job."),
+			str("status", "Only applications with this status: Active, Hired, Archived, or Lead."),
+			createdAfter("applications"),
+			integer("created_before", "Only applications created at or before this time, Unix epoch milliseconds."),
+			strs("expand", "Related objects to include, such as openings."),
+		)),
+	},
+	{
+		tool:   "ashby_get_application",
+		path:   "application.info",
+		access: mcp.AccessRead,
+		desc:   "Get one Ashby application (a candidate's candidacy for a job) with stage history, form submissions, referrals, hiring team, and resume handle. Use after ashby_list_applications or ashby_get_candidate. Needs application_id or submitted_form_instance_id.",
+		params: ps(
+			str("application_id", "The application id."),
+			str("submitted_form_instance_id", "Submitted application form instance id."),
+			strs("expand", "Related objects to include, such as openings."),
+		),
+	},
+	{
+		tool:   "ashby_create_application",
+		path:   "application.create",
+		access: mcp.AccessWrite,
+		desc:   "Consider an Ashby candidate for a job by creating an application, placed in the first Lead stage unless interview_stage_id is set. Use after ashby_search_candidates and ashby_search_jobs.",
+		params: ps(
+			str("candidate_id", "The candidate id.").req(),
+			str("job_id", "The job id.").req(),
+			str("interview_plan_id", "Interview plan id; defaults to the job's default plan."),
+			str("interview_stage_id", "Starting interview stage id."),
+			str("source_id", "Source id."),
+			str("credited_to_user_id", "User the application is credited to."),
+		),
+	},
+	{
+		tool:   "ashby_update_application",
+		path:   "application.update",
+		access: mcp.AccessWrite,
+		desc:   "Update an Ashby application's source or credited user.",
+		params: ps(
+			str("application_id", "The application id.").req(),
+			str("source_id", "Source id."),
+			str("credited_to_user_id", "User the application is credited to."),
+			boolean("send_notifications", "Notify subscribed users (default true)."),
+		),
+	},
+	{
+		tool:   "ashby_change_application_stage",
+		path:   "application.changeStage",
+		access: mcp.AccessDestructive,
+		desc:   "Move an Ashby application to another interview stage in its hiring pipeline, or archive (reject) it by moving to an Archived stage with an archive reason, which can email the candidate. Use ashby_get_job_interview_plan or ashby_list_interview_stages for stage ids and ashby_list_archive_reasons for reasons.",
+		params: ps(
+			str("application_id", "The application id.").req(),
+			str("interview_stage_id", "Target interview stage id.").req(),
+			str("archive_reason_id", "Archive reason id; required for an Archived stage."),
+			object("archive_email", "Rejection email: {\"communicationTemplateId\", \"sendAt\"}."),
+		),
+	},
+	{
+		tool:   "ashby_change_application_source",
+		path:   "application.changeSource",
+		access: mcp.AccessWrite,
+		desc:   "Change the source (sourcing channel) recorded on an Ashby application.",
+		params: ps(
+			str("application_id", "The application id.").req(),
+			str("source_id", "Source id from ashby_list_sources.").req(),
+		),
+	},
+	{
+		tool:   "ashby_transfer_application",
+		path:   "application.transfer",
+		access: mcp.AccessWrite,
+		desc:   "Transfer an Ashby application to a different job, interview plan, and stage.",
+		params: ps(
+			str("application_id", "The application id.").req(),
+			str("job_id", "Target job id.").req(),
+			str("interview_plan_id", "Target interview plan id.").req(),
+			str("interview_stage_id", "Target interview stage id.").req(),
+			boolean("start_automatic_activities", "Start the stage's automatic activities (default true)."),
+		),
+	},
+	{
+		tool:   "ashby_list_application_history",
+		path:   "application.listHistory",
+		access: mcp.AccessRead,
+		desc:   "List an Ashby application's stage history: each interview stage entered and left, with times and actor.",
+		params: params(ps(str("application_id", "The application id.").req()), page()),
+	},
+	{
+		tool:   "ashby_list_application_criteria_evaluations",
+		path:   "application.listCriteriaEvaluations",
+		access: mcp.AccessRead,
+		desc:   "List AI criteria evaluations for an Ashby application: how well the candidate meets each job requirement, with reasoning.",
+		params: params(ps(str("application_id", "The application id.").req()), page()),
+	},
+	{
+		tool:   "ashby_delete_application",
+		path:   "application.delete",
+		access: mcp.AccessDestructive,
+		desc:   "Permanently delete an Ashby application. Prefer archiving with ashby_change_application_stage. Needs the candidates delete permission.",
+		params: ps(str("application_id", "The application id.").req()),
+	},
+	{
+		tool:   "ashby_add_application_hiring_team_member",
+		path:   "application.addHiringTeamMember",
+		access: mcp.AccessWrite,
+		desc:   "Assign an Ashby user a hiring team role (recruiter, coordinator, hiring manager) on one application. Use ashby_list_application_hiring_team_roles for role_id.",
+		params: ps(
+			str("application_id", "The application id.").req(),
+			str("team_member_id", "The user id.").req(),
+			str("role_id", "Hiring team role id.").req(),
+		),
+	},
+	{
+		tool:   "ashby_remove_application_hiring_team_member",
+		path:   "application.removeHiringTeamMember",
+		access: mcp.AccessWrite,
+		desc:   "Unassign an Ashby user's hiring team role on one application.",
+		params: ps(
+			str("application_id", "The application id.").req(),
+			str("team_member_id", "The user id.").req(),
+			str("role_id", "Hiring team role id.").req(),
+		),
+	},
+	{
+		tool:   "ashby_list_application_hiring_team_roles",
+		path:   "applicationHiringTeamRole.list",
+		access: mcp.AccessRead,
+		desc:   "List the hiring team roles available on Ashby applications (for example Recruiter, Coordinator).",
+		params: ps(),
+	},
+	{
+		tool:   "ashby_list_application_feedback",
+		path:   "applicationFeedback.list",
+		access: mcp.AccessRead,
+		desc:   "List Ashby interview feedback and scorecards: submitted answers, ratings, interviewer, and time. Filter by application_id for one candidate's application.",
+		params: params(synced(), ps(
+			str("application_id", "Only feedback on this application."),
+			createdAfter("feedback"),
+			str("rich_text_format", "text/plain or text/html for rich text answers."),
+		)),
+	},
+	{
+		tool:   "ashby_submit_application_feedback",
+		path:   "applicationFeedback.submit",
+		access: mcp.AccessWrite,
+		desc:   "Submit interview feedback (a scorecard) on an Ashby application using the field paths from ashby_get_feedback_form.",
+		params: ps(
+			str("application_id", "The application id.").req(),
+			str("form_definition_id", "Feedback form id.").req(),
+			object("feedback_form", "Form data: {\"fieldSubmissions\": [{\"path\", \"value\"}]}.").req(),
+			str("user_id", "User to credit; defaults to the API key user."),
+			str("interview_event_id", "Interview event the feedback is for; needs user_id."),
+			str("submitted_at", "Submitted time, ISO 8601."),
+		),
+	},
+	{
+		tool:   "ashby_list_application_feedback_requests",
+		path:   "applicationFeedbackRequest.list",
+		access: mcp.AccessRead,
+		desc:   "List feedback requested on an Ashby application without a scheduled interview, and whether each was submitted.",
+		params: params(ps(str("application_id", "The application id.").req()), synced()),
+	},
+}

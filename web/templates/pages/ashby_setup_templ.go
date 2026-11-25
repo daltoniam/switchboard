@@ -14,12 +14,33 @@ import (
 )
 
 type AshbySetupData struct {
-	Enabled       bool
-	HasToken      bool
+	Enabled bool
+	// HasToken is a saved sign-in with Ashby (hosted MCP OAuth).
+	HasToken bool
+	// HasAPIKey selects API key mode; it wins over a saved sign-in.
+	HasAPIKey     bool
 	HealthChecked bool
 	Healthy       bool
 	FlashResult   string
 	FlashError    string
+}
+
+func (d AshbySetupData) configured() bool { return d.HasToken || d.HasAPIKey }
+
+func (d AshbySetupData) signInActive() bool { return d.HasToken && !d.HasAPIKey }
+
+func (d AshbySetupData) savedLabel() string {
+	if d.HasAPIKey {
+		return "API Key Saved"
+	}
+	return "Token Saved"
+}
+
+func (d AshbySetupData) apiKeyPlaceholder() string {
+	if d.HasAPIKey {
+		return "Saved; leave blank to keep the current key"
+	}
+	return "Paste your Ashby API key"
 }
 
 func AshbySetup(page layouts.PageData, data AshbySetupData) templ.Component {
@@ -59,7 +80,7 @@ func AshbySetup(page layouts.PageData, data AshbySetupData) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			if !data.HasToken {
+			if !data.configured() {
 				templ_7745c5c3_Err = components.Badge("Not Connected", "muted").Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
@@ -80,7 +101,7 @@ func AshbySetup(page layouts.PageData, data AshbySetupData) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			} else {
-				templ_7745c5c3_Err = components.Badge("Token Saved", "muted").Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = components.Badge(data.savedLabel(), "muted").Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -97,7 +118,7 @@ func AshbySetup(page layouts.PageData, data AshbySetupData) templ.Component {
 				var templ_7745c5c3_Var3 string
 				templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(data.FlashError)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/ashby_setup.templ`, Line: 36, Col: 52}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/ashby_setup.templ`, Line: 57, Col: 52}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 				if templ_7745c5c3_Err != nil {
@@ -115,7 +136,7 @@ func AshbySetup(page layouts.PageData, data AshbySetupData) templ.Component {
 				var templ_7745c5c3_Var4 string
 				templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(data.FlashResult)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/ashby_setup.templ`, Line: 38, Col: 55}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/ashby_setup.templ`, Line: 59, Col: 55}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 				if templ_7745c5c3_Err != nil {
@@ -126,22 +147,83 @@ func AshbySetup(page layouts.PageData, data AshbySetupData) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "</div><p style=\"color: var(--text-secondary); margin-bottom: 1.5rem;\">Connect to Ashby's hosted MCP server for recruiting and hiring: find candidates and applications, read candidate profiles and your interview feedback, check job pipelines and upcoming interviews, and move applications between stages. Ashby only returns data your own Ashby account can already see.</p><section aria-labelledby=\"ashby-before\" style=\"border-top: 1px solid var(--border-subtle); padding-top: 1.5rem; margin-bottom: 1.5rem;\"><h2 id=\"ashby-before\" class=\"card-title\" style=\"margin-bottom: 0.75rem;\">Before you sign in</h2><ol style=\"color: var(--text-secondary); padding-left: 1.25rem; line-height: 1.6;\"><li>An Ashby Organization Admin turns on <strong>MCP Server</strong> under <strong>Admin → Organization Setup → Opt-In Features</strong>.</li><li>Sign in with an Ashby user that has <strong>Elevated Access</strong>. No API key is needed: the server uses your own Ashby permissions.</li></ol></section><section aria-labelledby=\"ashby-sign-in\" style=\"border-top: 1px solid var(--border-subtle); padding-top: 1.5rem;\"><div style=\"display: flex; flex-wrap: wrap; align-items: flex-start; gap: 1.5rem;\"><div style=\"flex: 1 1 18rem; min-width: 0;\"><h2 id=\"ashby-sign-in\" class=\"card-title\" style=\"margin-bottom: 0.75rem;\">Sign in with Ashby</h2><p style=\"color: var(--text-secondary); margin-bottom: 0.75rem;\">Authorize access through Ashby's OAuth consent screen. Switchboard saves the access and refresh tokens in this plugin's configuration and renews the login before it expires; tokens are never displayed here.</p><p style=\"color: var(--text-muted);\">Successful sign-in enables this plugin and makes its tools available immediately. Manage that setting in <a href=\"/integrations\" style=\"color: var(--accent);\">Integrations</a>.</p></div><div style=\"flex: 1 1 14rem; min-width: 0;\"><button type=\"button\" class=\"btn btn-green\" id=\"ashby-oauth-start\" onclick=\"startAshbyOAuth()\" style=\"min-height: 44px;\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "</div><p style=\"color: var(--text-secondary); margin-bottom: 1rem;\">Connect Ashby for recruiting and hiring: find candidates and applications, read candidate profiles and interview feedback, check jobs, openings, interviews, and offers, and move applications between stages. Choose one of the two options below; only one is active at a time.</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			if data.HasToken {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "Re-authorize with Ashby")
+			if data.configured() {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "<p id=\"ashby-mode\" style=\"color: var(--text-secondary); margin-bottom: 1.5rem;\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				if data.HasAPIKey {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "Active option: <strong>API key</strong>. Tools call Ashby's REST API with the key's permissions.")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				} else {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "Active option: <strong>Sign in with Ashby</strong>. Tools come from Ashby's hosted MCP server with your own Ashby permissions.")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "</p>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, " <section aria-labelledby=\"ashby-before\" style=\"border-top: 1px solid var(--border-subtle); padding-top: 1.5rem; margin-bottom: 1.5rem;\"><div style=\"display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem;\"><h2 id=\"ashby-before\" class=\"card-title\" style=\"margin-bottom: 0;\">Option 1: Sign in with Ashby</h2>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			if data.signInActive() {
+				templ_7745c5c3_Err = components.Badge("Active", "green").Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "</div><p style=\"color: var(--text-secondary); margin-bottom: 0.75rem;\">Before you sign in:</p><ol style=\"color: var(--text-secondary); padding-left: 1.25rem; line-height: 1.6;\"><li>An Ashby Organization Admin turns on <strong>MCP Server</strong> under <strong>Admin → Organization Setup → Opt-In Features</strong>.</li><li>Sign in with an Ashby user that has <strong>Elevated Access</strong>. No API key is needed: the server uses your own Ashby permissions.</li></ol></section><section aria-labelledby=\"ashby-sign-in\" style=\"padding-bottom: 1.5rem;\"><div style=\"display: flex; flex-wrap: wrap; align-items: flex-start; gap: 1.5rem;\"><div style=\"flex: 1 1 18rem; min-width: 0;\"><h3 id=\"ashby-sign-in\" class=\"card-title\" style=\"margin-bottom: 0.75rem;\">Sign in with Ashby</h3><p style=\"color: var(--text-secondary); margin-bottom: 0.75rem;\">Authorize access through Ashby's OAuth consent screen. Switchboard saves the access and refresh tokens in this plugin's configuration and renews the login before it expires; tokens are never displayed here. Signing in replaces a saved API key.</p><p style=\"color: var(--text-muted);\">Successful sign-in enables this plugin and makes its tools available immediately. Manage that setting in <a href=\"/integrations\" style=\"color: var(--accent);\">Integrations</a>.</p></div><div style=\"flex: 1 1 14rem; min-width: 0;\"><button type=\"button\" class=\"btn btn-green\" id=\"ashby-oauth-start\" onclick=\"startAshbyOAuth()\" style=\"min-height: 44px;\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			if data.signInActive() {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "Re-authorize with Ashby")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			} else {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "Sign in with Ashby →")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "Sign in with Ashby →")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</button><div aria-live=\"polite\" aria-atomic=\"true\" style=\"margin-top: 0.75rem;\"><p id=\"ashby-oauth-status\" style=\"color: var(--text-secondary);\"></p><div id=\"ashby-oauth-error\" class=\"flash flash-error\" hidden></div></div><button type=\"button\" class=\"btn btn-outline\" id=\"ashby-oauth-retry\" onclick=\"startAshbyOAuth()\" style=\"display: none; min-height: 44px;\">Try Again</button><noscript><p style=\"color: var(--text-secondary); margin-top: 0.75rem;\">Enable JavaScript to sign in with Ashby.</p></noscript></div></div></section><script>\n\t\t\tasync function startAshbyOAuth() {\n\t\t\t\tvar button = document.getElementById('ashby-oauth-start');\n\t\t\t\tvar retry = document.getElementById('ashby-oauth-retry');\n\t\t\t\tvar status = document.getElementById('ashby-oauth-status');\n\t\t\t\tvar error = document.getElementById('ashby-oauth-error');\n\t\t\t\tif (button.disabled) return;\n\t\t\t\tbutton.disabled = true;\n\t\t\t\tbutton.setAttribute('aria-busy', 'true');\n\t\t\t\tretry.style.display = 'none';\n\t\t\t\terror.hidden = true;\n\t\t\t\tstatus.textContent = 'Starting secure sign-in…';\n\t\t\t\tvar controller = new AbortController();\n\t\t\t\tvar timeout = setTimeout(function() { controller.abort(); }, 30000);\n\t\t\t\ttry {\n\t\t\t\t\tvar response = await fetch('/api/remote/ashby/oauth/start', { method: 'POST', signal: controller.signal });\n\t\t\t\t\tif (!response.ok) throw new Error('Could not start sign-in. Please try again.');\n\t\t\t\t\tvar data = await response.json();\n\t\t\t\t\tif (data.error) throw new Error(data.error);\n\t\t\t\t\tif (!data.authorize_url) throw new Error('No sign-in URL was returned. Please try again.');\n\t\t\t\t\tvar authorizeURL = new URL(data.authorize_url);\n\t\t\t\t\tif (authorizeURL.protocol !== 'https:' && authorizeURL.protocol !== 'http:') {\n\t\t\t\t\t\tthrow new Error('Invalid sign-in URL. Please try again.');\n\t\t\t\t\t}\n\t\t\t\t\tstatus.textContent = 'Redirecting to Ashby…';\n\t\t\t\t\twindow.location.assign(authorizeURL.href);\n\t\t\t\t} catch (err) {\n\t\t\t\t\tstatus.textContent = '';\n\t\t\t\t\terror.textContent = err.name === 'AbortError' ? 'Sign-in timed out. Please try again.' : err.message;\n\t\t\t\t\terror.hidden = false;\n\t\t\t\t\tbutton.disabled = false;\n\t\t\t\t\tbutton.removeAttribute('aria-busy');\n\t\t\t\t\tretry.style.display = 'inline-flex';\n\t\t\t\t\tretry.focus();\n\t\t\t\t} finally {\n\t\t\t\t\tclearTimeout(timeout);\n\t\t\t\t}\n\t\t\t}\n\t\t</script>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "</button><div aria-live=\"polite\" aria-atomic=\"true\" style=\"margin-top: 0.75rem;\"><p id=\"ashby-oauth-status\" style=\"color: var(--text-secondary);\"></p><div id=\"ashby-oauth-error\" class=\"flash flash-error\" hidden></div></div><button type=\"button\" class=\"btn btn-outline\" id=\"ashby-oauth-retry\" onclick=\"startAshbyOAuth()\" style=\"display: none; min-height: 44px;\">Try Again</button><noscript><p style=\"color: var(--text-secondary); margin-top: 0.75rem;\">Enable JavaScript to sign in with Ashby.</p></noscript></div></div></section><section aria-labelledby=\"ashby-api-key\" style=\"border-top: 1px solid var(--border-subtle); padding-top: 1.5rem;\"><div style=\"display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem;\"><h2 id=\"ashby-api-key\" class=\"card-title\" style=\"margin-bottom: 0;\">Option 2: API key</h2>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			if data.HasAPIKey {
+				templ_7745c5c3_Err = components.Badge("Active", "green").Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "</div><p style=\"color: var(--text-secondary); margin-bottom: 0.75rem;\">For headless or shared servers. An organization API key calls Ashby's public REST API directly, so no MCP Server opt-in or Elevated Access is needed. The tools see whatever the key's permissions allow, not one user's view.</p><ol style=\"color: var(--text-secondary); padding-left: 1.25rem; line-height: 1.6; margin-bottom: 1rem;\"><li>An Ashby admin creates a key under <a href=\"https://app.ashbyhq.com/admin/api/credentials\" target=\"_blank\" rel=\"noopener noreferrer\" style=\"color: var(--accent);\">Admin → API Keys</a>.</li><li>For the read-only tools, give the key <strong>read</strong> permission on <strong>Candidates</strong>, <strong>Jobs</strong>, <strong>Interviews</strong>, <strong>Hiring Process</strong>, <strong>Organization</strong>, and <strong>API Keys</strong> (used for the connection check). Add read on <strong>Offers</strong>, <strong>Projects</strong>, <strong>Approvals</strong>, <strong>Reports</strong>, <strong>Audit Logs</strong>, <strong>Notetaker</strong>, <strong>Sourcing</strong>, and <strong>Emails</strong> to use those tools. Grant <strong>write</strong> only on modules whose write tools you want to use.</li><li>Confidential jobs and projects, and private fields, stay hidden unless you also turn on <strong>Allow access to confidential jobs and projects?</strong> and <strong>Allow access to non-offer private fields?</strong> on the key.</li><li>Paste the key below, enable, and save. Saving replaces a sign-in with Ashby; <code>ASHBY_API_KEY</code> can set the key instead.</li></ol><form id=\"ashby-api-key-form\" method=\"POST\" action=\"/integrations/ashby/api-key\" style=\"max-width: 32rem;\"><div style=\"display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;\"><span class=\"form-label\" style=\"margin-bottom: 0;\">Enabled</span>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = components.Toggle("enabled", data.Enabled || !data.configured()).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "</div>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = components.FormGroup("API key", "cred_api_key", "password", "", data.apiKeyPlaceholder()).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "<button type=\"submit\" class=\"btn\" style=\"min-height: 44px;\">Save Configuration</button></form></section><script>\n\t\t\tasync function startAshbyOAuth() {\n\t\t\t\tvar button = document.getElementById('ashby-oauth-start');\n\t\t\t\tvar retry = document.getElementById('ashby-oauth-retry');\n\t\t\t\tvar status = document.getElementById('ashby-oauth-status');\n\t\t\t\tvar error = document.getElementById('ashby-oauth-error');\n\t\t\t\tif (button.disabled) return;\n\t\t\t\tbutton.disabled = true;\n\t\t\t\tbutton.setAttribute('aria-busy', 'true');\n\t\t\t\tretry.style.display = 'none';\n\t\t\t\terror.hidden = true;\n\t\t\t\tstatus.textContent = 'Starting secure sign-in…';\n\t\t\t\tvar controller = new AbortController();\n\t\t\t\tvar timeout = setTimeout(function() { controller.abort(); }, 30000);\n\t\t\t\ttry {\n\t\t\t\t\tvar response = await fetch('/api/remote/ashby/oauth/start', { method: 'POST', signal: controller.signal });\n\t\t\t\t\tif (!response.ok) throw new Error('Could not start sign-in. Please try again.');\n\t\t\t\t\tvar data = await response.json();\n\t\t\t\t\tif (data.error) throw new Error(data.error);\n\t\t\t\t\tif (!data.authorize_url) throw new Error('No sign-in URL was returned. Please try again.');\n\t\t\t\t\tvar authorizeURL = new URL(data.authorize_url);\n\t\t\t\t\tif (authorizeURL.protocol !== 'https:' && authorizeURL.protocol !== 'http:') {\n\t\t\t\t\t\tthrow new Error('Invalid sign-in URL. Please try again.');\n\t\t\t\t\t}\n\t\t\t\t\tstatus.textContent = 'Redirecting to Ashby…';\n\t\t\t\t\twindow.location.assign(authorizeURL.href);\n\t\t\t\t} catch (err) {\n\t\t\t\t\tstatus.textContent = '';\n\t\t\t\t\terror.textContent = err.name === 'AbortError' ? 'Sign-in timed out. Please try again.' : err.message;\n\t\t\t\t\terror.hidden = false;\n\t\t\t\t\tbutton.disabled = false;\n\t\t\t\t\tbutton.removeAttribute('aria-busy');\n\t\t\t\t\tretry.style.display = 'inline-flex';\n\t\t\t\t\tretry.focus();\n\t\t\t\t} finally {\n\t\t\t\t\tclearTimeout(timeout);\n\t\t\t\t}\n\t\t\t}\n\t\t</script>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
