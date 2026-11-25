@@ -68,7 +68,9 @@ type ashby struct {
 	fetchFailedAt time.Time
 	lifetime      context.Context
 	stop          context.CancelFunc
-	fetches       sync.WaitGroup
+	// fetches belongs to the current lifetime, so Close waits only for the
+	// schema fetches it cancels.
+	fetches *sync.WaitGroup
 }
 
 // SetConfigService lets the integration renew its OAuth login before the
@@ -132,6 +134,7 @@ func (a *ashby) configureLocked(ctx context.Context, creds mcp.Credentials, toke
 	credentials := mcp.Credentials{"access_token": token}
 	if a.lifetime == nil {
 		a.lifetime, a.stop = context.WithCancel(context.Background())
+		a.fetches = &sync.WaitGroup{}
 	}
 	if a.remote != nil && a.baseURL == baseURL {
 		if err := a.remote.Configure(ctx, credentials); err != nil {
@@ -263,9 +266,10 @@ func (a *ashby) startSchemaFetch() {
 	}
 	a.fetching = true
 	remote, lifetime := a.remote, a.lifetime
-	a.fetches.Add(1)
+	fetches := a.fetches
+	fetches.Add(1)
 	go func() {
-		defer a.fetches.Done()
+		defer fetches.Done()
 		ctx, cancel := context.WithTimeout(lifetime, schemaFetchTimeout)
 		defer cancel()
 		a.fetchSchemas(ctx, remote)
@@ -328,17 +332,19 @@ func (a *ashby) MaxResponseBytesForTool(toolName mcp.ToolName) (int, bool) {
 func (a *ashby) Close() error {
 	a.mu.Lock()
 	a.configGen++
-	remote, stop := a.remote, a.stop
+	remote, stop, fetches := a.remote, a.stop, a.fetches
 	a.remote = nil
 	a.creds = nil
 	a.schemas = nil
 	a.fetching = false
-	a.lifetime, a.stop = nil, nil
+	a.lifetime, a.stop, a.fetches = nil, nil, nil
 	a.mu.Unlock()
 	if stop != nil {
 		stop()
 	}
-	a.fetches.Wait()
+	if fetches != nil {
+		fetches.Wait()
+	}
 	return closeRemote(remote)
 }
 

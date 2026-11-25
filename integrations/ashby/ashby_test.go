@@ -341,7 +341,11 @@ func TestTools_FetchesUpstreamSchemasInBackground(t *testing.T) {
 	for range 3 {
 		integration.Tools()
 	}
-	integration.(*ashby).fetches.Wait()
+	a := integration.(*ashby)
+	a.mu.RLock()
+	fetches := a.fetches
+	a.mu.RUnlock()
+	fetches.Wait()
 	assert.Equal(t, 1, fixture.toolLists(), "the schema list is fetched once")
 }
 
@@ -425,4 +429,71 @@ func TestConfigure_KeepsWorkingLoginWhenNewRemoteFails(t *testing.T) {
 	result, err := integration.Execute(t.Context(), "ashby_get_pending_tasks", nil)
 	require.NoError(t, err)
 	assert.False(t, result.IsError, result.Data)
+}
+
+type listingRemote struct {
+	mcp.Integration
+	list func(context.Context) ([]mcp.ToolDefinition, error)
+}
+
+func (*listingRemote) Configure(context.Context, mcp.Credentials) error { return nil }
+
+func (r *listingRemote) ListTools(ctx context.Context) ([]mcp.ToolDefinition, error) {
+	return r.list(ctx)
+}
+
+// Close waits only for schema fetches of the configuration it ends, not for
+// ones a later Configure starts while it is waiting.
+func TestClose_WaitsOnlyForItsOwnSchemaFetches(t *testing.T) {
+	releaseOld := make(chan struct{})
+	oldStarted := make(chan struct{})
+	newStarted := make(chan struct{})
+	remotes := []mcp.Integration{
+		&listingRemote{list: func(context.Context) ([]mcp.ToolDefinition, error) {
+			close(oldStarted)
+			<-releaseOld
+			return nil, errors.New("old fetch ended")
+		}},
+		&listingRemote{list: func(ctx context.Context) ([]mcp.ToolDefinition, error) {
+			close(newStarted)
+			<-ctx.Done()
+			return nil, ctx.Err()
+		}},
+	}
+	integration := New()
+	a := integration.(*ashby)
+	a.newRemote = func(string) mcp.Integration {
+		next := remotes[0]
+		remotes = remotes[1:]
+		return next
+	}
+	login := mcp.Credentials{"mcp_access_token": "t", "base_url": "https://one.test"}
+	require.NoError(t, integration.Configure(t.Context(), login))
+	integration.Tools()
+	<-oldStarted
+
+	closed := make(chan error, 1)
+	go func() { closed <- integration.(io.Closer).Close() }()
+	require.Eventually(t, func() bool {
+		a.mu.RLock()
+		defer a.mu.RUnlock()
+		return a.remote == nil
+	}, 5*time.Second, time.Millisecond)
+
+	login["base_url"] = "https://two.test"
+	require.NoError(t, integration.Configure(t.Context(), login))
+	integration.Tools()
+	select {
+	case <-newStarted:
+	case <-time.After(5 * time.Second):
+		t.Fatal("new configuration did not start its schema fetch")
+	}
+	close(releaseOld)
+	select {
+	case err := <-closed:
+		require.NoError(t, err)
+	case <-time.After(5 * time.Second):
+		t.Fatal("Close waited for a schema fetch started by a later Configure")
+	}
+	require.NoError(t, integration.(io.Closer).Close())
 }

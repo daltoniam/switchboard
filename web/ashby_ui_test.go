@@ -43,13 +43,31 @@ func TestUIAshby(t *testing.T) {
 		if got := authorize.Query().Get("resource"); got != fixture.server.URL+"/mcp/v1" {
 			routeProblems = append(routeProblems, "resource="+got)
 		}
+		// The server registers http://localhost:<port>/...; the browser
+		// sandbox only reaches 127.0.0.1, so the provider answers on the
+		// same port and path through that address.
+		appURL, err := url.Parse(app.URL)
+		if err != nil {
+			routeProblems = append(routeProblems, err.Error())
+			_ = route.Abort()
+			return
+		}
+		callback, err := url.Parse(authorize.Query().Get("redirect_uri"))
+		want := "http://localhost:" + appURL.Port() + "/api/remote/ashby/oauth/callback"
+		if err != nil || callback.String() != want {
+			routeProblems = append(routeProblems, "redirect_uri="+authorize.Query().Get("redirect_uri")+", want "+want)
+			_ = route.Abort()
+			return
+		}
+		callback.Host = appURL.Host
 		query := url.Values{"state": {authorize.Query().Get("state")}}
 		if denied {
 			query.Set("error", "access_denied")
 		} else {
 			query.Set("code", "fixture-code")
 		}
-		location := app.URL + "/api/remote/ashby/oauth/callback?" + query.Encode()
+		callback.RawQuery = query.Encode()
+		location := callback.String()
 		if err := route.Fulfill(playwright.RouteFulfillOptions{Status: playwright.Int(http.StatusFound), Headers: map[string]string{"Location": location}}); err != nil {
 			routeProblems = append(routeProblems, err.Error())
 		}
@@ -62,7 +80,7 @@ func TestUIAshby(t *testing.T) {
 	t.Cleanup(func() {
 		routeMu.Lock()
 		defer routeMu.Unlock()
-		require.Empty(t, routeProblems, "authorize requests must carry prompt=consent and the /mcp/v1 resource")
+		require.Empty(t, routeProblems, "authorize requests must carry prompt=consent, the /mcp/v1 resource, and the app callback")
 	})
 
 	// Fresh install: the card routes to the OAuth setup page, which asks
