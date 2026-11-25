@@ -341,6 +341,7 @@ func TestTools_FetchesUpstreamSchemasInBackground(t *testing.T) {
 	for range 3 {
 		integration.Tools()
 	}
+	integration.(*ashby).fetches.Wait()
 	assert.Equal(t, 1, fixture.toolLists(), "the schema list is fetched once")
 }
 

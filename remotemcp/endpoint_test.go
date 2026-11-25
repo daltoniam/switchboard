@@ -303,13 +303,15 @@ func TestConnect_QueuedCallDoesNotReopenAfterClose(t *testing.T) {
 	r := NewWithOptions("test", srv.URL, Options{EndpointPath: "/mcp/v1"}).(*remote)
 	require.NoError(t, r.Configure(context.Background(), mcp.Credentials{"access_token": "t"}))
 	queued := make(chan error, 1)
+	waiting := make(chan struct{})
 	r.afterDial = func() {
 		r.afterDial = nil
+		r.beforeGate = func() { close(waiting) }
 		go func() {
 			_, err := r.connect(context.Background())
 			queued <- err
 		}()
-		time.Sleep(100 * time.Millisecond)
+		<-waiting
 		assert.NoError(t, r.Close())
 	}
 	_, err := r.connect(context.Background())

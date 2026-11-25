@@ -62,6 +62,9 @@ type remote struct {
 	// afterDial, when set by tests, runs after a connection is opened and
 	// before it is published.
 	afterDial func()
+	// beforeGate, when set by tests, runs once a connect call has recorded
+	// the Close count and is about to wait for the connection gate.
+	beforeGate func()
 }
 
 // New creates a remote MCP integration that proxies to the given server URL.
@@ -172,6 +175,9 @@ func (r *remote) connect(ctx context.Context) (*liveSession, error) {
 		}
 		r.mu.RUnlock()
 
+		if r.beforeGate != nil {
+			r.beforeGate()
+		}
 		select {
 		case gate <- struct{}{}:
 		case <-ctx.Done():
