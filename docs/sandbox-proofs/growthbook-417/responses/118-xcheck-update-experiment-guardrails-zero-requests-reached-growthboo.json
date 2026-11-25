@@ -1,0 +1,11 @@
+{
+ "phase": "xcheck",
+ "step": "update_experiment guardrails: zero requests reached GrowthBook",
+ "tool": "tlsproxy log",
+ "args": {},
+ "status": "PASS",
+ "note": "0 proxied requests",
+ "response": {
+  "proxied": []
+ }
+}

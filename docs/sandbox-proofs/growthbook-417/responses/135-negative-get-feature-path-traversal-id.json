@@ -1,0 +1,13 @@
+{
+ "phase": "negative",
+ "step": "get_feature path traversal id",
+ "tool": "growthbook_get_feature",
+ "args": {
+  "feature_id": "../v1/members"
+ },
+ "status": "PASS",
+ "note": "isError=True; feature_id is not a valid GrowthBook id",
+ "ms": 1,
+ "bytes": 39,
+ "response": "feature_id is not a valid GrowthBook id"
+}

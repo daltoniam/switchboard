@@ -1,0 +1,37 @@
+{
+ "phase": "negative",
+ "step": "create_experiment: experiment.bypassDuplicateKeyCheck rejected",
+ "tool": "growthbook_create_experiment",
+ "args": {
+  "experiment": {
+   "trackingKey": "sb-417-market-29342",
+   "name": "SB 417 Market Test",
+   "project": "prj_2ChQ5PcJW8cW4d5UHcBKjs",
+   "datasourceId": "ds_4w9jq1zx7mwwfcefs",
+   "assignmentQuery": {
+    "id": "exq_4w9jq1zx7mwwfceg5"
+   },
+   "hypothesis": "A North America banner lifts purchases",
+   "owner": "sb-admin@example.test",
+   "tags": [
+    "sb417"
+   ],
+   "variations": [
+    {
+     "key": "0",
+     "name": "Control"
+    },
+    {
+     "key": "1",
+     "name": "NA Banner"
+    }
+   ],
+   "bypassDuplicateKeyCheck": true
+  }
+ },
+ "status": "PASS",
+ "note": "isError=True; experiment.bypassDuplicateKeyCheck is not accepted: a person must resolve GrowthBook's gates in the app",
+ "ms": 0,
+ "bytes": 103,
+ "response": "experiment.bypassDuplicateKeyCheck is not accepted: a person must resolve GrowthBook's gates in the app"
+}

@@ -1,0 +1,36 @@
+{
+ "phase": "read",
+ "step": "get_settings",
+ "tool": "growthbook_get_settings",
+ "args": {},
+ "status": "PASS",
+ "note": "544B: {\"settings\":{\"attributionModel\":\"firstExposure\",\"confidenceLevel\":0.95,\"experimentMinLengthDays\":3,\"featureKeyExample\":\"\",\"featureRegexValidator\":\"\",\"killswitchConfirmation\":true,\"pValueThreshold\":0.05,\"regressionAdjustm",
+ "ms": 4,
+ "bytes": 544,
+ "response": {
+  "settings": {
+   "attributionModel": "firstExposure",
+   "confidenceLevel": 0.95,
+   "experimentMinLengthDays": 3,
+   "featureKeyExample": "",
+   "featureRegexValidator": "",
+   "killswitchConfirmation": true,
+   "pValueThreshold": 0.05,
+   "regressionAdjustmentEnabled": false,
+   "requireReviews": [
+    {
+     "environments": [],
+     "featureRequireEnvironmentReview": true,
+     "featureRequireMetadataReview": false,
+     "projects": [],
+     "requireReviewOn": false,
+     "resetReviewOnChange": false
+    }
+   ],
+   "restApiBypassesReviews": false,
+   "sequentialTestingEnabled": false,
+   "srmThreshold": 0.001,
+   "statsEngine": "bayesian"
+  }
+ }
+}

@@ -1,0 +1,8 @@
+time=2026-11-25T11:55:39.691-06:00 level=INFO msg="Project work-model store: /workspace/gb-sandbox/homes/a/.config/switchboard/awm (writes_enabled=true)"
+time=2026-11-25T11:55:39.693-06:00 level=INFO msg="Project Catalog on /mcp (writes_enabled=true)"
+time=2026-11-25T11:55:39.701-06:00 level=INFO msg="Configured integration \"growthbook\" with 37 tools"
+Switchboard dev on http://127.0.0.1:13897
+  Web UI:  http://127.0.0.1:13897/
+  MCP:     http://127.0.0.1:13897/mcp
+  Project: http://127.0.0.1:13897/mcp/{project}
+  AWM gRPC (h2c): 127.0.0.1:13897

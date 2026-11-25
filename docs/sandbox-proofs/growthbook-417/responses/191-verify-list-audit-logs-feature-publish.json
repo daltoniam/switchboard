@@ -1,0 +1,80 @@
+{
+ "phase": "verify",
+ "step": "list_audit_logs feature publish",
+ "tool": "growthbook_list_audit_logs",
+ "args": {
+  "entity_type": "feature",
+  "entity_id": "sb-beta-banner"
+ },
+ "status": "PASS",
+ "note": "881B: {\"audits\":{\"columns\":[\"dateCreated\",\"event\",\"id\",\"reason\"],\"constants\":{\"entity\":{\"id\":\"sb-beta-banner\",\"object\":\"feature\"},\"name\":\"switchboard sandbox 417\"},\"rows\":[[\"2026-11-25T17:50:54.684Z\",\"feature.publish\",\"aud_2Ch",
+ "ms": 8,
+ "bytes": 881,
+ "response": {
+  "audits": {
+   "columns": [
+    "dateCreated",
+    "event",
+    "id",
+    "reason"
+   ],
+   "constants": {
+    "entity": {
+     "id": "sb-beta-banner",
+     "object": "feature"
+    },
+    "name": "switchboard sandbox 417"
+   },
+   "rows": [
+    [
+     "2026-11-25T17:50:54.684Z",
+     "feature.publish",
+     "aud_2ChQ52yYrZ3yDZ8jjQXDHE",
+     null
+    ],
+    [
+     "2026-11-25T17:50:54.620Z",
+     "feature.revision.update",
+     "aud_2ChQ52yGyyKUJ3LSoVdvKP",
+     null
+    ],
+    [
+     "2026-11-25T17:50:54.593Z",
+     "feature.revision.update",
+     "aud_2ChQ52yAHdzvv4LwjBfsZM",
+     null
+    ],
+    [
+     "2026-11-25T17:50:54.567Z",
+     "feature.revision.update",
+     "aud_2ChQ52y3qq5RvbispgfgYg",
+     null
+    ],
+    [
+     "2026-11-25T17:50:54.539Z",
+     "feature.revision.update",
+     "aud_2ChQ52xvu2oA862Ve3V1ET",
+     null
+    ],
+    [
+     "2026-11-25T17:50:54.476Z",
+     "feature.revision.update",
+     "aud_2ChQ52xfHHg4KVRb9kBtWc",
+     null
+    ],
+    [
+     "2026-11-25T17:50:48.135Z",
+     "feature.toggle",
+     "aud_2ChQ52VYsUChwwbVACFp94",
+     "sandbox launch"
+    ],
+    [
+     "2026-11-25T17:50:44.779Z",
+     "feature.create",
+     "aud_2ChQ52FCfQNWe74WbkH6Js",
+     null
+    ]
+   ]
+  }
+ }
+}

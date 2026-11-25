@@ -1,0 +1,16 @@
+{
+ "phase": "negative",
+ "step": "create_feature duplicate key",
+ "tool": "growthbook_create_feature",
+ "args": {
+  "feature_id": "sb-agent-flag-29342",
+  "value_type": "boolean",
+  "default_value": "false",
+  "owner": "sb-admin@example.test"
+ },
+ "status": "PASS",
+ "note": "isError=True; growthbook API error (400): {\"message\":\"Feature id 'sb-agent-flag-29342' already exists.\"}",
+ "ms": 13,
+ "bytes": 90,
+ "response": "growthbook API error (400): {\"message\":\"Feature id 'sb-agent-flag-29342' already exists.\"}"
+}

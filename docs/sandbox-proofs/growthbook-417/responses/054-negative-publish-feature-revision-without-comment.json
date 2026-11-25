@@ -1,0 +1,15 @@
+{
+ "phase": "negative",
+ "step": "publish_feature_revision without comment",
+ "tool": "growthbook_publish_feature_revision",
+ "args": {
+  "feature_id": "sb-beta-banner",
+  "version": 3,
+  "comment": "  "
+ },
+ "status": "PASS",
+ "note": "isError=True; comment is required: what this publish changes and why, for the audit log",
+ "ms": 1,
+ "bytes": 73,
+ "response": "comment is required: what this publish changes and why, for the audit log"
+}

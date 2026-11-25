@@ -1,0 +1,12 @@
+{
+ "phase": "xcheck",
+ "step": "direct REST after toggle",
+ "tool": "GET /api/v2/features/sb-checkout-express",
+ "args": {},
+ "status": "PASS",
+ "note": "production False -> True",
+ "response": {
+  "before": false,
+  "after": true
+ }
+}

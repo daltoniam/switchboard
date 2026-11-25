@@ -1,0 +1,21 @@
+{
+ "phase": "negative",
+ "step": "add_feature_rule: rule.allowUnscopedRules rejected",
+ "tool": "growthbook_add_feature_rule",
+ "args": {
+  "feature_id": "sb-beta-banner",
+  "rule": {
+   "type": "force",
+   "value": "x",
+   "environments": [
+    "production"
+   ],
+   "allowUnscopedRules": true
+  }
+ },
+ "status": "PASS",
+ "note": "isError=True; rule.allowUnscopedRules is not accepted: a person must resolve GrowthBook's gates in the app",
+ "ms": 0,
+ "bytes": 92,
+ "response": "rule.allowUnscopedRules is not accepted: a person must resolve GrowthBook's gates in the app"
+}

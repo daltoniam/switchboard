@@ -1,0 +1,12 @@
+{
+ "phase": "xcheck",
+ "step": "unscoped rule is inert (not in any SDK definition)",
+ "tool": "GET /api/v2/features/sb-edge-unscoped-29342",
+ "args": {},
+ "status": "PASS",
+ "note": "production definition={\"defaultValue\":\"off\"}",
+ "response": {
+  "production": "{\"defaultValue\":\"off\"}",
+  "staging": null
+ }
+}

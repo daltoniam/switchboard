@@ -1,0 +1,110 @@
+{
+ "phase": "write",
+ "step": "update_feature_rule: rollout coverage 0.25 -> 0.5",
+ "tool": "growthbook_update_feature_rule",
+ "args": {
+  "feature_id": "sb-beta-banner",
+  "version": 3,
+  "rule_id": "49858bb2-dd30-4df9-a166-ad2e6ff02cef",
+  "rule": {
+   "coverage": 0.5
+  }
+ },
+ "status": "PASS",
+ "note": "{\"baseVersion\":2,\"comment\":\"Sandbox E2E for PR 417: add a US force rule\",\"defaultValue\":\"off\",\"environmentsEnabled\":{\"production\":true,\"staging\":false},\"feature_id\":\"sb-beta-banner\",\"message\":\"Saved to the draft revision only; nothing is li",
+ "ms": 21,
+ "bytes": 1723,
+ "response": {
+  "baseVersion": 2,
+  "comment": "Sandbox E2E for PR 417: add a US force rule",
+  "defaultValue": "off",
+  "environmentsEnabled": {
+   "production": true,
+   "staging": false
+  },
+  "feature_id": "sb-beta-banner",
+  "message": "Saved to the draft revision only; nothing is live. Review it, then call growthbook_publish_feature_revision with this version.",
+  "rules": [
+   {
+    "allEnvironments": false,
+    "allProjects": true,
+    "condition": "",
+    "description": "Beta testers only",
+    "enabled": true,
+    "environments": [
+     "production"
+    ],
+    "id": "fr_4w9jq1zx7mwwfcenp",
+    "prerequisites": [],
+    "savedGroupTargeting": [
+     {
+      "matchType": "any",
+      "savedGroups": [
+       "grp_2ChQ5Pg7TFJ9mV4XtXbaVf"
+      ]
+     }
+    ],
+    "type": "force",
+    "value": "on"
+   },
+   {
+    "allEnvironments": false,
+    "allProjects": true,
+    "condition": "",
+    "coverage": 0.1,
+    "description": "10% rollout",
+    "enabled": true,
+    "environments": [
+     "production"
+    ],
+    "hashAttribute": "id",
+    "id": "fr_4w9jq1zx7mwwfcenq",
+    "prerequisites": [],
+    "savedGroupTargeting": [],
+    "seed": "fr_4w9jq1zx7mwwfcenq",
+    "type": "rollout",
+    "value": "on"
+   },
+   {
+    "allEnvironments": false,
+    "allProjects": true,
+    "condition": "{\"country\":{\"$in\":[\"US\",\"CA\"]}}",
+    "description": "North America market (sb417)",
+    "enabled": true,
+    "environments": [
+     "production"
+    ],
+    "id": "585a0e8b-aac1-4d2b-837d-1b733ffaf4f0",
+    "prerequisites": [],
+    "savedGroupTargeting": [],
+    "scheduleRules": null,
+    "scheduleType": null,
+    "type": "force",
+    "value": "na-on"
+   },
+   {
+    "allEnvironments": false,
+    "allProjects": true,
+    "condition": "",
+    "coverage": 0.5,
+    "description": "temp rollout (sb417)",
+    "enabled": true,
+    "environments": [
+     "staging"
+    ],
+    "hashAttribute": "id",
+    "hashVersion": 2,
+    "id": "49858bb2-dd30-4df9-a166-ad2e6ff02cef",
+    "prerequisites": [],
+    "savedGroupTargeting": [],
+    "scheduleRules": null,
+    "scheduleType": null,
+    "seed": "49858bb2-dd30-4df9-a166-ad2e6ff02cef",
+    "type": "rollout",
+    "value": "on"
+   }
+  ],
+  "status": "draft",
+  "version": 3
+ }
+}

@@ -1,0 +1,14 @@
+{
+ "phase": "negative",
+ "step": "toggle_feature missing environment",
+ "tool": "growthbook_toggle_feature",
+ "args": {
+  "feature_id": "sb-checkout-express",
+  "enabled": true
+ },
+ "status": "PASS",
+ "note": "isError=True; missing required parameter \"environment\" for tool \"growthbook_toggle_feature\". Required: [feature_id environment enabled]",
+ "ms": 0,
+ "bytes": 121,
+ "response": "missing required parameter \"environment\" for tool \"growthbook_toggle_feature\". Required: [feature_id environment enabled]"
+}

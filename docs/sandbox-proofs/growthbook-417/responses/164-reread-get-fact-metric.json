@@ -1,0 +1,52 @@
+{
+ "phase": "reread",
+ "step": "get_fact_metric",
+ "tool": "growthbook_get_fact_metric",
+ "args": {
+  "metric_id": "fact__2ChQ5Gok9BNMZ4CNHsJMjS"
+ },
+ "status": "PASS",
+ "note": "685B: {\"factMetric\":{\"cappingSettings\":{\"type\":\"none\",\"value\":0},\"datasource\":\"ds_4w9jq1yzdmwwfael6\",\"dateUpdated\":\"2026-11-25T17:54:02.313Z\",\"description\":\"\",\"id\":\"fact__2ChQ5Gok9BNMZ4CNHsJMjS\",\"inverse\":false,\"maxPercentChan",
+ "ms": 6,
+ "bytes": 685,
+ "response": {
+  "factMetric": {
+   "cappingSettings": {
+    "type": "none",
+    "value": 0
+   },
+   "datasource": "ds_4w9jq1yzdmwwfael6",
+   "dateUpdated": "2026-11-25T17:54:02.313Z",
+   "description": "",
+   "id": "fact__2ChQ5Gok9BNMZ4CNHsJMjS",
+   "inverse": false,
+   "maxPercentChange": 0.5,
+   "metricType": "proportion",
+   "minPercentChange": 0.005,
+   "minSampleSize": 150,
+   "name": "Purchase Rate",
+   "numerator": {
+    "column": "$$distinctUsers",
+    "factTableId": "ftb_4w9jq1yzdmwwfaena",
+    "filters": [],
+    "inlineFilters": {},
+    "rowFilters": []
+   },
+   "ownerEmail": "sb-admin@example.test",
+   "projects": [
+    "prj_2ChQ5Gk4djffjvT3jwN2R2"
+   ],
+   "tags": [
+    "checkout"
+   ],
+   "targetMDE": 0.1,
+   "windowSettings": {
+    "delayUnit": "hours",
+    "delayValue": 0,
+    "type": "none",
+    "windowUnit": "hours",
+    "windowValue": 72
+   }
+  }
+ }
+}

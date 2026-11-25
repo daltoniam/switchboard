@@ -1,0 +1,33 @@
+{
+ "phase": "reread",
+ "step": "list_sdk_connections",
+ "tool": "growthbook_list_sdk_connections",
+ "args": {},
+ "status": "PASS",
+ "note": "336B: {\"connections\":[{\"archived\":false,\"encryptPayload\":false,\"environment\":\"production\",\"id\":\"sdk_4w9jq1yzdmwwfaeqd\",\"key\":\"sdk-REDACTED\",\"languages\":[\"javascript\"],\"name\":\"SB Web\",\"projects\":[\"prj_2ChQ5Gk4djffjvT3jwN",
+ "ms": 7,
+ "bytes": 336,
+ "response": {
+  "connections": [
+   {
+    "archived": false,
+    "encryptPayload": false,
+    "environment": "production",
+    "id": "sdk_4w9jq1yzdmwwfaeqd",
+    "key": "sdk-REDACTED",
+    "languages": [
+     "javascript"
+    ],
+    "name": "SB Web",
+    "projects": [
+     "prj_2ChQ5Gk4djffjvT3jwN2R2"
+    ],
+    "proxyEnabled": false,
+    "remoteEvalEnabled": false,
+    "sdkVersion": "2.2.0"
+   }
+  ],
+  "hasMore": false,
+  "total": 1
+ }
+}

@@ -1,0 +1,11 @@
+{
+ "phase": "xcheck",
+ "step": "discarded draft never went live",
+ "tool": "GET /api/v2/features/sb-checkout-express",
+ "args": {},
+ "status": "PASS",
+ "note": "live rules 0 -> 0",
+ "response": {
+  "live_rule_count": 0
+ }
+}

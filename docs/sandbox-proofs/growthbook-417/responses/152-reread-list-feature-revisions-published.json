@@ -1,0 +1,207 @@
+{
+ "phase": "reread",
+ "step": "list_feature_revisions published",
+ "tool": "growthbook_list_feature_revisions",
+ "args": {
+  "feature_id": "sb-beta-banner",
+  "status": "published"
+ },
+ "status": "PASS",
+ "note": "3117B: {\"hasMore\":false,\"revisions\":[{\"baseVersion\":2,\"comment\":\"Sandbox E2E for PR 417: add a US force rule\",\"date\":\"2026-11-25T17:54:09.371Z\",\"defaultValue\":\"off\",\"environmentsEnabled\":{\"production\":true,\"staging\":false},\"fea",
+ "ms": 8,
+ "bytes": 3117,
+ "response": {
+  "hasMore": false,
+  "revisions": [
+   {
+    "baseVersion": 2,
+    "comment": "Sandbox E2E for PR 417: add a US force rule",
+    "date": "2026-11-25T17:54:09.371Z",
+    "defaultValue": "off",
+    "environmentsEnabled": {
+     "production": true,
+     "staging": false
+    },
+    "featureId": "sb-beta-banner",
+    "id": "frev_4w9jq1yzdmwwfak4c",
+    "name": "switchboard sandbox 417",
+    "rules": [
+     {
+      "allEnvironments": false,
+      "allProjects": true,
+      "condition": "",
+      "description": "Beta testers only",
+      "enabled": true,
+      "environments": [
+       "production"
+      ],
+      "id": "fr_4w9jq1yzdmwwfaesh",
+      "prerequisites": [],
+      "savedGroupTargeting": [
+       {
+        "matchType": "any",
+        "savedGroups": [
+         "grp_2ChQ5GowJQpFpxfktQ4kxq"
+        ]
+       }
+      ],
+      "type": "force",
+      "value": "on"
+     },
+     {
+      "allEnvironments": false,
+      "allProjects": true,
+      "condition": "",
+      "coverage": 0.1,
+      "description": "10% rollout",
+      "enabled": true,
+      "environments": [
+       "production"
+      ],
+      "hashAttribute": "id",
+      "id": "fr_4w9jq1yzdmwwfaesi",
+      "prerequisites": [],
+      "savedGroupTargeting": [],
+      "seed": "fr_4w9jq1yzdmwwfaesi",
+      "type": "rollout",
+      "value": "on"
+     },
+     {
+      "allEnvironments": false,
+      "allProjects": true,
+      "condition": "{\"country\":{\"$in\":[\"US\",\"CA\"]}}",
+      "description": "North America market (sb417)",
+      "enabled": true,
+      "environments": [
+       "production"
+      ],
+      "id": "93714524-122c-4d54-b692-8d66ac6073b8",
+      "prerequisites": [],
+      "savedGroupTargeting": [],
+      "scheduleRules": null,
+      "scheduleType": null,
+      "type": "force",
+      "value": "na-on"
+     }
+    ],
+    "status": "published",
+    "version": 3
+   },
+   {
+    "baseVersion": 1,
+    "comment": "Created via REST API",
+    "date": "2026-11-25T17:54:05.776Z",
+    "defaultValue": "off",
+    "environmentsEnabled": {
+     "production": true,
+     "staging": false
+    },
+    "featureId": "sb-beta-banner",
+    "id": "frev_4w9jq1yzdmwwfahci",
+    "name": "switchboard sandbox 417",
+    "rules": [
+     {
+      "allEnvironments": false,
+      "allProjects": true,
+      "condition": "",
+      "description": "Beta testers only",
+      "enabled": true,
+      "environments": [
+       "production"
+      ],
+      "id": "fr_4w9jq1yzdmwwfaesh",
+      "prerequisites": [],
+      "savedGroupTargeting": [
+       {
+        "matchType": "any",
+        "savedGroups": [
+         "grp_2ChQ5GowJQpFpxfktQ4kxq"
+        ]
+       }
+      ],
+      "type": "force",
+      "value": "on"
+     },
+     {
+      "allEnvironments": false,
+      "allProjects": true,
+      "condition": "",
+      "coverage": 0.1,
+      "description": "10% rollout",
+      "enabled": true,
+      "environments": [
+       "production"
+      ],
+      "hashAttribute": "id",
+      "id": "fr_4w9jq1yzdmwwfaesi",
+      "prerequisites": [],
+      "savedGroupTargeting": [],
+      "seed": "fr_4w9jq1yzdmwwfaesi",
+      "type": "rollout",
+      "value": "on"
+     }
+    ],
+    "status": "published",
+    "version": 2
+   },
+   {
+    "baseVersion": 0,
+    "comment": "",
+    "date": "2026-11-25T17:54:02.469Z",
+    "defaultValue": "off",
+    "environmentsEnabled": {
+     "production": false,
+     "staging": false
+    },
+    "featureId": "sb-beta-banner",
+    "id": "frev_4w9jq1yzdmwwfaesl",
+    "name": "switchboard sandbox 417",
+    "rules": [
+     {
+      "allEnvironments": false,
+      "allProjects": true,
+      "condition": "",
+      "description": "Beta testers only",
+      "enabled": true,
+      "environments": [
+       "production"
+      ],
+      "id": "fr_4w9jq1yzdmwwfaesh",
+      "prerequisites": [],
+      "savedGroupTargeting": [
+       {
+        "matchType": "any",
+        "savedGroups": [
+         "grp_2ChQ5GowJQpFpxfktQ4kxq"
+        ]
+       }
+      ],
+      "type": "force",
+      "value": "on"
+     },
+     {
+      "allEnvironments": false,
+      "allProjects": true,
+      "condition": "",
+      "coverage": 0.1,
+      "description": "10% rollout",
+      "enabled": true,
+      "environments": [
+       "production"
+      ],
+      "hashAttribute": "id",
+      "id": "fr_4w9jq1yzdmwwfaesi",
+      "prerequisites": [],
+      "savedGroupTargeting": [],
+      "seed": "fr_4w9jq1yzdmwwfaesi",
+      "type": "rollout",
+      "value": "on"
+     }
+    ],
+    "status": "published",
+    "version": 1
+   }
+  ],
+  "total": 3
+ }
+}

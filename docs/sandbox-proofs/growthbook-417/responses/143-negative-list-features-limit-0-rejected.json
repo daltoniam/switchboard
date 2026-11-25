@@ -1,0 +1,13 @@
+{
+ "phase": "negative",
+ "step": "list_features limit=0 rejected",
+ "tool": "growthbook_list_features",
+ "args": {
+  "limit": 0
+ },
+ "status": "PASS",
+ "note": "isError=True; limit must be between 1 and 100",
+ "ms": 0,
+ "bytes": 31,
+ "response": "limit must be between 1 and 100"
+}

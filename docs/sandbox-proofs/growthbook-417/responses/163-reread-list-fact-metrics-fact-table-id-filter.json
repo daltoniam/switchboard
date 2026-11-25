@@ -1,0 +1,35 @@
+{
+ "phase": "reread",
+ "step": "list_fact_metrics fact_table_id filter",
+ "tool": "growthbook_list_fact_metrics",
+ "args": {
+  "fact_table_id": "ftb_4w9jq1yzdmwwfaena"
+ },
+ "status": "PASS",
+ "note": "377B: {\"factMetrics\":[{\"column\":\"$$distinctUsers\",\"datasource\":\"ds_4w9jq1yzdmwwfael6\",\"description\":\"\",\"factTableId\":\"ftb_4w9jq1yzdmwwfaena\",\"id\":\"fact__2ChQ5Gok9BNMZ4CNHsJMjS\",\"inverse\":false,\"metricType\":\"proportion\",\"name\":",
+ "ms": 8,
+ "bytes": 377,
+ "response": {
+  "factMetrics": [
+   {
+    "column": "$$distinctUsers",
+    "datasource": "ds_4w9jq1yzdmwwfael6",
+    "description": "",
+    "factTableId": "ftb_4w9jq1yzdmwwfaena",
+    "id": "fact__2ChQ5Gok9BNMZ4CNHsJMjS",
+    "inverse": false,
+    "metricType": "proportion",
+    "name": "Purchase Rate",
+    "ownerEmail": "sb-admin@example.test",
+    "projects": [
+     "prj_2ChQ5Gk4djffjvT3jwN2R2"
+    ],
+    "tags": [
+     "checkout"
+    ]
+   }
+  ],
+  "hasMore": false,
+  "total": 1
+ }
+}

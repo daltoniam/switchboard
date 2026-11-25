@@ -1,0 +1,14 @@
+{
+ "phase": "negative",
+ "step": "start_experiment: extra skipChecklist arg rejected",
+ "tool": "growthbook_start_experiment",
+ "args": {
+  "experiment_id": "exp_4w9jq1zx7mwwfck9f",
+  "skipChecklist": true
+ },
+ "status": "PASS",
+ "note": "isError=True; unknown parameter \"skipChecklist\" for tool \"growthbook_start_experiment\". Valid parameters: [experiment_id]",
+ "ms": 1,
+ "bytes": 107,
+ "response": "unknown parameter \"skipChecklist\" for tool \"growthbook_start_experiment\". Valid parameters: [experiment_id]"
+}

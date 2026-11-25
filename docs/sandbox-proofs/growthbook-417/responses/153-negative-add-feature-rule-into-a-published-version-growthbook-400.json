@@ -1,0 +1,21 @@
+{
+ "phase": "negative",
+ "step": "add_feature_rule: into a published version (GrowthBook 400)",
+ "tool": "growthbook_add_feature_rule",
+ "args": {
+  "feature_id": "sb-beta-banner",
+  "version": 1,
+  "rule": {
+   "type": "force",
+   "value": "x",
+   "environments": [
+    "staging"
+   ]
+  }
+ },
+ "status": "PASS",
+ "note": "isError=True; growthbook API error (400): {\"message\":\"Cannot edit a revision with status \\\"published\\\"\"}",
+ "ms": 7,
+ "bytes": 90,
+ "response": "growthbook API error (400): {\"message\":\"Cannot edit a revision with status \\\"published\\\"\"}"
+}

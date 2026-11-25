@@ -1,0 +1,23 @@
+{
+ "phase": "write",
+ "step": "toggle_feature edge flag production=true",
+ "tool": "growthbook_toggle_feature",
+ "args": {
+  "feature_id": "sb-edge-unscoped-29342",
+  "environment": "production",
+  "enabled": true,
+  "reason": "edge probe"
+ },
+ "status": "PASS",
+ "note": "168B: {\"date_updated\":\"2026-11-25T17:55:43.293Z\",\"enabled\":true,\"environment\":\"production\",\"feature_id\":\"sb-edge-unscoped-29342\",\"status\":\"updated\",\"version\":2}\npinned as $57",
+ "ms": 29,
+ "bytes": 168,
+ "response": {
+  "date_updated": "2026-11-25T17:55:43.293Z",
+  "enabled": true,
+  "environment": "production",
+  "feature_id": "sb-edge-unscoped-29342",
+  "status": "updated",
+  "version": 2
+ }
+}

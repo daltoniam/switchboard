@@ -1,0 +1,30 @@
+{
+ "phase": "read",
+ "step": "list_code_refs",
+ "tool": "growthbook_list_code_refs",
+ "args": {},
+ "status": "PASS",
+ "note": "307B: {\"codeRefs\":[{\"branch\":\"main\",\"dateUpdated\":\"2026-11-25T17:55:38.975Z\",\"feature\":\"sb-checkout-express\",\"refs\":[{\"filePath\":\"src/checkout.ts\",\"flagKey\":\"sb-checkout-express\",\"lines\":\"if (gb.isOn('sb-checkout-express')) {\"",
+ "ms": 7,
+ "bytes": 307,
+ "response": {
+  "codeRefs": [
+   {
+    "branch": "main",
+    "dateUpdated": "2026-11-25T17:55:38.975Z",
+    "feature": "sb-checkout-express",
+    "refs": [
+     {
+      "filePath": "src/checkout.ts",
+      "flagKey": "sb-checkout-express",
+      "lines": "if (gb.isOn('sb-checkout-express')) {",
+      "startingLineNumber": 42
+     }
+    ],
+    "repo": "acme/web"
+   }
+  ],
+  "hasMore": false,
+  "total": 1
+ }
+}

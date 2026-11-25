@@ -1,0 +1,297 @@
+{
+ "phase": "verify",
+ "step": "list_features shows the new flags",
+ "tool": "growthbook_list_features",
+ "args": {},
+ "status": "PASS",
+ "note": "4656B: {\"features\":[{\"archived\":false,\"dateUpdated\":\"2026-11-25T17:54:09.295Z\",\"defaultValue\":\"false\",\"description\":\"Express checkout (boolean)\",\"environments\":{\"production\":{\"defaultValue\":\"false\",\"enabled\":false},\"staging\":{\"",
+ "ms": 18,
+ "bytes": 4656,
+ "response": {
+  "features": [
+   {
+    "archived": false,
+    "dateUpdated": "2026-11-25T17:54:09.295Z",
+    "defaultValue": "false",
+    "description": "Express checkout (boolean)",
+    "environments": {
+     "production": {
+      "defaultValue": "false",
+      "enabled": false
+     },
+     "staging": {
+      "defaultValue": "false",
+      "enabled": true
+     }
+    },
+    "id": "sb-checkout-express",
+    "ownerEmail": "sb-admin@example.test",
+    "project": "prj_2ChQ5Gk4djffjvT3jwN2R2",
+    "tags": [
+     "checkout"
+    ],
+    "valueType": "boolean",
+    "version": 3
+   },
+   {
+    "archived": false,
+    "dateUpdated": "2026-11-25T17:54:09.548Z",
+    "defaultValue": "off",
+    "description": "Beta banner (string, rules)",
+    "environments": {
+     "production": {
+      "defaultValue": "off",
+      "enabled": true
+     },
+     "staging": {
+      "defaultValue": "off",
+      "enabled": false
+     }
+    },
+    "id": "sb-beta-banner",
+    "ownerEmail": "sb-admin@example.test",
+    "prerequisites": [
+     "sb-checkout-express"
+    ],
+    "project": "prj_2ChQ5Gk4djffjvT3jwN2R2",
+    "rules": [
+     {
+      "allEnvironments": false,
+      "allProjects": true,
+      "condition": "",
+      "description": "Beta testers only",
+      "enabled": true,
+      "environments": [
+       "production"
+      ],
+      "id": "fr_4w9jq1yzdmwwfaesh",
+      "prerequisites": [],
+      "savedGroupTargeting": [
+       {
+        "matchType": "any",
+        "savedGroups": [
+         "grp_2ChQ5GowJQpFpxfktQ4kxq"
+        ]
+       }
+      ],
+      "type": "force",
+      "value": "on"
+     },
+     {
+      "allEnvironments": false,
+      "allProjects": true,
+      "condition": "",
+      "coverage": 0.1,
+      "description": "10% rollout",
+      "enabled": true,
+      "environments": [
+       "production"
+      ],
+      "hashAttribute": "id",
+      "id": "fr_4w9jq1yzdmwwfaesi",
+      "prerequisites": [],
+      "savedGroupTargeting": [],
+      "seed": "fr_4w9jq1yzdmwwfaesi",
+      "type": "rollout",
+      "value": "on"
+     },
+     {
+      "allEnvironments": false,
+      "allProjects": true,
+      "condition": "{\"country\":{\"$in\":[\"US\",\"CA\"]}}",
+      "description": "North America market (sb417)",
+      "enabled": true,
+      "environments": [
+       "production"
+      ],
+      "id": "93714524-122c-4d54-b692-8d66ac6073b8",
+      "prerequisites": [],
+      "savedGroupTargeting": [],
+      "scheduleRules": null,
+      "scheduleType": null,
+      "type": "force",
+      "value": "na-on"
+     }
+    ],
+    "tags": [
+     "growth"
+    ],
+    "valueType": "string",
+    "version": 3
+   },
+   {
+    "archived": false,
+    "dateUpdated": "2026-11-25T17:54:02.588Z",
+    "defaultValue": "classic",
+    "description": "Experiment flag",
+    "environments": {
+     "production": {
+      "defaultValue": "classic",
+      "enabled": false
+     },
+     "staging": {
+      "defaultValue": "classic",
+      "enabled": false
+     }
+    },
+    "id": "sb-checkout-flow",
+    "ownerEmail": "sb-admin@example.test",
+    "project": "prj_2ChQ5Gk4djffjvT3jwN2R2",
+    "rules": [
+     {
+      "allEnvironments": false,
+      "allProjects": true,
+      "condition": "",
+      "description": "",
+      "enabled": true,
+      "environments": [
+       "production"
+      ],
+      "experimentId": "exp_4w9jq1yzdmwwfaetg",
+      "id": "fr_4w9jq1yzdmwwfaevy",
+      "prerequisites": [],
+      "savedGroupTargeting": [],
+      "type": "experiment-ref",
+      "variations": [
+       {
+        "value": "classic",
+        "variationId": "var_4w9jq1yzdmwwfaete"
+       },
+       {
+        "value": "express",
+        "variationId": "var_4w9jq1yzdmwwfaetf"
+       }
+      ]
+     }
+    ],
+    "valueType": "string",
+    "version": 1
+   },
+   {
+    "archived": false,
+    "dateUpdated": "2026-11-25T17:54:02.622Z",
+    "defaultValue": "none",
+    "description": "Experiment flag",
+    "environments": {
+     "production": {
+      "defaultValue": "none",
+      "enabled": false
+     },
+     "staging": {
+      "defaultValue": "none",
+      "enabled": false
+     }
+    },
+    "id": "sb-banner-flow",
+    "ownerEmail": "sb-admin@example.test",
+    "project": "prj_2ChQ5Gk4djffjvT3jwN2R2",
+    "rules": [
+     {
+      "allEnvironments": false,
+      "allProjects": true,
+      "condition": "",
+      "description": "",
+      "enabled": true,
+      "environments": [
+       "production"
+      ],
+      "experimentId": "exp_4w9jq1yzdmwwfaeue",
+      "id": "fr_4w9jq1yzdmwwfaeww",
+      "prerequisites": [],
+      "savedGroupTargeting": [],
+      "type": "experiment-ref",
+      "variations": [
+       {
+        "value": "none",
+        "variationId": "var_4w9jq1yzdmwwfaeuc"
+       },
+       {
+        "value": "banner",
+        "variationId": "var_4w9jq1yzdmwwfaeud"
+       }
+      ]
+     }
+    ],
+    "valueType": "string",
+    "version": 1
+   },
+   {
+    "archived": false,
+    "dateUpdated": "2026-11-25T17:54:09.328Z",
+    "defaultValue": "false",
+    "description": "Created by the sandbox E2E for PR 417",
+    "environments": {
+     "production": {
+      "defaultValue": "false",
+      "enabled": false
+     },
+     "staging": {
+      "defaultValue": "false",
+      "enabled": false
+     }
+    },
+    "id": "sb-agent-flag-29249",
+    "ownerEmail": "sb-admin@example.test",
+    "project": "prj_2ChQ5Gk4djffjvT3jwN2R2",
+    "tags": [
+     "agent",
+     "sandbox"
+    ],
+    "valueType": "boolean",
+    "version": 1
+   },
+   {
+    "archived": false,
+    "dateUpdated": "2026-11-25T17:54:09.925Z",
+    "defaultValue": "control",
+    "description": "PR 417 experiment flag",
+    "environments": {
+     "production": {
+      "defaultValue": "control",
+      "enabled": false
+     },
+     "staging": {
+      "defaultValue": "control",
+      "enabled": false
+     }
+    },
+    "id": "sb-417-market-flag-29249",
+    "ownerEmail": "sb-admin@example.test",
+    "project": "prj_2ChQ5Gk4djffjvT3jwN2R2",
+    "rules": [
+     {
+      "allEnvironments": false,
+      "allProjects": true,
+      "condition": "",
+      "description": "",
+      "enabled": true,
+      "environments": [
+       "production"
+      ],
+      "experimentId": "exp_4w9jq1yzdmwwfaked",
+      "id": "ca948bc0-afd7-4a96-8858-6aeed0932423",
+      "prerequisites": [],
+      "savedGroupTargeting": [],
+      "scheduleRules": null,
+      "scheduleType": null,
+      "type": "experiment-ref",
+      "variations": [
+       {
+        "value": "control",
+        "variationId": "var_4w9jq1yzdmwwfakeb"
+       },
+       {
+        "value": "na-banner",
+        "variationId": "var_4w9jq1yzdmwwfakec"
+       }
+      ]
+     }
+    ],
+    "valueType": "string",
+    "version": 2
+   }
+  ],
+  "hasMore": false,
+  "total": 6
+ }
+}

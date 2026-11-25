@@ -1,0 +1,83 @@
+{
+ "phase": "reread",
+ "step": "list_fact_tables",
+ "tool": "growthbook_list_fact_tables",
+ "args": {},
+ "status": "PASS",
+ "note": "1341B: {\"factTables\":[{\"columns\":[{\"alwaysInlineFilter\":false,\"autoSlices\":[],\"column\":\"user_id\",\"dataTypeFromWarehouse\":\"string\",\"datatype\":\"string\",\"dateCreated\":\"2026-11-25T17:55:35.434Z\",\"dateUpdated\":\"2026-11-25T17:55:35.4",
+ "ms": 6,
+ "bytes": 1341,
+ "response": {
+  "factTables": [
+   {
+    "columns": [
+     {
+      "alwaysInlineFilter": false,
+      "autoSlices": [],
+      "column": "user_id",
+      "dataTypeFromWarehouse": "string",
+      "datatype": "string",
+      "dateCreated": "2026-11-25T17:55:35.434Z",
+      "dateUpdated": "2026-11-25T17:55:35.434Z",
+      "deleted": false,
+      "description": "",
+      "isAutoSliceColumn": false,
+      "lockedAutoSlices": [],
+      "name": "user_id",
+      "numberFormat": "",
+      "topValues": []
+     },
+     {
+      "alwaysInlineFilter": false,
+      "autoSlices": [],
+      "column": "timestamp",
+      "dataTypeFromWarehouse": "date",
+      "datatype": "date",
+      "dateCreated": "2026-11-25T17:55:35.434Z",
+      "dateUpdated": "2026-11-25T17:55:35.434Z",
+      "deleted": false,
+      "description": "",
+      "isAutoSliceColumn": false,
+      "lockedAutoSlices": [],
+      "name": "timestamp",
+      "numberFormat": "",
+      "topValues": []
+     },
+     {
+      "alwaysInlineFilter": false,
+      "autoSlices": [],
+      "column": "amount",
+      "dataTypeFromWarehouse": "number",
+      "datatype": "number",
+      "dateCreated": "2026-11-25T17:55:35.434Z",
+      "dateUpdated": "2026-11-25T17:55:35.434Z",
+      "deleted": false,
+      "description": "",
+      "isAutoSliceColumn": false,
+      "lockedAutoSlices": [],
+      "name": "amount",
+      "numberFormat": "",
+      "topValues": []
+     }
+    ],
+    "datasource": "ds_4w9jq1zx7mwwfcefs",
+    "description": "",
+    "id": "ftb_4w9jq1zx7mwwfcei4",
+    "name": "Purchases",
+    "ownerEmail": "sb-admin@example.test",
+    "projects": [
+     "prj_2ChQ5PcJW8cW4d5UHcBKjs"
+    ],
+    "sql": "SELECT user_id, timestamp, amount FROM purchases",
+    "tags": [
+     "checkout"
+    ],
+    "userIdTypes": [
+     "user_id"
+    ]
+   }
+  ],
+  "hasMore": false,
+  "total": 1
+ }
+}

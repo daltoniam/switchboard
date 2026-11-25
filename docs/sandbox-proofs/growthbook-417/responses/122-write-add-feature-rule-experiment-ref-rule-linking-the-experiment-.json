@@ -1,0 +1,72 @@
+{
+ "phase": "write",
+ "step": "add_feature_rule: experiment-ref rule linking the experiment (draft)",
+ "tool": "growthbook_add_feature_rule",
+ "args": {
+  "feature_id": "sb-417-market-flag-29342",
+  "rule": {
+   "type": "experiment-ref",
+   "experimentId": "exp_4w9jq1zx7mwwfck9f",
+   "variations": [
+    {
+     "variationId": "var_4w9jq1zx7mwwfck9d",
+     "value": "control"
+    },
+    {
+     "variationId": "var_4w9jq1zx7mwwfck9e",
+     "value": "na-banner"
+    }
+   ],
+   "environments": [
+    "production"
+   ]
+  },
+  "revision_title": "Link SB 417 Market Test"
+ },
+ "status": "PASS",
+ "note": "version=2 status=draft rules=1 missing=[] unexpected=[]",
+ "ms": 41,
+ "bytes": 793,
+ "response": {
+  "baseVersion": 1,
+  "comment": "",
+  "defaultValue": "control",
+  "environmentsEnabled": {
+   "production": false,
+   "staging": false
+  },
+  "feature_id": "sb-417-market-flag-29342",
+  "message": "Saved to the draft revision only; nothing is live. Review it, then call growthbook_publish_feature_revision with this version.",
+  "rules": [
+   {
+    "allEnvironments": false,
+    "allProjects": true,
+    "condition": "",
+    "description": "",
+    "enabled": true,
+    "environments": [
+     "production"
+    ],
+    "experimentId": "exp_4w9jq1zx7mwwfck9f",
+    "id": "ebf1314b-9397-4206-809f-889a82487621",
+    "prerequisites": [],
+    "savedGroupTargeting": [],
+    "scheduleRules": null,
+    "scheduleType": null,
+    "type": "experiment-ref",
+    "variations": [
+     {
+      "value": "control",
+      "variationId": "var_4w9jq1zx7mwwfck9d"
+     },
+     {
+      "value": "na-banner",
+      "variationId": "var_4w9jq1zx7mwwfck9e"
+     }
+    ]
+   }
+  ],
+  "status": "draft",
+  "version": 2
+ }
+}

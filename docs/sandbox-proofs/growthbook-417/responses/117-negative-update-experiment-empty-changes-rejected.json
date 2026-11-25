@@ -1,0 +1,14 @@
+{
+ "phase": "negative",
+ "step": "update_experiment: empty changes rejected",
+ "tool": "growthbook_update_experiment",
+ "args": {
+  "experiment_id": "exp_4w9jq1zx7mwwfck9f",
+  "changes": {}
+ },
+ "status": "PASS",
+ "note": "isError=True; changes must set at least one field",
+ "ms": 0,
+ "bytes": 35,
+ "response": "changes must set at least one field"
+}

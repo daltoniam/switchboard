@@ -1,0 +1,47 @@
+{
+ "phase": "edge",
+ "step": "update_feature_rule can empty environments (scope check is add-only)",
+ "tool": "growthbook_update_feature_rule",
+ "args": {
+  "feature_id": "sb-edge-unscoped-29342",
+  "version": 3,
+  "rule_id": "dc01d599-12ab-4ced-b921-32d76f6dccd9",
+  "rule": {
+   "environments": []
+  }
+ },
+ "status": "INFO",
+ "note": "accepted: rule now has environments=[] and allEnvironments=false; {\"baseVersion\":2,\"comment\":\"\",\"defaultValue\":\"off\",\"environmentsEnabled\":{\"production\":true,\"staging\":false},\"feature_id\":\"sb-edge-unscoped-29342\",\"message\":\"Sa",
+ "ms": 20,
+ "bytes": 621,
+ "response": {
+  "baseVersion": 2,
+  "comment": "",
+  "defaultValue": "off",
+  "environmentsEnabled": {
+   "production": true,
+   "staging": false
+  },
+  "feature_id": "sb-edge-unscoped-29342",
+  "message": "Saved to the draft revision only; nothing is live. Review it, then call growthbook_publish_feature_revision with this version.",
+  "rules": [
+   {
+    "allEnvironments": false,
+    "allProjects": true,
+    "condition": "",
+    "description": "edge scope",
+    "enabled": true,
+    "environments": [],
+    "id": "dc01d599-12ab-4ced-b921-32d76f6dccd9",
+    "prerequisites": [],
+    "savedGroupTargeting": [],
+    "scheduleRules": null,
+    "scheduleType": null,
+    "type": "force",
+    "value": "EDGE-ON"
+   }
+  ],
+  "status": "draft",
+  "version": 3
+ }
+}

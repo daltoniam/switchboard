@@ -1,0 +1,95 @@
+{
+ "phase": "write",
+ "step": "add_feature_rule: new draft, force rule (US, production)",
+ "tool": "growthbook_add_feature_rule",
+ "args": {
+  "feature_id": "sb-beta-banner",
+  "rule": {
+   "type": "force",
+   "value": "us-on",
+   "condition": "{\"country\":\"US\"}",
+   "environments": [
+    "production"
+   ],
+   "description": "US market (sb417)"
+  },
+  "revision_title": "US market launch",
+  "revision_comment": "Sandbox E2E for PR 417: add a US force rule"
+ },
+ "status": "PASS",
+ "note": "version=3 status=draft rules=3 missing=[] unexpected=[]",
+ "ms": 31,
+ "bytes": 1297,
+ "response": {
+  "baseVersion": 2,
+  "comment": "Sandbox E2E for PR 417: add a US force rule",
+  "defaultValue": "off",
+  "environmentsEnabled": {
+   "production": true,
+   "staging": false
+  },
+  "feature_id": "sb-beta-banner",
+  "message": "Saved to the draft revision only; nothing is live. Review it, then call growthbook_publish_feature_revision with this version.",
+  "rules": [
+   {
+    "allEnvironments": false,
+    "allProjects": true,
+    "condition": "",
+    "description": "Beta testers only",
+    "enabled": true,
+    "environments": [
+     "production"
+    ],
+    "id": "fr_4w9jq1zx7mwwfcenp",
+    "prerequisites": [],
+    "savedGroupTargeting": [
+     {
+      "matchType": "any",
+      "savedGroups": [
+       "grp_2ChQ5Pg7TFJ9mV4XtXbaVf"
+      ]
+     }
+    ],
+    "type": "force",
+    "value": "on"
+   },
+   {
+    "allEnvironments": false,
+    "allProjects": true,
+    "condition": "",
+    "coverage": 0.1,
+    "description": "10% rollout",
+    "enabled": true,
+    "environments": [
+     "production"
+    ],
+    "hashAttribute": "id",
+    "id": "fr_4w9jq1zx7mwwfcenq",
+    "prerequisites": [],
+    "savedGroupTargeting": [],
+    "seed": "fr_4w9jq1zx7mwwfcenq",
+    "type": "rollout",
+    "value": "on"
+   },
+   {
+    "allEnvironments": false,
+    "allProjects": true,
+    "condition": "{\"country\":\"US\"}",
+    "description": "US market (sb417)",
+    "enabled": true,
+    "environments": [
+     "production"
+    ],
+    "id": "585a0e8b-aac1-4d2b-837d-1b733ffaf4f0",
+    "prerequisites": [],
+    "savedGroupTargeting": [],
+    "scheduleRules": null,
+    "scheduleType": null,
+    "type": "force",
+    "value": "us-on"
+   }
+  ],
+  "status": "draft",
+  "version": 3
+ }
+}

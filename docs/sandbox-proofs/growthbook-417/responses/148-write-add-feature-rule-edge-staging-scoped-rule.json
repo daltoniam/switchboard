@@ -1,0 +1,52 @@
+{
+ "phase": "write",
+ "step": "add_feature_rule edge: staging-scoped rule",
+ "tool": "growthbook_add_feature_rule",
+ "args": {
+  "feature_id": "sb-edge-unscoped-29342",
+  "rule": {
+   "type": "force",
+   "value": "EDGE-ON",
+   "environments": [
+    "staging"
+   ],
+   "description": "edge scope"
+  }
+ },
+ "status": "PASS",
+ "note": "version=3 status=draft rules=1 missing=[] unexpected=[]",
+ "ms": 29,
+ "bytes": 630,
+ "response": {
+  "baseVersion": 2,
+  "comment": "",
+  "defaultValue": "off",
+  "environmentsEnabled": {
+   "production": true,
+   "staging": false
+  },
+  "feature_id": "sb-edge-unscoped-29342",
+  "message": "Saved to the draft revision only; nothing is live. Review it, then call growthbook_publish_feature_revision with this version.",
+  "rules": [
+   {
+    "allEnvironments": false,
+    "allProjects": true,
+    "condition": "",
+    "description": "edge scope",
+    "enabled": true,
+    "environments": [
+     "staging"
+    ],
+    "id": "dc01d599-12ab-4ced-b921-32d76f6dccd9",
+    "prerequisites": [],
+    "savedGroupTargeting": [],
+    "scheduleRules": null,
+    "scheduleType": null,
+    "type": "force",
+    "value": "EDGE-ON"
+   }
+  ],
+  "status": "draft",
+  "version": 3
+ }
+}

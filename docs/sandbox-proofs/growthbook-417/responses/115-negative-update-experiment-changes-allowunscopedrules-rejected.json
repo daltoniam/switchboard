@@ -1,0 +1,16 @@
+{
+ "phase": "negative",
+ "step": "update_experiment: changes.allowUnscopedRules rejected",
+ "tool": "growthbook_update_experiment",
+ "args": {
+  "experiment_id": "exp_4w9jq1zx7mwwfck9f",
+  "changes": {
+   "allowUnscopedRules": true
+  }
+ },
+ "status": "PASS",
+ "note": "isError=True; changes.allowUnscopedRules is not accepted: a person must resolve GrowthBook's gates in the app",
+ "ms": 1,
+ "bytes": 95,
+ "response": "changes.allowUnscopedRules is not accepted: a person must resolve GrowthBook's gates in the app"
+}

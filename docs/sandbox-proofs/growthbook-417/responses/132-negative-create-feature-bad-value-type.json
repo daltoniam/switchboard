@@ -1,0 +1,15 @@
+{
+ "phase": "negative",
+ "step": "create_feature bad value_type",
+ "tool": "growthbook_create_feature",
+ "args": {
+  "feature_id": "sb-agent-flag-29342-bad",
+  "value_type": "float",
+  "default_value": "1"
+ },
+ "status": "PASS",
+ "note": "isError=True; value_type is required: one of boolean, string, number, json",
+ "ms": 0,
+ "bytes": 60,
+ "response": "value_type is required: one of boolean, string, number, json"
+}

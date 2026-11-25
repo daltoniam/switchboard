@@ -1,0 +1,18 @@
+{
+ "phase": "negative",
+ "step": "update_feature_rule: rule.bypassDuplicateKeyCheck rejected",
+ "tool": "growthbook_update_feature_rule",
+ "args": {
+  "feature_id": "sb-beta-banner",
+  "version": 3,
+  "rule_id": "585a0e8b-aac1-4d2b-837d-1b733ffaf4f0",
+  "rule": {
+   "bypassDuplicateKeyCheck": true
+  }
+ },
+ "status": "PASS",
+ "note": "isError=True; rule.bypassDuplicateKeyCheck is not accepted: a person must resolve GrowthBook's gates in the app",
+ "ms": 0,
+ "bytes": 97,
+ "response": "rule.bypassDuplicateKeyCheck is not accepted: a person must resolve GrowthBook's gates in the app"
+}

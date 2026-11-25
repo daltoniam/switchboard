@@ -1,0 +1,15 @@
+{
+ "phase": "negative",
+ "step": "toggle_feature unknown environment",
+ "tool": "growthbook_toggle_feature",
+ "args": {
+  "feature_id": "sb-checkout-express",
+  "environment": "prod-typo",
+  "enabled": true
+ },
+ "status": "PASS",
+ "note": "isError=True; growthbook API error (400): {\"message\":\"Unknown environment: 'prod-typo'\"}",
+ "ms": 5,
+ "bytes": 74,
+ "response": "growthbook API error (400): {\"message\":\"Unknown environment: 'prod-typo'\"}"
+}

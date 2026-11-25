@@ -1,0 +1,63 @@
+{
+ "phase": "write",
+ "step": "create_feature sb-417-market-flag-29054 (for the experiment)",
+ "tool": "growthbook_create_feature",
+ "args": {
+  "feature_id": "sb-417-market-flag-29054",
+  "value_type": "string",
+  "default_value": "control",
+  "owner": "sb-admin@example.test",
+  "project_id": "prj_2ChQ52BAKvopJYHxKLdY1Q",
+  "description": "PR 417 experiment flag"
+ },
+ "status": "PASS",
+ "note": "893B: {\"feature\":{\"archived\":false,\"customFields\":{},\"dateCreated\":\"2026-11-25T17:50:54.999Z\",\"dateUpdated\":\"2026-11-25T17:50:54.999Z\",\"defaultValue\":\"control\",\"description\":\"PR 417 experiment flag\",\"environments\":{\"production",
+ "ms": 23,
+ "bytes": 893,
+ "response": {
+  "feature": {
+   "archived": false,
+   "customFields": {},
+   "dateCreated": "2026-11-25T17:50:54.999Z",
+   "dateUpdated": "2026-11-25T17:50:54.999Z",
+   "defaultValue": "control",
+   "description": "PR 417 experiment flag",
+   "environments": {
+    "production": {
+     "defaultValue": "control",
+     "enabled": false
+    },
+    "staging": {
+     "defaultValue": "control",
+     "enabled": false
+    }
+   },
+   "id": "sb-417-market-flag-29054",
+   "owner": "u_4w9jq1ws4mwwf65i3",
+   "ownerEmail": "sb-admin@example.test",
+   "prerequisites": [],
+   "project": "prj_2ChQ52BAKvopJYHxKLdY1Q",
+   "revision": {
+    "comment": "",
+    "createdBy": {
+     "apiKey": "key_2ChQ52DTjm8AuX9HX1uHD1",
+     "name": "switchboard sandbox 417",
+     "type": "api_key"
+    },
+    "date": "2026-11-25T17:50:55.002Z",
+    "id": "frev_4w9jq1ws4mwwf6e56",
+    "publishedBy": {
+     "apiKey": "key_2ChQ52DTjm8AuX9HX1uHD1",
+     "name": "switchboard sandbox 417",
+     "type": "api_key"
+    },
+    "version": 1
+   },
+   "rules": [],
+   "tags": [],
+   "targetingAllProjects": false,
+   "targetingProjects": [],
+   "valueType": "string"
+  }
+ }
+}

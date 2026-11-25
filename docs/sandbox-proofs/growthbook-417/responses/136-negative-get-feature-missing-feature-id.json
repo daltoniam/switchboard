@@ -1,0 +1,11 @@
+{
+ "phase": "negative",
+ "step": "get_feature missing feature_id",
+ "tool": "growthbook_get_feature",
+ "args": {},
+ "status": "PASS",
+ "note": "isError=True; missing required parameter \"feature_id\" for tool \"growthbook_get_feature\". Required: [feature_id]",
+ "ms": 0,
+ "bytes": 97,
+ "response": "missing required parameter \"feature_id\" for tool \"growthbook_get_feature\". Required: [feature_id]"
+}

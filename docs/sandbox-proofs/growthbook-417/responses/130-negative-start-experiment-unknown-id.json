@@ -1,0 +1,13 @@
+{
+ "phase": "negative",
+ "step": "start_experiment: unknown id",
+ "tool": "growthbook_start_experiment",
+ "args": {
+  "experiment_id": "exp_nope417"
+ },
+ "status": "PASS",
+ "note": "isError=True; growthbook API error (404): {\"message\":\"Experiment not found\"}",
+ "ms": 5,
+ "bytes": 62,
+ "response": "growthbook API error (404): {\"message\":\"Experiment not found\"}"
+}

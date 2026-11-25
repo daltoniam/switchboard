@@ -1,0 +1,19 @@
+{
+ "phase": "reread",
+ "step": "get_snapshot (from refresh)",
+ "tool": "growthbook_get_snapshot",
+ "args": {
+  "snapshot_id": "snp_2ChQ5QGdbeLhDmYgPeL24u"
+ },
+ "status": "PASS",
+ "note": "118B: {\"snapshot\":{\"experiment\":\"exp_4w9jq1zx7mwwfceos\",\"id\":\"snp_2ChQ5QGdbeLhDmYgPeL24u\",\"status\":\"success\"}}\npinned as $76",
+ "ms": 14,
+ "bytes": 118,
+ "response": {
+  "snapshot": {
+   "experiment": "exp_4w9jq1zx7mwwfceos",
+   "id": "snp_2ChQ5QGdbeLhDmYgPeL24u",
+   "status": "success"
+  }
+ }
+}

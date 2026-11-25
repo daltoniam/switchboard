@@ -1,0 +1,42 @@
+{
+ "phase": "write",
+ "step": "add_feature_rule: new draft (rule as JSON string, allEnvironments)",
+ "tool": "growthbook_add_feature_rule",
+ "args": {
+  "feature_id": "sb-checkout-express",
+  "rule": "{\"type\": \"force\", \"value\": \"true\", \"condition\": \"{\\\"country\\\":\\\"DE\\\"}\", \"allEnvironments\": true, \"description\": \"discard me (sb417)\"}"
+ },
+ "status": "PASS",
+ "note": "version=4 status=draft rules=1 missing=[] unexpected=[]",
+ "ms": 23,
+ "bytes": 626,
+ "response": {
+  "baseVersion": 3,
+  "comment": "",
+  "defaultValue": "false",
+  "environmentsEnabled": {
+   "production": false,
+   "staging": true
+  },
+  "feature_id": "sb-checkout-express",
+  "message": "Saved to the draft revision only; nothing is live. Review it, then call growthbook_publish_feature_revision with this version.",
+  "rules": [
+   {
+    "allEnvironments": true,
+    "allProjects": true,
+    "condition": "{\"country\":\"DE\"}",
+    "description": "discard me (sb417)",
+    "enabled": true,
+    "id": "6c1e72e2-bfb0-44d8-aa29-4263788992cf",
+    "prerequisites": [],
+    "savedGroupTargeting": [],
+    "scheduleRules": null,
+    "scheduleType": null,
+    "type": "force",
+    "value": "true"
+   }
+  ],
+  "status": "draft",
+  "version": 4
+ }
+}

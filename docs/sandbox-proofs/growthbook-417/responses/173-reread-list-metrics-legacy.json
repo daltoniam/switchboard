@@ -1,0 +1,32 @@
+{
+ "phase": "reread",
+ "step": "list_metrics (legacy)",
+ "tool": "growthbook_list_metrics",
+ "args": {},
+ "status": "PASS",
+ "note": "317B: {\"hasMore\":false,\"metrics\":[{\"archived\":false,\"datasourceId\":\"ds_4w9jq1zx7mwwfcefs\",\"description\":\"\",\"goal\":\"increase\",\"id\":\"met_4w9jq1zx7mwwfcejq\",\"name\":\"Legacy Purchases\",\"ownerEmail\":\"sb-admin@example.test\",\"projects",
+ "ms": 6,
+ "bytes": 317,
+ "response": {
+  "hasMore": false,
+  "metrics": [
+   {
+    "archived": false,
+    "datasourceId": "ds_4w9jq1zx7mwwfcefs",
+    "description": "",
+    "goal": "increase",
+    "id": "met_4w9jq1zx7mwwfcejq",
+    "name": "Legacy Purchases",
+    "ownerEmail": "sb-admin@example.test",
+    "projects": [
+     "prj_2ChQ5PcJW8cW4d5UHcBKjs"
+    ],
+    "tags": [
+     "checkout"
+    ],
+    "type": "binomial"
+   }
+  ],
+  "total": 1
+ }
+}

@@ -1,0 +1,31 @@
+{
+ "phase": "reread",
+ "step": "get_saved_group",
+ "tool": "growthbook_get_saved_group",
+ "args": {
+  "saved_group_id": "grp_2ChQ5Pg7TFJ9mV4XtXbaVf"
+ },
+ "status": "PASS",
+ "note": "281B: {\"savedGroup\":{\"archived\":false,\"attributeKey\":\"id\",\"condition\":\"\",\"dateUpdated\":\"2026-11-25T17:55:35.489Z\",\"id\":\"grp_2ChQ5Pg7TFJ9mV4XtXbaVf\",\"name\":\"Beta Testers\",\"owner\":\"\",\"projects\":[\"prj_2ChQ5PcJW8cW4d5UHcBKjs\"],\"ty",
+ "ms": 8,
+ "bytes": 281,
+ "response": {
+  "savedGroup": {
+   "archived": false,
+   "attributeKey": "id",
+   "condition": "",
+   "dateUpdated": "2026-11-25T17:55:35.489Z",
+   "id": "grp_2ChQ5Pg7TFJ9mV4XtXbaVf",
+   "name": "Beta Testers",
+   "owner": "",
+   "projects": [
+    "prj_2ChQ5PcJW8cW4d5UHcBKjs"
+   ],
+   "type": "list",
+   "values": [
+    "sb-user-1",
+    "sb-user-2"
+   ]
+  }
+ }
+}

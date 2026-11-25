@@ -1,0 +1,20 @@
+{
+ "phase": "negative",
+ "step": "add_feature_rule: unknown environment (GrowthBook 400)",
+ "tool": "growthbook_add_feature_rule",
+ "args": {
+  "feature_id": "sb-beta-banner",
+  "rule": {
+   "type": "force",
+   "value": "x",
+   "environments": [
+    "prod-typo"
+   ]
+  }
+ },
+ "status": "PASS",
+ "note": "isError=True; growthbook API error (400): {\"message\":\"Invalid environment: \\\"prod-typo\\\"\"}",
+ "ms": 5,
+ "bytes": 76,
+ "response": "growthbook API error (400): {\"message\":\"Invalid environment: \\\"prod-typo\\\"\"}"
+}

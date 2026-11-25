@@ -1,0 +1,13 @@
+{
+ "phase": "write",
+ "step": "start_experiment: checklist incomplete -> 409",
+ "tool": "growthbook_start_experiment",
+ "args": {
+  "experiment_id": "exp_4w9jq1zx7mwwfck9f"
+ },
+ "status": "PASS",
+ "note": "isError=True; growthbook API error (409): {\"message\":\"Experiment cannot be started: required checklist items are incomplete\\n- [checklist-item] Add at least one goal metric (retry with \\\"skipChecklist\\\": true)\\n- [checklist-item] Add a linked Feature Flag, AI Visual Editor change, or URL redirect (retry with \\\"sk",
+ "ms": 11,
+ "bytes": 1076,
+ "response": "growthbook API error (409): {\"message\":\"Experiment cannot be started: required checklist items are incomplete\\n- [checklist-item] Add at least one goal metric (retry with \\\"skipChecklist\\\": true)\\n- [checklist-item] Add a linked Feature Flag, AI Visual Editor change, or URL redirect (retry with \\\"skipChecklist\\\": true)\",\"code\":\"checklist_incomplete\",\"details\":{\"remainingChecklistItems\":[{\"key\":\"goalMetric\",\"required\":true,\"status\":\"incomplete\",\"manual\":false,\"reason\":\"Add at least one goal metric\"},{\"key\":\"linkedChanges\",\"required\":true,\"status\":\"incomplete\",\"manual\":false,\"reason\":\"Add a linked Feature Flag, AI Visual Editor change, or URL redirect\"}]},\"gates\":[{\"key\":\"goalMetric\",\"type\":\"checklist-item\",\"severity\":\"warning\",\"messages\":[\"Add at least one goal metric\"],\"override\":\"skipChecklist\",\"requiresPermission\":null,\"resolution\":null},{\"key\":\"linkedChanges\",\"type\":\"checklist-item\",\"severity\":\"warning\",\"messages\":[\"Add a linked Feature Flag, AI Visual Editor change, or URL redirect\"],\"override\":\"skipChecklist\",\"requiresPermission\":null,\"resolution\":null}]}"
+}

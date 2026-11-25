@@ -1,0 +1,13 @@
+{
+ "phase": "negative",
+ "step": "get_feature unknown id",
+ "tool": "growthbook_get_feature",
+ "args": {
+  "feature_id": "does-not-exist-417"
+ },
+ "status": "PASS",
+ "note": "isError=True; growthbook API error (404): {\"message\":\"Could not find a feature with that key\"}",
+ "ms": 5,
+ "bytes": 80,
+ "response": "growthbook API error (404): {\"message\":\"Could not find a feature with that key\"}"
+}

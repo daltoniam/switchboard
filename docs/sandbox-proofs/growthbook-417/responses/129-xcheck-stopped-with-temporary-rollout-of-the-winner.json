@@ -1,0 +1,18 @@
+{
+ "phase": "xcheck",
+ "step": "stopped with temporary rollout of the winner",
+ "tool": "GET /api/v1/experiments/exp_4w9jq1zx7mwwfck9f",
+ "args": {},
+ "status": "PASS",
+ "note": "status=stopped resultSummary={'status': 'won', 'winner': 'var_4w9jq1zx7mwwfck9e', 'releasedVariationId': 'var_4w9jq1zx7mwwfck9e', 'excludeFromPayload': False}",
+ "response": {
+  "status": "stopped",
+  "resultSummary": {
+   "status": "won",
+   "winner": "var_4w9jq1zx7mwwfck9e",
+   "conclusions": "NA Banner won in the sandbox",
+   "releasedVariationId": "var_4w9jq1zx7mwwfck9e",
+   "excludeFromPayload": false
+  }
+ }
+}

@@ -1,0 +1,16 @@
+leak scan 2026-11-25 12:00:43 CST over 307 files (292 text) in /workspace/sb-sandbox-proofs/growthbook-417
+GrowthBook API key value (417): 0 hits
+GrowthBook admin password (417): 0 hits
+warehouse password: 0 hits
+GrowthBook API key value (397): 0 hits
+GrowthBook admin password (397): 0 hits
+GrowthBook JWT_SECRET value: 0 hits
+GrowthBook ENCRYPTION_KEY value: 0 hits
+secret_ API key pattern: 0 hits
+sdk- client key pattern: 0 hits
+PEM private key: 0 hits
+encryptionKey/proxySigningKey value: 0 hits
+binary (png/mp4) literal matches: 0
+rendered frames come from the scrubbed harness log; UI screenshots show no key pages (SDK connections page not captured)
+tlsproxy request log: 0 lines with 'secret_' in a URL (key is sent only as a Bearer header)
+RESULT: CLEAN

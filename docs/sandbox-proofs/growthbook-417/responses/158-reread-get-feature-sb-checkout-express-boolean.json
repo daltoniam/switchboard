@@ -1,0 +1,44 @@
+{
+ "phase": "reread",
+ "step": "get_feature sb-checkout-express (boolean)",
+ "tool": "growthbook_get_feature",
+ "args": {
+  "feature_id": "sb-checkout-express"
+ },
+ "status": "PASS",
+ "note": "595B: {\"feature\":{\"archived\":false,\"dateCreated\":\"2026-11-25T17:55:35.553Z\",\"dateUpdated\":\"2026-11-25T17:55:42.446Z\",\"defaultValue\":\"false\",\"description\":\"Express checkout (boolean)\",\"environments\":{\"production\":{\"defaultValue",
+ "ms": 7,
+ "bytes": 595,
+ "response": {
+  "feature": {
+   "archived": false,
+   "dateCreated": "2026-11-25T17:55:35.553Z",
+   "dateUpdated": "2026-11-25T17:55:42.446Z",
+   "defaultValue": "false",
+   "description": "Express checkout (boolean)",
+   "environments": {
+    "production": {
+     "defaultValue": "false",
+     "enabled": false
+    },
+    "staging": {
+     "defaultValue": "false",
+     "enabled": true
+    }
+   },
+   "id": "sb-checkout-express",
+   "ownerEmail": "sb-admin@example.test",
+   "project": "prj_2ChQ5PcJW8cW4d5UHcBKjs",
+   "revision": {
+    "comment": "Created via REST API",
+    "date": "2026-11-25T17:55:42.441Z",
+    "publishedBy.name": "switchboard sandbox 417",
+    "version": 3
+   },
+   "tags": [
+    "checkout"
+   ],
+   "valueType": "boolean"
+  }
+ }
+}

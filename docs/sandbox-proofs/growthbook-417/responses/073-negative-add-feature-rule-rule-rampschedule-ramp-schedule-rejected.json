@@ -1,0 +1,29 @@
+{
+ "phase": "negative",
+ "step": "add_feature_rule: rule.rampSchedule (ramp/schedule) rejected",
+ "tool": "growthbook_add_feature_rule",
+ "args": {
+  "feature_id": "sb-beta-banner",
+  "rule": {
+   "type": "rollout",
+   "value": "x",
+   "coverage": 0.1,
+   "environments": [
+    "production"
+   ],
+   "rampSchedule": {
+    "type": "ramp",
+    "steps": [
+     {
+      "coverage": 0.5
+     }
+    ]
+   }
+  }
+ },
+ "status": "PASS",
+ "note": "isError=True; rule.rampSchedule is not accepted: a person must resolve GrowthBook's gates in the app",
+ "ms": 0,
+ "bytes": 86,
+ "response": "rule.rampSchedule is not accepted: a person must resolve GrowthBook's gates in the app"
+}

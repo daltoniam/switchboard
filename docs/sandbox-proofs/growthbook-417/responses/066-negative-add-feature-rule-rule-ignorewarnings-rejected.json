@@ -1,0 +1,21 @@
+{
+ "phase": "negative",
+ "step": "add_feature_rule: rule.ignoreWarnings rejected",
+ "tool": "growthbook_add_feature_rule",
+ "args": {
+  "feature_id": "sb-beta-banner",
+  "rule": {
+   "type": "force",
+   "value": "x",
+   "environments": [
+    "production"
+   ],
+   "ignoreWarnings": true
+  }
+ },
+ "status": "PASS",
+ "note": "isError=True; rule.ignoreWarnings is not accepted: a person must resolve GrowthBook's gates in the app",
+ "ms": 0,
+ "bytes": 88,
+ "response": "rule.ignoreWarnings is not accepted: a person must resolve GrowthBook's gates in the app"
+}

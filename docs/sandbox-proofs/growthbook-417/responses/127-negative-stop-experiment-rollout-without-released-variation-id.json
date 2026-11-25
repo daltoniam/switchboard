@@ -1,0 +1,16 @@
+{
+ "phase": "negative",
+ "step": "stop_experiment: rollout without released_variation_id",
+ "tool": "growthbook_stop_experiment",
+ "args": {
+  "experiment_id": "exp_4w9jq1zx7mwwfck9f",
+  "results": "won",
+  "winner_variation_id": "var_4w9jq1zx7mwwfck9e",
+  "enable_temporary_rollout": true
+ },
+ "status": "PASS",
+ "note": "isError=True; released_variation_id is required to roll a variation out to everyone",
+ "ms": 0,
+ "bytes": 69,
+ "response": "released_variation_id is required to roll a variation out to everyone"
+}

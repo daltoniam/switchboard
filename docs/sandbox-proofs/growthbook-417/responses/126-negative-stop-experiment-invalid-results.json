@@ -1,0 +1,14 @@
+{
+ "phase": "negative",
+ "step": "stop_experiment: invalid results",
+ "tool": "growthbook_stop_experiment",
+ "args": {
+  "experiment_id": "exp_4w9jq1zx7mwwfck9f",
+  "results": "shipped"
+ },
+ "status": "PASS",
+ "note": "isError=True; results is required: one of won, lost, inconclusive, dnf",
+ "ms": 1,
+ "bytes": 56,
+ "response": "results is required: one of won, lost, inconclusive, dnf"
+}

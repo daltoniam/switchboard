@@ -1,0 +1,47 @@
+{
+ "phase": "reread",
+ "step": "list_data_sources",
+ "tool": "growthbook_list_data_sources",
+ "args": {},
+ "status": "PASS",
+ "note": "570B: {\"dataSources\":[{\"assignmentQueries\":[{\"description\":\"\",\"dimensionColumns\":[],\"id\":\"exq_4w9jq1yzdmwwfaeli\",\"identifierType\":\"user_id\",\"identifierTypes\":[\"user_id\"],\"includesNameColumns\":false,\"name\":\"Experiment Viewed\",\"",
+ "ms": 6,
+ "bytes": 570,
+ "response": {
+  "dataSources": [
+   {
+    "assignmentQueries": [
+     {
+      "description": "",
+      "dimensionColumns": [],
+      "id": "exq_4w9jq1yzdmwwfaeli",
+      "identifierType": "user_id",
+      "identifierTypes": [
+       "user_id"
+      ],
+      "includesNameColumns": false,
+      "name": "Experiment Viewed",
+      "projects": [],
+      "sql": "SELECT user_id, timestamp, experiment_id, variation_id FROM experiment_viewed"
+     }
+    ],
+    "description": "",
+    "eventTracker": "custom",
+    "id": "ds_4w9jq1yzdmwwfael6",
+    "identifierTypes": [
+     {
+      "description": "",
+      "id": "user_id"
+     }
+    ],
+    "name": "SB Warehouse",
+    "projectIds": [
+     "prj_2ChQ5Gk4djffjvT3jwN2R2"
+    ],
+    "type": "postgres"
+   }
+  ],
+  "hasMore": false,
+  "total": 1
+ }
+}

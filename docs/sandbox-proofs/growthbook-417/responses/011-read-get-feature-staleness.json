@@ -1,0 +1,51 @@
+{
+ "phase": "read",
+ "step": "get_feature_staleness",
+ "tool": "growthbook_get_feature_staleness",
+ "args": {
+  "feature_ids": "sb-checkout-express,sb-beta-banner"
+ },
+ "status": "PASS",
+ "note": "572B: {\"features\":{\"sb-beta-banner\":{\"featureId\":\"sb-beta-banner\",\"isStale\":false,\"neverStale\":false,\"staleByEnv\":{\"production\":{\"isStale\":false,\"reason\":\"has-rules\"},\"staging\":{\"evaluatesTo\":\"null\",\"isStale\":true,\"reason\":\"to",
+ "ms": 9,
+ "bytes": 572,
+ "response": {
+  "features": {
+   "sb-beta-banner": {
+    "featureId": "sb-beta-banner",
+    "isStale": false,
+    "neverStale": false,
+    "staleByEnv": {
+     "production": {
+      "isStale": false,
+      "reason": "has-rules"
+     },
+     "staging": {
+      "evaluatesTo": "null",
+      "isStale": true,
+      "reason": "toggled-off"
+     }
+    },
+    "staleReason": "recently-updated"
+   },
+   "sb-checkout-express": {
+    "featureId": "sb-checkout-express",
+    "isStale": false,
+    "neverStale": false,
+    "staleByEnv": {
+     "production": {
+      "evaluatesTo": "null",
+      "isStale": true,
+      "reason": "toggled-off"
+     },
+     "staging": {
+      "evaluatesTo": "false",
+      "isStale": false,
+      "reason": "has-dependents"
+     }
+    },
+    "staleReason": "recently-updated"
+   }
+  }
+ }
+}

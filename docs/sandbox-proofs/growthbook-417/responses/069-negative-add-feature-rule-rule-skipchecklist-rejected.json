@@ -1,0 +1,21 @@
+{
+ "phase": "negative",
+ "step": "add_feature_rule: rule.skipChecklist rejected",
+ "tool": "growthbook_add_feature_rule",
+ "args": {
+  "feature_id": "sb-beta-banner",
+  "rule": {
+   "type": "force",
+   "value": "x",
+   "environments": [
+    "production"
+   ],
+   "skipChecklist": true
+  }
+ },
+ "status": "PASS",
+ "note": "isError=True; rule.skipChecklist is not accepted: a person must resolve GrowthBook's gates in the app",
+ "ms": 1,
+ "bytes": 87,
+ "response": "rule.skipChecklist is not accepted: a person must resolve GrowthBook's gates in the app"
+}

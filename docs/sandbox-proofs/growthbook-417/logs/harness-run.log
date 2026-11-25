@@ -1,0 +1,220 @@
+PASS ['execute', 'history', 'pin', 'project_agent_profile_delete', 'project_agent_profile_get', 'project_agent_profile_list', 'project_agent_profile_put', 'project_create', 'project_delete', 'project_get', 'project_list', 'project_patch', 'project_resolve', 'project_resource_binding_create', 'project_resource_binding_delete', 'project_resource_binding_get', 'project_resource_binding_list', 'project_resource_binding_patch', 'project_resource_binding_transition', 'project_resource_delete', 'project_resource_get', 'project_resource_list', 'project_resource_put', 'project_search', 'project_update', 'project_validate', 'project_work_profile_delete', 'project_work_profile_get', 'project_work_profile_list', 'project_work_profile_put', 'project_work_session_create', 'project_work_session_delete', 'project_work_session_get', 'project_work_session_list', 'project_work_session_patch', 'project_work_session_transition', 'search', 'session']
+[PASS] search:search "rule draft publish revision" — 12 growthbook tools; missing=[]
+[PASS] search:search "start stop experiment" — 15 growthbook tools; missing=[]
+[PASS] search:search "growthbook" — 37 growthbook tools; missing=[]
+[PASS] search:search "feature flag experiment results" — 20 growthbook tools; missing=[]
+[PASS] search:search "toggle feature flag" — 10 growthbook tools; missing=[]
+[PASS] read:list_features — 3035B: {"features":[{"archived":false,"dateUpdated":"2026-11-25T17:55:35.553Z","defaultValue":"false","description":"Express checkout (boolean)","environments":{"production":{"defaultValue":"false","enabled":false},"staging":{"
+[PASS] read:list_features project_id+limit=2 — {"features":[{"archived":false,"dateUpdated":"2026-11-25T17:55:35.553Z","defaultValue":"false","description":"Express checkout (boolean)","environments":{"production":{"defaultValue":"false","enabled":false},"staging":{"defaultValue":"false","enabled":true}},"
+[PASS] read:list_features offset=2 limit=2 — {"features":[{"archived":false,"dateUpdated":"2026-11-25T17:55:35.738Z","defaultValue":"classic","description":"Experiment flag","environments":{"production":{"defaultValue":"classic","enabled":false},"staging":{"defaultValue":"classic","enabled":false}},"id":
+[PASS] read:get_feature sb-beta-banner (rules) — 1235B: {"feature":{"archived":false,"dateCreated":"2026-11-25T17:55:35.597Z","dateUpdated":"2026-11-25T17:55:38.930Z","defaultValue":"off","description":"Beta banner (string, rules)","environments":{"production":{"defaultValue"
+[PASS] read:get_feature sb-checkout-express (boolean) — 574B: {"feature":{"archived":false,"dateCreated":"2026-11-25T17:55:35.553Z","dateUpdated":"2026-11-25T17:55:35.553Z","defaultValue":"false","description":"Express checkout (boolean)","environments":{"production":{"defaultValue
+[PASS] read:get_feature_staleness — 572B: {"features":{"sb-beta-banner":{"featureId":"sb-beta-banner","isStale":false,"neverStale":false,"staleByEnv":{"production":{"isStale":false,"reason":"has-rules"},"staging":{"evaluatesTo":"null","isStale":true,"reason":"to
+[PASS] read:list_feature_revisions published — 1841B: {"hasMore":false,"revisions":[{"baseVersion":1,"comment":"Created via REST API","date":"2026-11-25T17:55:38.922Z","defaultValue":"off","environmentsEnabled":{"production":true,"staging":false},"featureId":"sb-beta-banner
+[PASS] read:list_feature_revisions default (drafts) — {"hasMore":false,"revisions":[],"total":0}
+pinned as $8
+[PASS] read:list_experiments — 2388B: {"experiments":[{"archived":false,"datasourceId":"ds_4w9jq1zx7mwwfcefs","dateUpdated":"2026-11-25T17:55:36.943Z","goals":[{"metricId":"fact__2ChQ5PfuoJCzyqbsYfZoUU","overrides":{}}],"hypothesis":"SB Checkout Test raises 
+[PASS] read:list_experiments status=stopped — {"experiments":[{"archived":false,"datasourceId":"ds_4w9jq1zx7mwwfcefs","dateUpdated":"2026-11-25T17:55:35.706Z","goals":[{"metricId":"fact__2ChQ5PfuoJCzyqbsYfZoUU","overrides":{}}],"hypothesis":"SB Banner Test raises conversion","id":"exp_4w9jq1zx7mwwfcepv","
+[PASS] read:list_experiments status=running — {"experiments":[{"archived":false,"datasourceId":"ds_4w9jq1zx7mwwfcefs","dateUpdated":"2026-11-25T17:55:36.943Z","goals":[{"metricId":"fact__2ChQ5PfuoJCzyqbsYfZoUU","overrides":{}}],"hypothesis":"SB Checkout Test raises conversion","id":"exp_4w9jq1zx7mwwfceos"
+[PASS] read:get_experiment (stopped) — 1733B: {"experiment":{"archived":false,"dateCreated":"2026-11-25T17:55:35.681Z","dateUpdated":"2026-11-25T17:55:35.706Z","description":"","enhancedStatus":{"detailedStatus":"Won","needsAttention":false,"status":"Stopped"},"hash
+[PASS] read:get_experiment (running) — 1532B: {"experiment":{"archived":false,"dateCreated":"2026-11-25T17:55:35.644Z","dateUpdated":"2026-11-25T17:55:36.943Z","description":"","enhancedStatus":{"needsAttention":false,"status":"Running"},"hashAttribute":"id","hypoth
+[PASS] read:get_experiment_results — 2683B: {"experiment":{"enhancedStatus":{"needsAttention":false,"status":"Running"},"id":"exp_4w9jq1zx7mwwfceos","name":"SB Checkout Test","status":"running","variations":[{"description":"","key":"0","name":"Control","screenshot
+[PASS] write:refresh_experiment_results (sandbox warehouse query) — 118B: {"snapshot":{"experiment":"exp_4w9jq1zx7mwwfceos","id":"snp_2ChQ5Q23GLzwJExkcXG9oa","status":"running"}}
+pinned as $15
+[PASS] read:get_snapshot (from refresh) — 118B: {"snapshot":{"experiment":"exp_4w9jq1zx7mwwfceos","id":"snp_2ChQ5Q23GLzwJExkcXG9oa","status":"success"}}
+pinned as $16
+[PASS] read:list_fact_metrics — 377B: {"factMetrics":[{"column":"$$distinctUsers","datasource":"ds_4w9jq1zx7mwwfcefs","description":"","factTableId":"ftb_4w9jq1zx7mwwfcei4","id":"fact__2ChQ5PfuoJCzyqbsYfZoUU","inverse":false,"metricType":"proportion","name":
+[PASS] read:list_fact_metrics fact_table_id filter — 377B: {"factMetrics":[{"column":"$$distinctUsers","datasource":"ds_4w9jq1zx7mwwfcefs","description":"","factTableId":"ftb_4w9jq1zx7mwwfcei4","id":"fact__2ChQ5PfuoJCzyqbsYfZoUU","inverse":false,"metricType":"proportion","name":
+[PASS] read:get_fact_metric — 685B: {"factMetric":{"cappingSettings":{"type":"none","value":0},"datasource":"ds_4w9jq1zx7mwwfcefs","dateUpdated":"2026-11-25T17:55:35.442Z","description":"","id":"fact__2ChQ5PfuoJCzyqbsYfZoUU","inverse":false,"maxPercentChan
+[PASS] read:list_metrics (legacy) — 317B: {"hasMore":false,"metrics":[{"archived":false,"datasourceId":"ds_4w9jq1zx7mwwfcefs","description":"","goal":"increase","id":"met_4w9jq1zx7mwwfcejq","name":"Legacy Purchases","ownerEmail":"sb-admin@example.test","projects
+[PASS] read:list_fact_tables — 1341B: {"factTables":[{"columns":[{"alwaysInlineFilter":false,"autoSlices":[],"column":"user_id","dataTypeFromWarehouse":"string","datatype":"string","dateCreated":"2026-11-25T17:55:35.434Z","dateUpdated":"2026-11-25T17:55:35.4
+[PASS] read:list_projects — 202B: {"hasMore":false,"projects":[{"description":"Sandbox checkout growth experiments","id":"prj_2ChQ5PcJW8cW4d5UHcBKjs","name":"SB Growth","owner":"","publicId":"my-first-project"}],"total":1}
+pinned as $22
+[PASS] read:list_environments — 234B: {"environments":[{"defaultState":true,"description":"","id":"production","isProduction":true},{"defaultState":false,"description":"Staging","id":"staging","isProduction":false,"projects":["prj_2ChQ5PcJW8cW4d5UHcBKjs"]}]}
+[PASS] read:list_sdk_connections — 337B: {"connections":[{"archived":false,"encryptPayload":false,"environment":"production","id":"sdk_4w9jq1zx7mwwfceld","key":"sdk-REDACTED","languages":["javascript"],"name":"SB Web","projects":["prj_2ChQ5PcJW8cW4d5UHc
+[PASS] read:list_saved_groups — 264B: {"hasMore":false,"savedGroups":[{"archived":false,"attributeKey":"id","condition":"","dateUpdated":"2026-11-25T17:55:35.489Z","id":"grp_2ChQ5Pg7TFJ9mV4XtXbaVf","name":"Beta Testers","projects":["prj_2ChQ5PcJW8cW4d5UHcBKj
+[PASS] read:get_saved_group — 281B: {"savedGroup":{"archived":false,"attributeKey":"id","condition":"","dateUpdated":"2026-11-25T17:55:35.489Z","id":"grp_2ChQ5Pg7TFJ9mV4XtXbaVf","name":"Beta Testers","owner":"","projects":["prj_2ChQ5PcJW8cW4d5UHcBKjs"],"ty
+[PASS] read:list_attributes — 730B: {"attributes":{"columns":["datatype","property","enum","description","hashAttribute","projects"],"rows":[["string","id",null,null,true,null],["string","url",null,null,null,null],["string","path",null,null,null,null],["st
+[PASS] read:list_data_sources — 570B: {"dataSources":[{"assignmentQueries":[{"description":"","dimensionColumns":[],"id":"exq_4w9jq1zx7mwwfceg5","identifierType":"user_id","identifierTypes":["user_id"],"includesNameColumns":false,"name":"Experiment Viewed","
+[PASS] read:list_segments — 348B: {"hasMore":false,"segments":[{"datasourceId":"ds_4w9jq1zx7mwwfcefs","description":"","factTableId":"","id":"seg_2ChQ5Pg4UXZUaRe2749rXq","identifierType":"user_id","name":"Big Spenders","projects":["prj_2ChQ5PcJW8cW4d5UHc
+[PASS] read:list_audit_logs feature sb-beta-banner — 426B: {"audits":[{"dateCreated":"2026-11-25T17:55:38.933Z","entity":{"id":"sb-beta-banner","object":"feature"},"event":"feature.toggle","id":"aud_2ChQ5PvqUZz9Xhe8ZFrcWR","name":"switchboard sandbox 417","reason":"sandbox launc
+[PASS] read:list_audit_logs experiment limit=1 — {"audits":[{"dateCreated":"2026-11-25T17:55:40.207Z","entity":{"id":"exp_4w9jq1zx7mwwfceos","object":"experiment"},"event":"experiment.refresh","id":"aud_2ChQ5Q2HQ9Tq5vr8M23iZz","name":"switchboard sandbox 417"}],"nextCursor":"2026-11-25T17:55:40.207Z_aud_2ChQ
+[PASS] read:list_audit_logs experiment before=nextCursor — {"audits":[{"dateCreated":"2026-11-25T17:55:35.875Z","entity":{"id":"exp_4w9jq1zx7mwwfceos","object":"experiment"},"event":"experiment.refresh","id":"aud_2ChQ5PhmAi64WJztugyAeU","name":"switchboard sandbox 417"}],"nextCursor":"2026-11-25T17:55:35.875Z_aud_2ChQ
+[PASS] read:list_code_refs — 307B: {"codeRefs":[{"branch":"main","dateUpdated":"2026-11-25T17:55:38.975Z","feature":"sb-checkout-express","refs":[{"filePath":"src/checkout.ts","flagKey":"sb-checkout-express","lines":"if (gb.isOn('sb-checkout-express')) {"
+[PASS] read:get_feature_code_refs — 281B: {"codeRefs":[{"branch":"main","dateUpdated":"2026-11-25T17:55:38.975Z","feature":"sb-checkout-express","refs":[{"filePath":"src/checkout.ts","flagKey":"sb-checkout-express","lines":"if (gb.isOn('sb-checkout-express')) {"
+[PASS] read:get_settings — 544B: {"settings":{"attributionModel":"firstExposure","confidenceLevel":0.95,"experimentMinLengthDays":3,"featureKeyExample":"","featureRegexValidator":"","killswitchConfirmation":true,"pValueThreshold":0.05,"regressionAdjustm
+[PASS] read:list_members — 204B: {"hasMore":false,"members":[{"email":"sb-admin@example.test","globalRole":"admin","id":"u_4w9jq1zx7mwwfcdv0","lastLoginDate":"2026-11-25T17:55:35.253Z","name":"SB Sandbox Admin"}],"total":1}
+pinned as $36
+[PASS] write:toggle_feature sb-checkout-express production=true — 165B: {"date_updated":"2026-11-25T17:55:42.405Z","enabled":true,"environment":"production","feature_id":"sb-checkout-express","status":"updated","version":2}
+pinned as $37
+[PASS] xcheck:direct REST after toggle — production False -> True
+[PASS] write:toggle_feature back off (production=false) — 166B: {"date_updated":"2026-11-25T17:55:42.446Z","enabled":false,"environment":"production","feature_id":"sb-checkout-express","status":"updated","version":3}
+pinned as $38
+[PASS] write:create_feature sb-agent-flag-29342 — 915B: {"feature":{"archived":false,"customFields":{},"dateCreated":"2026-11-25T17:55:42.476Z","dateUpdated":"2026-11-25T17:55:42.476Z","defaultValue":"false","description":"Created by the sandbox E2E for PR 417","environments"
+[PASS] negative:create_feature duplicate key — isError=True; growthbook API error (400): {"message":"Feature id 'sb-agent-flag-29342' already exists."}
+[PASS] write:add_feature_rule: new draft, force rule (US, production) — version=3 status=draft rules=3 missing=[] unexpected=[]
+[PASS] xcheck:draft is not live after add — live rules still 2, no sb417 rule
+[PASS] write:add_feature_rule: second rule into the same draft (rollout, staging) — version=3 status=draft rules=4 missing=[] unexpected=[]
+[PASS] write:update_feature_rule: condition/value/description — version=3 status=draft rules=4 missing=[] unexpected=[]
+[PASS] write:update_feature_rule: rollout coverage 0.25 -> 0.5 — {"baseVersion":2,"comment":"Sandbox E2E for PR 417: add a US force rule","defaultValue":"off","environmentsEnabled":{"production":true,"staging":false},"feature_id":"sb-beta-banner","message":"Saved to the draft revision only; nothing is li
+[PASS] write:delete_feature_rule: remove the temp rollout — version=3 status=draft rules=3 missing=[] unexpected=[]
+[PASS] read:list_feature_revisions shows the draft — 1326B: {"hasMore":false,"revisions":[{"baseVersion":2,"comment":"Sandbox E2E for PR 417: add a US force rule","date":"2026-11-25T17:55:42.524Z","defaultValue":"off","environmentsEnabled":{"production":true,"staging":false},"fea
+[PASS] negative:publish_feature_revision without comment — isError=True; comment is required: what this publish changes and why, for the audit log
+[PASS] write:publish_feature_revision with audit comment — {"feature_id":"sb-beta-banner","message":"The revision is live: SDKs serve it from their next refresh.","status":"published","version":3}
+pinned as $46
+[PASS] xcheck:published rule is live, temp rule is not — live rules 2 -> 3; NA rule present, temp rollout absent
+[PASS] negative:update_feature_rule on the published version — isError=True; growthbook API error (400): {"message":"Cannot edit a revision with status \"published\""}
+[PASS] write:add_feature_rule: new draft (rule as JSON string, allEnvironments) — version=4 status=draft rules=1 missing=[] unexpected=[]
+[PASS] write:discard_feature_revision — {"baseVersion":3,"comment":"","defaultValue":"false","environmentsEnabled":{"production":false,"staging":true},"feature_id":"sb-checkout-express","message":"The draft is discarded; the live revision is unchanged.","rules":[{"allEnvironments
+[PASS] xcheck:discarded draft never went live — live rules 0 -> 0
+[PASS] negative:publish_feature_revision of the discarded draft — isError=True; growthbook API error (400): {"message":"Cannot publish a revision with status \"discarded\""}
+[PASS] negative:add_feature_rule: neither environments nor allEnvironments — isError=True; rule must name its environments (environments: ["dev"]) or set allEnvironments: true, so production is never targeted by accident
+[PASS] negative:add_feature_rule: environments []  — isError=True; rule must name its environments (environments: ["dev"]) or set allEnvironments: true, so production is never targeted by accident
+[PASS] negative:add_feature_rule: allEnvironments false — isError=True; rule must name its environments (environments: ["dev"]) or set allEnvironments: true, so production is never targeted by accident
+[PASS] negative:add_feature_rule: unknown rule type — isError=True; rule.type must be one of force, rollout, experiment-ref
+[PASS] negative:add_feature_rule: rule.ignoreWarnings rejected — isError=True; rule.ignoreWarnings is not accepted: a person must resolve GrowthBook's gates in the app
+[PASS] negative:add_feature_rule: rule.skipSchemaValidation rejected — isError=True; rule.skipSchemaValidation is not accepted: a person must resolve GrowthBook's gates in the app
+[PASS] negative:add_feature_rule: rule.skipHooks rejected — isError=True; rule.skipHooks is not accepted: a person must resolve GrowthBook's gates in the app
+[PASS] negative:add_feature_rule: rule.skipChecklist rejected — isError=True; rule.skipChecklist is not accepted: a person must resolve GrowthBook's gates in the app
+[PASS] negative:add_feature_rule: rule.bypassApproval rejected — isError=True; rule.bypassApproval is not accepted: a person must resolve GrowthBook's gates in the app
+[PASS] negative:add_feature_rule: rule.allowUnscopedRules rejected — isError=True; rule.allowUnscopedRules is not accepted: a person must resolve GrowthBook's gates in the app
+[PASS] negative:add_feature_rule: rule.bypassDuplicateKeyCheck rejected — isError=True; rule.bypassDuplicateKeyCheck is not accepted: a person must resolve GrowthBook's gates in the app
+[PASS] negative:add_feature_rule: rule.rampSchedule (ramp/schedule) rejected — isError=True; rule.rampSchedule is not accepted: a person must resolve GrowthBook's gates in the app
+[PASS] negative:add_feature_rule: rule.schedule (ramp/schedule) rejected — isError=True; rule.schedule is not accepted: a person must resolve GrowthBook's gates in the app
+[PASS] negative:update_feature_rule: rule.ignoreWarnings rejected — isError=True; rule.ignoreWarnings is not accepted: a person must resolve GrowthBook's gates in the app
+[PASS] negative:update_feature_rule: rule.skipSchemaValidation rejected — isError=True; rule.skipSchemaValidation is not accepted: a person must resolve GrowthBook's gates in the app
+[PASS] negative:update_feature_rule: rule.skipHooks rejected — isError=True; rule.skipHooks is not accepted: a person must resolve GrowthBook's gates in the app
+[PASS] negative:update_feature_rule: rule.skipChecklist rejected — isError=True; rule.skipChecklist is not accepted: a person must resolve GrowthBook's gates in the app
+[PASS] negative:update_feature_rule: rule.bypassApproval rejected — isError=True; rule.bypassApproval is not accepted: a person must resolve GrowthBook's gates in the app
+[PASS] negative:update_feature_rule: rule.allowUnscopedRules rejected — isError=True; rule.allowUnscopedRules is not accepted: a person must resolve GrowthBook's gates in the app
+[PASS] negative:update_feature_rule: rule.bypassDuplicateKeyCheck rejected — isError=True; rule.bypassDuplicateKeyCheck is not accepted: a person must resolve GrowthBook's gates in the app
+[PASS] negative:update_feature_rule: rule.rampSchedule rejected — isError=True; rule.rampSchedule is not accepted: a person must resolve GrowthBook's gates in the app
+[PASS] negative:update_feature_rule: type change rejected — isError=True; rule.type cannot be changed; delete the rule and add a new one
+[PASS] negative:update_feature_rule: empty patch rejected — isError=True; rule must change at least one field
+[PASS] negative:update_feature_rule: version 0 rejected — isError=True; version must be a positive draft revision version
+[PASS] negative:delete_feature_rule: version "abc" rejected — isError=True; parameter "version": cannot convert string "abc" to int: strconv.Atoi: parsing "abc": invalid syntax
+[PASS] negative:publish_feature_revision: unknown arg ignoreWarnings rejected — isError=True; unknown parameter "ignoreWarnings" for tool "growthbook_publish_feature_revision". Valid parameters: [comment feature_id version]
+[PASS] negative:add_feature_rule: rule not an object — isError=True; rule must be a JSON object
+[PASS] negative:delete_feature_rule: rule_id path traversal — isError=True; rule_id is not a valid GrowthBook id
+[PASS] xcheck:rule guardrails: zero requests reached GrowthBook — 0 proxied requests during 34 rejected calls
+[PASS] negative:create_experiment: status running rejected — isError=True; experiment.status must be draft (or omitted); start it with growthbook_start_experiment
+[PASS] negative:create_experiment: experiment.ignoreWarnings rejected — isError=True; experiment.ignoreWarnings is not accepted: a person must resolve GrowthBook's gates in the app
+[PASS] negative:create_experiment: experiment.skipSchemaValidation rejected — isError=True; experiment.skipSchemaValidation is not accepted: a person must resolve GrowthBook's gates in the app
+[PASS] negative:create_experiment: experiment.skipHooks rejected — isError=True; experiment.skipHooks is not accepted: a person must resolve GrowthBook's gates in the app
+[PASS] negative:create_experiment: experiment.skipChecklist rejected — isError=True; experiment.skipChecklist is not accepted: a person must resolve GrowthBook's gates in the app
+[PASS] negative:create_experiment: experiment.bypassApproval rejected — isError=True; experiment.bypassApproval is not accepted: a person must resolve GrowthBook's gates in the app
+[PASS] negative:create_experiment: experiment.allowUnscopedRules rejected — isError=True; experiment.allowUnscopedRules is not accepted: a person must resolve GrowthBook's gates in the app
+[PASS] negative:create_experiment: experiment.bypassDuplicateKeyCheck rejected — isError=True; experiment.bypassDuplicateKeyCheck is not accepted: a person must resolve GrowthBook's gates in the app
+[PASS] negative:create_experiment: one variation rejected — isError=True; experiment.variations needs at least two variations, each with key and name
+[PASS] negative:create_experiment: missing trackingKey rejected — isError=True; experiment.trackingKey is required
+[PASS] xcheck:create_experiment guardrails: zero requests reached GrowthBook — 0 proxied requests
+[PASS] write:create_experiment: draft — {"hashAttribute":"id","id":"exp_4w9jq1zx7mwwfck9f","latestPhase":{"coverage":1,"dateEnded":"","dateStarted":"2026-11-25T17:55:42.865Z","name":"Main","prerequisites":[],"reasonForStopping":"","savedGroupTargeting":[],"seed":"52269dd8-d2c0-42
+[PASS] write:start_experiment: checklist incomplete -> 409 — isError=True; growthbook API error (409): {"message":"Experiment cannot be started: required checklist items are incomplete\n- [checklist-item] Add at least one goal metric (retry with \"skipChecklist\": true)\n- [checklist-item] Add a linked Feature Flag, AI Visual Editor change, or URL redirect (retry with \"sk
+[PASS] xcheck:experiment still draft after the 409 — status=draft
+[PASS] negative:start_experiment: extra skipChecklist arg rejected — isError=True; unknown parameter "skipChecklist" for tool "growthbook_start_experiment". Valid parameters: [experiment_id]
+[PASS] negative:update_experiment: status running rejected — isError=True; changes.status is not accepted; use growthbook_start_experiment or growthbook_stop_experiment
+[PASS] negative:update_experiment: status stopped rejected — isError=True; changes.status is not accepted; use growthbook_start_experiment or growthbook_stop_experiment
+[PASS] negative:update_experiment: status draft rejected — isError=True; changes.status is not accepted; use growthbook_start_experiment or growthbook_stop_experiment
+[PASS] negative:update_experiment: linkedChanges rejected — isError=True; changes.linkedChanges is not accepted; use growthbook_start_experiment or growthbook_stop_experiment
+[PASS] negative:update_experiment: changes.ignoreWarnings rejected — isError=True; changes.ignoreWarnings is not accepted: a person must resolve GrowthBook's gates in the app
+[PASS] negative:update_experiment: changes.skipSchemaValidation rejected — isError=True; changes.skipSchemaValidation is not accepted: a person must resolve GrowthBook's gates in the app
+[PASS] negative:update_experiment: changes.skipHooks rejected — isError=True; changes.skipHooks is not accepted: a person must resolve GrowthBook's gates in the app
+[PASS] negative:update_experiment: changes.skipChecklist rejected — isError=True; changes.skipChecklist is not accepted: a person must resolve GrowthBook's gates in the app
+[PASS] negative:update_experiment: changes.bypassApproval rejected — isError=True; changes.bypassApproval is not accepted: a person must resolve GrowthBook's gates in the app
+[PASS] negative:update_experiment: changes.allowUnscopedRules rejected — isError=True; changes.allowUnscopedRules is not accepted: a person must resolve GrowthBook's gates in the app
+[PASS] negative:update_experiment: changes.bypassDuplicateKeyCheck rejected — isError=True; changes.bypassDuplicateKeyCheck is not accepted: a person must resolve GrowthBook's gates in the app
+[PASS] negative:update_experiment: empty changes rejected — isError=True; changes must set at least one field
+[PASS] xcheck:update_experiment guardrails: zero requests reached GrowthBook — 0 proxied requests
+[PASS] write:update_experiment: goal metric + hypothesis + description — {"hashAttribute":"id","id":"exp_4w9jq1zx7mwwfck9f","latestPhase":{"coverage":1,"dateEnded":"","dateStarted":"2026-11-25T17:55:42.865Z","name":"Main","prerequisites":[],"reasonForStopping":"","savedGroupTargeting":[],"seed":"52269dd8-d2c0-42
+[PASS] xcheck:update persisted (metrics, hypothesis), status still draft — settings.goals=['fact__2ChQ5PfuoJCzyqbsYfZoUU'] guardrails=['met_4w9jq1zx7mwwfcejq'] status=draft
+[PASS] write:create_feature sb-417-market-flag-29342 (for the experiment) — 893B: {"feature":{"archived":false,"customFields":{},"dateCreated":"2026-11-25T17:55:42.974Z","dateUpdated":"2026-11-25T17:55:42.974Z","defaultValue":"control","description":"PR 417 experiment flag","environments":{"production
+[PASS] write:add_feature_rule: experiment-ref rule linking the experiment (draft) — version=2 status=draft rules=1 missing=[] unexpected=[]
+[PASS] write:start_experiment: starts and publishes the linked draft — {"hashAttribute":"id","id":"exp_4w9jq1zx7mwwfck9f","latestPhase":{"coverage":1,"dateEnded":"","dateStarted":"2026-11-25T17:55:43.067Z","name":"Main","prerequisites":[],"reasonForStopping":"","savedGroupTargeting":[],"seed":"52269dd8-d2c0-423e-8b28-4c3f3bac3073","targetingCondition":"","trafficSplit"
+[PASS] xcheck:experiment running; flag rule live — running; experiment-ref rule live on sb-417-market-flag-29342
+[PASS] write:update_experiment on the running experiment (description) — {"hashAttribute":"id","id":"exp_4w9jq1zx7mwwfck9f","latestPhase":{"coverage":1,"dateEnded":"","dateStarted":"2026-11-25T17:55:43.067Z","name":"Main","prerequisites":[],"reasonForStopping":"","savedGro
+[PASS] negative:stop_experiment: invalid results — isError=True; results is required: one of won, lost, inconclusive, dnf
+[PASS] negative:stop_experiment: rollout without released_variation_id — isError=True; released_variation_id is required to roll a variation out to everyone
+[PASS] write:stop_experiment: won, roll out NA Banner to everyone — {"hashAttribute":"id","id":"exp_4w9jq1zx7mwwfck9f","latestPhase":{"coverage":1,"dateEnded":"2026-11-25T17:55:43.182Z","dateStarted":"2026-11-25T17:55:43.067Z","name":"Main","prerequisites":[],"reasonForStopping":"PR 417 sandbox E2E","savedGroupTargeting":[],"seed":"52269dd8-d2c0-423e-8b28-4c3f3bac30
+[PASS] xcheck:stopped with temporary rollout of the winner — status=stopped resultSummary={'status': 'won', 'winner': 'var_4w9jq1zx7mwwfck9e', 'releasedVariationId': 'var_4w9jq1zx7mwwfck9e', 'excludeFromPayload': False}
+[PASS] negative:start_experiment: unknown id — isError=True; growthbook API error (404): {"message":"Experiment not found"}
+[PASS] negative:stop_experiment: path traversal id — isError=True; experiment_id is not a valid GrowthBook id
+[PASS] negative:create_feature bad value_type — isError=True; value_type is required: one of boolean, string, number, json
+[PASS] negative:create_feature bad key chars — isError=True; feature_id may contain only letters, digits and _ . : | -
+[PASS] negative:get_feature unknown id — isError=True; growthbook API error (404): {"message":"Could not find a feature with that key"}
+[PASS] negative:get_feature path traversal id — isError=True; feature_id is not a valid GrowthBook id
+[PASS] negative:get_feature missing feature_id — isError=True; missing required parameter "feature_id" for tool "growthbook_get_feature". Required: [feature_id]
+[PASS] negative:get_experiment unknown id — isError=True; growthbook API error (404): {"message":"Experiment not found"}
+[PASS] negative:get_saved_group unknown id — isError=True; growthbook API error (404): {"message":"Could not find savedGroup with that id"}
+[PASS] negative:get_snapshot unknown id — isError=True; growthbook API error (404): {"message":"Snapshot not found or no permission to access"}
+[PASS] negative:toggle_feature unknown environment — isError=True; growthbook API error (400): {"message":"Unknown environment: 'prod-typo'"}
+[PASS] negative:toggle_feature missing environment — isError=True; missing required parameter "environment" for tool "growthbook_toggle_feature". Required: [feature_id environment enabled]
+[PASS] negative:toggle_feature unknown feature — isError=True; growthbook API error (404): {"message":"Could not find a feature with that key"}
+[PASS] negative:list_features limit=0 rejected — isError=True; limit must be between 1 and 100
+[PASS] negative:get_feature_staleness 101 ids — isError=True; feature_ids accepts at most 100 keys
+[PASS] negative:list_audit_logs missing entity_type — isError=True; missing required parameter "entity_type" for tool "growthbook_list_audit_logs". Required: [entity_type]
+[PASS] write:create_feature sb-edge-unscoped-29342 (edge scratch flag) — 831B: {"feature":{"archived":false,"customFields":{},"dateCreated":"2026-11-25T17:55:43.268Z","dateUpdated":"2026-11-25T17:55:43.268Z","defaultValue":"off","description":"","environments":{"production":{"defaultValue":"off","e
+[PASS] write:toggle_feature edge flag production=true — 168B: {"date_updated":"2026-11-25T17:55:43.293Z","enabled":true,"environment":"production","feature_id":"sb-edge-unscoped-29342","status":"updated","version":2}
+pinned as $57
+[PASS] write:add_feature_rule edge: staging-scoped rule — version=3 status=draft rules=1 missing=[] unexpected=[]
+[INFO] edge:update_feature_rule can empty environments (scope check is add-only) — accepted: rule now has environments=[] and allEnvironments=false; {"baseVersion":2,"comment":"","defaultValue":"off","environmentsEnabled":{"production":true,"staging":false},"feature_id":"sb-edge-unscoped-29342","message":"Sa
+[PASS] write:publish_feature_revision edge: unscoped rule publishes — {"feature_id":"sb-edge-unscoped-29342","message":"The revision is live: SDKs serve it from their next refresh.","status":"published","version":3}
+pinned as $60
+[PASS] xcheck:unscoped rule is inert (not in any SDK definition) — production definition={"defaultValue":"off"}
+[PASS] negative:add_feature_rule: unknown environment (GrowthBook 400) — isError=True; growthbook API error (400): {"message":"Invalid environment: \"prod-typo\""}
+[PASS] negative:add_feature_rule: into a published version (GrowthBook 400) — isError=True; growthbook API error (400): {"message":"Cannot edit a revision with status \"published\""}
+[PASS] reread:list_features — 5276B: {"features":[{"archived":false,"dateUpdated":"2026-11-25T17:55:42.446Z","defaultValue":"false","description":"Express checkout (boolean)","environments":{"production":{"defaultValue":"false","enabled":false},"staging":{"
+[PASS] reread:list_features project_id+limit=2 — {"features":[{"archived":false,"dateUpdated":"2026-11-25T17:55:42.446Z","defaultValue":"false","description":"Express checkout (boolean)","environments":{"production":{"defaultValue":"false","enabled":false},"staging":{"defaultValue":"false","enabled":true}},"
+[PASS] reread:list_features offset=2 limit=2 — {"features":[{"archived":false,"dateUpdated":"2026-11-25T17:55:35.738Z","defaultValue":"classic","description":"Experiment flag","environments":{"production":{"defaultValue":"classic","enabled":false},"staging":{"defaultValue":"classic","enabled":false}},"id":
+[PASS] reread:get_feature sb-beta-banner (rules) — 1608B: {"feature":{"archived":false,"dateCreated":"2026-11-25T17:55:35.597Z","dateUpdated":"2026-11-25T17:55:42.692Z","defaultValue":"off","description":"Beta banner (string, rules)","environments":{"production":{"defaultValue"
+[PASS] reread:get_feature sb-checkout-express (boolean) — 595B: {"feature":{"archived":false,"dateCreated":"2026-11-25T17:55:35.553Z","dateUpdated":"2026-11-25T17:55:42.446Z","defaultValue":"false","description":"Express checkout (boolean)","environments":{"production":{"defaultValue
+[PASS] reread:get_feature_staleness — 573B: {"features":{"sb-beta-banner":{"featureId":"sb-beta-banner","isStale":false,"neverStale":false,"staleByEnv":{"production":{"isStale":false,"reason":"has-rules"},"staging":{"evaluatesTo":"null","isStale":true,"reason":"to
+[PASS] reread:list_feature_revisions published — 3117B: {"hasMore":false,"revisions":[{"baseVersion":2,"comment":"Sandbox E2E for PR 417: add a US force rule","date":"2026-11-25T17:55:42.524Z","defaultValue":"off","environmentsEnabled":{"production":true,"staging":false},"fea
+[PASS] reread:list_feature_revisions default (drafts) — {"hasMore":false,"revisions":[],"total":0}
+pinned as $68
+[PASS] reread:list_experiments — 3709B: {"experiments":[{"archived":false,"datasourceId":"ds_4w9jq1zx7mwwfcefs","dateUpdated":"2026-11-25T17:55:41.258Z","goals":[{"metricId":"fact__2ChQ5PfuoJCzyqbsYfZoUU","overrides":{}}],"hypothesis":"SB Checkout Test raises 
+[PASS] reread:list_experiments status=stopped — {"experiments":[{"archived":false,"datasourceId":"ds_4w9jq1zx7mwwfcefs","dateUpdated":"2026-11-25T17:55:35.706Z","goals":[{"metricId":"fact__2ChQ5PfuoJCzyqbsYfZoUU","overrides":{}}],"hypothesis":"SB Banner Test raises conversion","id":"exp_4w9jq1zx7mwwfcepv","
+[PASS] reread:list_experiments status=running — {"experiments":[{"archived":false,"datasourceId":"ds_4w9jq1zx7mwwfcefs","dateUpdated":"2026-11-25T17:55:41.258Z","goals":[{"metricId":"fact__2ChQ5PfuoJCzyqbsYfZoUU","overrides":{}}],"hypothesis":"SB Checkout Test raises conversion","id":"exp_4w9jq1zx7mwwfceos"
+[PASS] reread:get_experiment (stopped) — 1733B: {"experiment":{"archived":false,"dateCreated":"2026-11-25T17:55:35.681Z","dateUpdated":"2026-11-25T17:55:35.706Z","description":"","enhancedStatus":{"detailedStatus":"Won","needsAttention":false,"status":"Stopped"},"hash
+[PASS] reread:get_experiment (running) — 1532B: {"experiment":{"archived":false,"dateCreated":"2026-11-25T17:55:35.644Z","dateUpdated":"2026-11-25T17:55:41.258Z","description":"","enhancedStatus":{"needsAttention":false,"status":"Running"},"hashAttribute":"id","hypoth
+[PASS] reread:get_experiment_results — 2683B: {"experiment":{"enhancedStatus":{"needsAttention":false,"status":"Running"},"id":"exp_4w9jq1zx7mwwfceos","name":"SB Checkout Test","status":"running","variations":[{"description":"","key":"0","name":"Control","screenshot
+[PASS] write:refresh_experiment_results (sandbox warehouse query) — 118B: {"snapshot":{"experiment":"exp_4w9jq1zx7mwwfceos","id":"snp_2ChQ5QGdbeLhDmYgPeL24u","status":"running"}}
+pinned as $75
+[PASS] reread:get_snapshot (from refresh) — 118B: {"snapshot":{"experiment":"exp_4w9jq1zx7mwwfceos","id":"snp_2ChQ5QGdbeLhDmYgPeL24u","status":"success"}}
+pinned as $76
+[PASS] reread:list_fact_metrics — 377B: {"factMetrics":[{"column":"$$distinctUsers","datasource":"ds_4w9jq1zx7mwwfcefs","description":"","factTableId":"ftb_4w9jq1zx7mwwfcei4","id":"fact__2ChQ5PfuoJCzyqbsYfZoUU","inverse":false,"metricType":"proportion","name":
+[PASS] reread:list_fact_metrics fact_table_id filter — 377B: {"factMetrics":[{"column":"$$distinctUsers","datasource":"ds_4w9jq1zx7mwwfcefs","description":"","factTableId":"ftb_4w9jq1zx7mwwfcei4","id":"fact__2ChQ5PfuoJCzyqbsYfZoUU","inverse":false,"metricType":"proportion","name":
+[PASS] reread:get_fact_metric — 685B: {"factMetric":{"cappingSettings":{"type":"none","value":0},"datasource":"ds_4w9jq1zx7mwwfcefs","dateUpdated":"2026-11-25T17:55:35.442Z","description":"","id":"fact__2ChQ5PfuoJCzyqbsYfZoUU","inverse":false,"maxPercentChan
+[PASS] reread:list_metrics (legacy) — 317B: {"hasMore":false,"metrics":[{"archived":false,"datasourceId":"ds_4w9jq1zx7mwwfcefs","description":"","goal":"increase","id":"met_4w9jq1zx7mwwfcejq","name":"Legacy Purchases","ownerEmail":"sb-admin@example.test","projects
+[PASS] reread:list_fact_tables — 1341B: {"factTables":[{"columns":[{"alwaysInlineFilter":false,"autoSlices":[],"column":"user_id","dataTypeFromWarehouse":"string","datatype":"string","dateCreated":"2026-11-25T17:55:35.434Z","dateUpdated":"2026-11-25T17:55:35.4
+[PASS] reread:list_projects — 202B: {"hasMore":false,"projects":[{"description":"Sandbox checkout growth experiments","id":"prj_2ChQ5PcJW8cW4d5UHcBKjs","name":"SB Growth","owner":"","publicId":"my-first-project"}],"total":1}
+pinned as $82
+[PASS] reread:list_environments — 234B: {"environments":[{"defaultState":true,"description":"","id":"production","isProduction":true},{"defaultState":false,"description":"Staging","id":"staging","isProduction":false,"projects":["prj_2ChQ5PcJW8cW4d5UHcBKjs"]}]}
+[PASS] reread:list_sdk_connections — 337B: {"connections":[{"archived":false,"encryptPayload":false,"environment":"production","id":"sdk_4w9jq1zx7mwwfceld","key":"sdk-REDACTED","languages":["javascript"],"name":"SB Web","projects":["prj_2ChQ5PcJW8cW4d5UHc
+[PASS] reread:list_saved_groups — 264B: {"hasMore":false,"savedGroups":[{"archived":false,"attributeKey":"id","condition":"","dateUpdated":"2026-11-25T17:55:35.489Z","id":"grp_2ChQ5Pg7TFJ9mV4XtXbaVf","name":"Beta Testers","projects":["prj_2ChQ5PcJW8cW4d5UHcBKj
+[PASS] reread:get_saved_group — 281B: {"savedGroup":{"archived":false,"attributeKey":"id","condition":"","dateUpdated":"2026-11-25T17:55:35.489Z","id":"grp_2ChQ5Pg7TFJ9mV4XtXbaVf","name":"Beta Testers","owner":"","projects":["prj_2ChQ5PcJW8cW4d5UHcBKjs"],"ty
+[PASS] reread:list_attributes — 730B: {"attributes":{"columns":["datatype","property","enum","description","hashAttribute","projects"],"rows":[["string","id",null,null,true,null],["string","url",null,null,null,null],["string","path",null,null,null,null],["st
+[PASS] reread:list_data_sources — 570B: {"dataSources":[{"assignmentQueries":[{"description":"","dimensionColumns":[],"id":"exq_4w9jq1zx7mwwfceg5","identifierType":"user_id","identifierTypes":["user_id"],"includesNameColumns":false,"name":"Experiment Viewed","
+[PASS] reread:list_segments — 348B: {"hasMore":false,"segments":[{"datasourceId":"ds_4w9jq1zx7mwwfcefs","description":"","factTableId":"","id":"seg_2ChQ5Pg4UXZUaRe2749rXq","identifierType":"user_id","name":"Big Spenders","projects":["prj_2ChQ5PcJW8cW4d5UHc
+[PASS] reread:list_audit_logs feature sb-beta-banner — 880B: {"audits":{"columns":["dateCreated","event","id","reason"],"constants":{"entity":{"id":"sb-beta-banner","object":"feature"},"name":"switchboard sandbox 417"},"rows":[["2026-11-25T17:55:42.714Z","feature.publish","aud_2Ch
+[PASS] reread:list_audit_logs experiment limit=1 — {"audits":[{"dateCreated":"2026-11-25T17:55:43.617Z","entity":{"id":"exp_4w9jq1zx7mwwfceos","object":"experiment"},"event":"experiment.refresh","id":"aud_2ChQ5QGrzKRjrgcppZhM6K","name":"switchboard sandbox 417"}],"nextCursor":"2026-11-25T17:55:43.617Z_aud_2ChQ
+[PASS] reread:list_audit_logs experiment before=nextCursor — {"audits":[{"dateCreated":"2026-11-25T17:55:43.193Z","entity":{"id":"exp_4w9jq1zx7mwwfck9f","object":"experiment"},"event":"experiment.stop","id":"aud_2ChQ5QF3r6gqCJN2N9EBA9","name":"switchboard sandbox 417"}],"nextCursor":"2026-11-25T17:55:43.193Z_aud_2ChQ5QF
+[PASS] reread:list_code_refs — 307B: {"codeRefs":[{"branch":"main","dateUpdated":"2026-11-25T17:55:38.975Z","feature":"sb-checkout-express","refs":[{"filePath":"src/checkout.ts","flagKey":"sb-checkout-express","lines":"if (gb.isOn('sb-checkout-express')) {"
+[PASS] reread:get_feature_code_refs — 281B: {"codeRefs":[{"branch":"main","dateUpdated":"2026-11-25T17:55:38.975Z","feature":"sb-checkout-express","refs":[{"filePath":"src/checkout.ts","flagKey":"sb-checkout-express","lines":"if (gb.isOn('sb-checkout-express')) {"
+[PASS] reread:get_settings — 544B: {"settings":{"attributionModel":"firstExposure","confidenceLevel":0.95,"experimentMinLengthDays":3,"featureKeyExample":"","featureRegexValidator":"","killswitchConfirmation":true,"pValueThreshold":0.05,"regressionAdjustm
+[PASS] reread:list_members — 204B: {"hasMore":false,"members":[{"email":"sb-admin@example.test","globalRole":"admin","id":"u_4w9jq1zx7mwwfcdv0","lastLoginDate":"2026-11-25T17:55:35.253Z","name":"SB Sandbox Admin"}],"total":1}
+pinned as $96
+[PASS] verify:get_feature shows the published NA rule — 1608B: {"feature":{"archived":false,"dateCreated":"2026-11-25T17:55:35.597Z","dateUpdated":"2026-11-25T17:55:42.692Z","defaultValue":"off","description":"Beta banner (string, rules)","environments":{"production":{"defaultValue"
+[PASS] verify:get_feature (discard target) has no discarded rule — {"feature":{"archived":false,"dateCreated":"2026-11-25T17:55:35.553Z","dateUpdated":"2026-11-25T17:55:42.446Z","defaultValue":"false","description":"Express checkout (boolean)","environments":{"produc
+[PASS] verify:list_features shows the new flags — 5276B: {"features":[{"archived":false,"dateUpdated":"2026-11-25T17:55:42.446Z","defaultValue":"false","description":"Express checkout (boolean)","environments":{"production":{"defaultValue":"false","enabled":false},"staging":{"
+[PASS] verify:list_feature_revisions published: new version — 3118B: {"hasMore":false,"revisions":[{"baseVersion":2,"comment":"Sandbox E2E for PR 417: add a US force rule","date":"2026-11-25T17:55:42.524Z","defaultValue":"off","environmentsEnabled":{"production":true,"staging":false},"fea
+[PASS] verify:list_feature_revisions discarded — 630B: {"hasMore":false,"revisions":[{"baseVersion":3,"comment":"","date":"2026-11-25T17:55:42.767Z","defaultValue":"false","environmentsEnabled":{"production":false,"staging":true},"featureId":"sb-checkout-express","id":"frev_
+[PASS] verify:list_feature_revisions experiment flag published by start — 1122B: {"hasMore":false,"revisions":[{"baseVersion":1,"comment":"Experiment \"SB 417 Market Test\" started","date":"2026-11-25T17:55:42.996Z","defaultValue":"control","environmentsEnabled":{"production":false,"staging":false},"
+[PASS] verify:list_experiments includes the new experiment — 3710B: {"experiments":[{"archived":false,"datasourceId":"ds_4w9jq1zx7mwwfcefs","dateUpdated":"2026-11-25T17:55:44.666Z","goals":[{"metricId":"fact__2ChQ5PfuoJCzyqbsYfZoUU","overrides":{}}],"hypothesis":"SB Checkout Test raises 
+[PASS] verify:list_experiments status=stopped includes it — 2634B: {"experiments":[{"archived":false,"datasourceId":"ds_4w9jq1zx7mwwfcefs","dateUpdated":"2026-11-25T17:55:35.706Z","goals":[{"metricId":"fact__2ChQ5PfuoJCzyqbsYfZoUU","overrides":{}}],"hypothesis":"SB Banner Test raises co
+[PASS] verify:get_experiment shows won + released variation — 1758B: {"experiment":{"archived":false,"dateCreated":"2026-11-25T17:55:42.866Z","dateUpdated":"2026-11-25T17:55:43.182Z","description":"Running; edited through Switchboard","enhancedStatus":{"detailedStatus":"Won","needsAttenti
+[PASS] verify:list_audit_logs: feature.publish event listed — 881B: {"audits":{"columns":["dateCreated","event","id","reason"],"constants":{"entity":{"id":"sb-beta-banner","object":"feature"},"name":"switchboard sandbox 417"},"rows":[["2026-11-25T17:55:42.714Z","feature.publish","aud_2Ch
+[INFO] verify:list_audit_logs: publish comment readable via MCP? — comment NOT in compact output: GrowthBook stores it in audits[].details.context.comment, which the list_audit_logs compact spec drops
+[PASS] xcheck:publish audit comment stored by GrowthBook — feature.publish details.context={'revision': 3, 'comment': 'Sandbox E2E PR 417: ship the North America force rule'}
+[PASS] verify:list_audit_logs experiment start/stop — 824B: {"audits":[{"dateCreated":"2026-11-25T17:55:43.193Z","entity":{"id":"exp_4w9jq1zx7mwwfck9f","object":"experiment"},"event":"experiment.stop","id":"aud_2ChQ5QF3r6gqCJN2N9EBA9","name":"switchboard sandbox 417"},{"dateCreat
+[PASS] verify:get_feature_staleness new flag — 325B: {"features":{"sb-417-market-flag-29342":{"featureId":"sb-417-market-flag-29342","isStale":false,"neverStale":false,"staleByEnv":{"production":{"evaluatesTo":"null","isStale":true,"reason":"toggled-off"},"staging":{"evalu
+Counter({'PASS': 202, 'INFO': 2})

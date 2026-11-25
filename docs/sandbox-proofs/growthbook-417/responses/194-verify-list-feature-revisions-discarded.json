@@ -1,0 +1,50 @@
+{
+ "phase": "verify",
+ "step": "list_feature_revisions discarded",
+ "tool": "growthbook_list_feature_revisions",
+ "args": {
+  "feature_id": "sb-checkout-express",
+  "status": "discarded"
+ },
+ "status": "PASS",
+ "note": "630B: {\"hasMore\":false,\"revisions\":[{\"baseVersion\":3,\"comment\":\"\",\"date\":\"2026-11-25T17:55:42.767Z\",\"defaultValue\":\"false\",\"environmentsEnabled\":{\"production\":false,\"staging\":true},\"featureId\":\"sb-checkout-express\",\"id\":\"frev_",
+ "ms": 9,
+ "bytes": 630,
+ "response": {
+  "hasMore": false,
+  "revisions": [
+   {
+    "baseVersion": 3,
+    "comment": "",
+    "date": "2026-11-25T17:55:42.767Z",
+    "defaultValue": "false",
+    "environmentsEnabled": {
+     "production": false,
+     "staging": true
+    },
+    "featureId": "sb-checkout-express",
+    "id": "frev_4w9jq1zx7mwwfck6n",
+    "name": "switchboard sandbox 417",
+    "rules": [
+     {
+      "allEnvironments": true,
+      "allProjects": true,
+      "condition": "{\"country\":\"DE\"}",
+      "description": "discard me (sb417)",
+      "enabled": true,
+      "id": "6c1e72e2-bfb0-44d8-aa29-4263788992cf",
+      "prerequisites": [],
+      "savedGroupTargeting": [],
+      "scheduleRules": null,
+      "scheduleType": null,
+      "type": "force",
+      "value": "true"
+     }
+    ],
+    "status": "discarded",
+    "version": 4
+   }
+  ],
+  "total": 1
+ }
+}

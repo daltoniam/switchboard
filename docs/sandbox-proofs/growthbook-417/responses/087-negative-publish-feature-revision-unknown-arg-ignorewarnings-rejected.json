@@ -1,0 +1,16 @@
+{
+ "phase": "negative",
+ "step": "publish_feature_revision: unknown arg ignoreWarnings rejected",
+ "tool": "growthbook_publish_feature_revision",
+ "args": {
+  "feature_id": "sb-beta-banner",
+  "version": 3,
+  "comment": "x",
+  "ignoreWarnings": true
+ },
+ "status": "PASS",
+ "note": "isError=True; unknown parameter \"ignoreWarnings\" for tool \"growthbook_publish_feature_revision\". Valid parameters: [comment feature_id version]",
+ "ms": 0,
+ "bytes": 129,
+ "response": "unknown parameter \"ignoreWarnings\" for tool \"growthbook_publish_feature_revision\". Valid parameters: [comment feature_id version]"
+}

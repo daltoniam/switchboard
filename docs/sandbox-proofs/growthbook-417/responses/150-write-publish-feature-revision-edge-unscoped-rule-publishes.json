@@ -1,0 +1,20 @@
+{
+ "phase": "write",
+ "step": "publish_feature_revision edge: unscoped rule publishes",
+ "tool": "growthbook_publish_feature_revision",
+ "args": {
+  "feature_id": "sb-edge-unscoped-29342",
+  "version": 3,
+  "comment": "edge probe: rule environments emptied by update"
+ },
+ "status": "PASS",
+ "note": "{\"feature_id\":\"sb-edge-unscoped-29342\",\"message\":\"The revision is live: SDKs serve it from their next refresh.\",\"status\":\"published\",\"version\":3}\npinned as $60",
+ "ms": 36,
+ "bytes": 159,
+ "response": {
+  "feature_id": "sb-edge-unscoped-29342",
+  "message": "The revision is live: SDKs serve it from their next refresh.",
+  "status": "published",
+  "version": 3
+ }
+}

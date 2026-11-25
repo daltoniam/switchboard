@@ -1,0 +1,17 @@
+{
+ "phase": "reread",
+ "step": "list_feature_revisions default (drafts)",
+ "tool": "growthbook_list_feature_revisions",
+ "args": {
+  "feature_id": "sb-beta-banner"
+ },
+ "status": "PASS",
+ "note": "{\"hasMore\":false,\"revisions\":[],\"total\":0}\npinned as $68",
+ "ms": 7,
+ "bytes": 56,
+ "response": {
+  "hasMore": false,
+  "revisions": [],
+  "total": 0
+ }
+}

@@ -1,0 +1,225 @@
+{
+ "phase": "reread",
+ "step": "list_experiments",
+ "tool": "growthbook_list_experiments",
+ "args": {},
+ "status": "PASS",
+ "note": "3709B: {\"experiments\":[{\"archived\":false,\"datasourceId\":\"ds_4w9jq1yzdmwwfael6\",\"dateUpdated\":\"2026-11-25T17:54:08.082Z\",\"goals\":[{\"metricId\":\"fact__2ChQ5Gok9BNMZ4CNHsJMjS\",\"overrides\":{}}],\"hypothesis\":\"SB Checkout Test raises ",
+ "ms": 8,
+ "bytes": 3709,
+ "response": {
+  "experiments": [
+   {
+    "archived": false,
+    "datasourceId": "ds_4w9jq1yzdmwwfael6",
+    "dateUpdated": "2026-11-25T17:54:08.082Z",
+    "goals": [
+     {
+      "metricId": "fact__2ChQ5Gok9BNMZ4CNHsJMjS",
+      "overrides": {}
+     }
+    ],
+    "hypothesis": "SB Checkout Test raises conversion",
+    "id": "exp_4w9jq1yzdmwwfaetg",
+    "linkedFeatures": [
+     "sb-checkout-flow"
+    ],
+    "name": "SB Checkout Test",
+    "ownerEmail": "sb-admin@example.test",
+    "phases": [
+     {
+      "coverage": 1,
+      "dateEnded": "",
+      "dateStarted": "2026-11-20T17:54:02.000Z",
+      "name": "Main",
+      "prerequisites": [],
+      "reasonForStopping": "",
+      "savedGroupTargeting": [],
+      "seed": "13421519-458a-49c3-99c1-01c4ccd0e88d",
+      "targetingCondition": "{}",
+      "trafficSplit": [
+       {
+        "variationId": "var_4w9jq1yzdmwwfaete",
+        "weight": 0.5
+       },
+       {
+        "variationId": "var_4w9jq1yzdmwwfaetf",
+        "weight": 0.5
+       }
+      ]
+     }
+    ],
+    "project": "prj_2ChQ5Gk4djffjvT3jwN2R2",
+    "statsEngine": "bayesian",
+    "status": "running",
+    "tags": [
+     "checkout"
+    ],
+    "trackingKey": "sb-checkout-test",
+    "type": "standard",
+    "variations": [
+     {
+      "description": "",
+      "key": "0",
+      "name": "Control",
+      "screenshots": [],
+      "variationId": "var_4w9jq1yzdmwwfaete"
+     },
+     {
+      "description": "",
+      "key": "1",
+      "name": "Express",
+      "screenshots": [],
+      "variationId": "var_4w9jq1yzdmwwfaetf"
+     }
+    ]
+   },
+   {
+    "archived": false,
+    "datasourceId": "ds_4w9jq1yzdmwwfael6",
+    "dateUpdated": "2026-11-25T17:54:02.557Z",
+    "goals": [
+     {
+      "metricId": "fact__2ChQ5Gok9BNMZ4CNHsJMjS",
+      "overrides": {}
+     }
+    ],
+    "hypothesis": "SB Banner Test raises conversion",
+    "id": "exp_4w9jq1yzdmwwfaeue",
+    "linkedFeatures": [
+     "sb-banner-flow"
+    ],
+    "name": "SB Banner Test",
+    "ownerEmail": "sb-admin@example.test",
+    "phases": [
+     {
+      "coverage": 1,
+      "dateEnded": "2026-11-25T17:54:02.557Z",
+      "dateStarted": "2026-11-20T17:54:02.000Z",
+      "name": "Main",
+      "prerequisites": [],
+      "reasonForStopping": "Reached significance",
+      "savedGroupTargeting": [],
+      "seed": "347cacc4-0ead-47b9-9638-030f52f04e85",
+      "targetingCondition": "{}",
+      "trafficSplit": [
+       {
+        "variationId": "var_4w9jq1yzdmwwfaeuc",
+        "weight": 0.5
+       },
+       {
+        "variationId": "var_4w9jq1yzdmwwfaeud",
+        "weight": 0.5
+       }
+      ]
+     }
+    ],
+    "project": "prj_2ChQ5Gk4djffjvT3jwN2R2",
+    "resultSummary": {
+     "conclusions": "Banner won",
+     "excludeFromPayload": true,
+     "releasedVariationId": "",
+     "status": "won",
+     "winner": "var_4w9jq1yzdmwwfaeud"
+    },
+    "statsEngine": "bayesian",
+    "status": "stopped",
+    "tags": [
+     "checkout"
+    ],
+    "trackingKey": "sb-banner-test",
+    "type": "standard",
+    "variations": [
+     {
+      "description": "",
+      "key": "0",
+      "name": "Control",
+      "screenshots": [],
+      "variationId": "var_4w9jq1yzdmwwfaeuc"
+     },
+     {
+      "description": "",
+      "key": "1",
+      "name": "Express",
+      "screenshots": [],
+      "variationId": "var_4w9jq1yzdmwwfaeud"
+     }
+    ]
+   },
+   {
+    "archived": false,
+    "datasourceId": "ds_4w9jq1yzdmwwfael6",
+    "dateUpdated": "2026-11-25T17:54:10.027Z",
+    "goals": [
+     {
+      "metricId": "fact__2ChQ5Gok9BNMZ4CNHsJMjS",
+      "overrides": {}
+     }
+    ],
+    "hypothesis": "A North America banner lifts purchase rate",
+    "id": "exp_4w9jq1yzdmwwfaked",
+    "linkedFeatures": [
+     "sb-417-market-flag-29249"
+    ],
+    "name": "SB 417 Market Test",
+    "ownerEmail": "sb-admin@example.test",
+    "phases": [
+     {
+      "coverage": 1,
+      "dateEnded": "2026-11-25T17:54:10.027Z",
+      "dateStarted": "2026-11-25T17:54:09.919Z",
+      "name": "Main",
+      "prerequisites": [],
+      "reasonForStopping": "PR 417 sandbox E2E",
+      "savedGroupTargeting": [],
+      "seed": "3eb2992c-d9fa-4963-85fb-0c1eeaf4121d",
+      "targetingCondition": "",
+      "trafficSplit": [
+       {
+        "variationId": "var_4w9jq1yzdmwwfakeb",
+        "weight": 0.5
+       },
+       {
+        "variationId": "var_4w9jq1yzdmwwfakec",
+        "weight": 0.5
+       }
+      ]
+     }
+    ],
+    "project": "prj_2ChQ5Gk4djffjvT3jwN2R2",
+    "resultSummary": {
+     "conclusions": "NA Banner won in the sandbox",
+     "excludeFromPayload": false,
+     "releasedVariationId": "var_4w9jq1yzdmwwfakec",
+     "status": "won",
+     "winner": "var_4w9jq1yzdmwwfakec"
+    },
+    "statsEngine": "bayesian",
+    "status": "stopped",
+    "tags": [
+     "sb417"
+    ],
+    "trackingKey": "sb-417-market-29249",
+    "type": "standard",
+    "variations": [
+     {
+      "description": "",
+      "key": "0",
+      "name": "Control",
+      "screenshots": [],
+      "variationId": "var_4w9jq1yzdmwwfakeb"
+     },
+     {
+      "description": "",
+      "key": "1",
+      "name": "NA Banner",
+      "screenshots": [],
+      "variationId": "var_4w9jq1yzdmwwfakec"
+     }
+    ]
+   }
+  ],
+  "hasMore": false,
+  "total": 3
+ }
+}

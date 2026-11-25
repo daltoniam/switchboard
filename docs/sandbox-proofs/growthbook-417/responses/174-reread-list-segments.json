@@ -1,0 +1,29 @@
+{
+ "phase": "reread",
+ "step": "list_segments",
+ "tool": "growthbook_list_segments",
+ "args": {},
+ "status": "PASS",
+ "note": "348B: {\"hasMore\":false,\"segments\":[{\"datasourceId\":\"ds_4w9jq1yzdmwwfael6\",\"description\":\"\",\"factTableId\":\"\",\"id\":\"seg_2ChQ5GotaNugwN9nt69cos\",\"identifierType\":\"user_id\",\"name\":\"Big Spenders\",\"projects\":[\"prj_2ChQ5Gk4djffjvT3jw",
+ "ms": 6,
+ "bytes": 348,
+ "response": {
+  "hasMore": false,
+  "segments": [
+   {
+    "datasourceId": "ds_4w9jq1yzdmwwfael6",
+    "description": "",
+    "factTableId": "",
+    "id": "seg_2ChQ5GotaNugwN9nt69cos",
+    "identifierType": "user_id",
+    "name": "Big Spenders",
+    "projects": [
+     "prj_2ChQ5Gk4djffjvT3jwN2R2"
+    ],
+    "query": "SELECT user_id, timestamp as date FROM purchases WHERE amount > 14",
+    "type": "SQL"
+   }
+  ],
+  "total": 1
+ }
+}

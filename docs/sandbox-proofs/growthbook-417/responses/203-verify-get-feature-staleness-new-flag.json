@@ -1,0 +1,34 @@
+{
+ "phase": "verify",
+ "step": "get_feature_staleness new flag",
+ "tool": "growthbook_get_feature_staleness",
+ "args": {
+  "feature_ids": "sb-417-market-flag-29342"
+ },
+ "status": "PASS",
+ "note": "325B: {\"features\":{\"sb-417-market-flag-29342\":{\"featureId\":\"sb-417-market-flag-29342\",\"isStale\":false,\"neverStale\":false,\"staleByEnv\":{\"production\":{\"evaluatesTo\":\"null\",\"isStale\":true,\"reason\":\"toggled-off\"},\"staging\":{\"evalu",
+ "ms": 8,
+ "bytes": 325,
+ "response": {
+  "features": {
+   "sb-417-market-flag-29342": {
+    "featureId": "sb-417-market-flag-29342",
+    "isStale": false,
+    "neverStale": false,
+    "staleByEnv": {
+     "production": {
+      "evaluatesTo": "null",
+      "isStale": true,
+      "reason": "toggled-off"
+     },
+     "staging": {
+      "evaluatesTo": "null",
+      "isStale": true,
+      "reason": "toggled-off"
+     }
+    },
+    "staleReason": "recently-updated"
+   }
+  }
+ }
+}

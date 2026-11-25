@@ -1,0 +1,18 @@
+{
+ "phase": "negative",
+ "step": "update_feature_rule on the published version",
+ "tool": "growthbook_update_feature_rule",
+ "args": {
+  "feature_id": "sb-beta-banner",
+  "version": 3,
+  "rule_id": "585a0e8b-aac1-4d2b-837d-1b733ffaf4f0",
+  "rule": {
+   "value": "x"
+  }
+ },
+ "status": "PASS",
+ "note": "isError=True; growthbook API error (400): {\"message\":\"Cannot edit a revision with status \\\"published\\\"\"}",
+ "ms": 10,
+ "bytes": 90,
+ "response": "growthbook API error (400): {\"message\":\"Cannot edit a revision with status \\\"published\\\"\"}"
+}

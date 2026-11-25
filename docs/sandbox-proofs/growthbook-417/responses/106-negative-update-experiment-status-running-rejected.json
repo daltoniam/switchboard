@@ -1,0 +1,16 @@
+{
+ "phase": "negative",
+ "step": "update_experiment: status running rejected",
+ "tool": "growthbook_update_experiment",
+ "args": {
+  "experiment_id": "exp_4w9jq1zx7mwwfck9f",
+  "changes": {
+   "status": "running"
+  }
+ },
+ "status": "PASS",
+ "note": "isError=True; changes.status is not accepted; use growthbook_start_experiment or growthbook_stop_experiment",
+ "ms": 1,
+ "bytes": 93,
+ "response": "changes.status is not accepted; use growthbook_start_experiment or growthbook_stop_experiment"
+}

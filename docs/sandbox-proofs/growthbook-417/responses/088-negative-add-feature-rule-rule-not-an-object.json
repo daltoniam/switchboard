@@ -1,0 +1,14 @@
+{
+ "phase": "negative",
+ "step": "add_feature_rule: rule not an object",
+ "tool": "growthbook_add_feature_rule",
+ "args": {
+  "feature_id": "sb-beta-banner",
+  "rule": "not json"
+ },
+ "status": "PASS",
+ "note": "isError=True; rule must be a JSON object",
+ "ms": 0,
+ "bytes": 26,
+ "response": "rule must be a JSON object"
+}

@@ -1,0 +1,67 @@
+{
+ "phase": "write",
+ "step": "start_experiment: starts and publishes the linked draft",
+ "tool": "growthbook_start_experiment",
+ "args": {
+  "experiment_id": "exp_4w9jq1zx7mwwfck9f"
+ },
+ "status": "PASS",
+ "note": "{\"hashAttribute\":\"id\",\"id\":\"exp_4w9jq1zx7mwwfck9f\",\"latestPhase\":{\"coverage\":1,\"dateEnded\":\"\",\"dateStarted\":\"2026-11-25T17:55:43.067Z\",\"name\":\"Main\",\"prerequisites\":[],\"reasonForStopping\":\"\",\"savedGroupTargeting\":[],\"seed\":\"52269dd8-d2c0-423e-8b28-4c3f3bac3073\",\"targetingCondition\":\"\",\"trafficSplit\"",
+ "ms": 89,
+ "bytes": 991,
+ "response": {
+  "hashAttribute": "id",
+  "id": "exp_4w9jq1zx7mwwfck9f",
+  "latestPhase": {
+   "coverage": 1,
+   "dateEnded": "",
+   "dateStarted": "2026-11-25T17:55:43.067Z",
+   "name": "Main",
+   "prerequisites": [],
+   "reasonForStopping": "",
+   "savedGroupTargeting": [],
+   "seed": "52269dd8-d2c0-423e-8b28-4c3f3bac3073",
+   "targetingCondition": "",
+   "trafficSplit": [
+    {
+     "variationId": "var_4w9jq1zx7mwwfck9d",
+     "weight": 0.5
+    },
+    {
+     "variationId": "var_4w9jq1zx7mwwfck9e",
+     "weight": 0.5
+    }
+   ]
+  },
+  "linkedFeatures": [
+   "sb-417-market-flag-29342"
+  ],
+  "message": "Started: users matching its targeting are assigned from the SDKs' next refresh.",
+  "name": "SB 417 Market Test",
+  "project": "prj_2ChQ5PcJW8cW4d5UHcBKjs",
+  "publishedFeatureDrafts": [
+   {
+    "featureId": "sb-417-market-flag-29342",
+    "revisionVersion": 2
+   }
+  ],
+  "status": "running",
+  "trackingKey": "sb-417-market-29342",
+  "variations": [
+   {
+    "description": "",
+    "key": "0",
+    "name": "Control",
+    "screenshots": [],
+    "variationId": "var_4w9jq1zx7mwwfck9d"
+   },
+   {
+    "description": "",
+    "key": "1",
+    "name": "NA Banner",
+    "screenshots": [],
+    "variationId": "var_4w9jq1zx7mwwfck9e"
+   }
+  ]
+ }
+}

@@ -1,0 +1,74 @@
+{
+ "phase": "write",
+ "step": "stop_experiment: won, roll out NA Banner to everyone",
+ "tool": "growthbook_stop_experiment",
+ "args": {
+  "experiment_id": "exp_4w9jq1zx7mwwfck9f",
+  "results": "won",
+  "winner_variation_id": "var_4w9jq1zx7mwwfck9e",
+  "released_variation_id": "var_4w9jq1zx7mwwfck9e",
+  "enable_temporary_rollout": true,
+  "analysis": "NA Banner won in the sandbox",
+  "reason": "PR 417 sandbox E2E"
+ },
+ "status": "PASS",
+ "note": "{\"hashAttribute\":\"id\",\"id\":\"exp_4w9jq1zx7mwwfck9f\",\"latestPhase\":{\"coverage\":1,\"dateEnded\":\"2026-11-25T17:55:43.182Z\",\"dateStarted\":\"2026-11-25T17:55:43.067Z\",\"name\":\"Main\",\"prerequisites\":[],\"reasonForStopping\":\"PR 417 sandbox E2E\",\"savedGroupTargeting\":[],\"seed\":\"52269dd8-d2c0-423e-8b28-4c3f3bac30",
+ "ms": 27,
+ "bytes": 1141,
+ "response": {
+  "hashAttribute": "id",
+  "id": "exp_4w9jq1zx7mwwfck9f",
+  "latestPhase": {
+   "coverage": 1,
+   "dateEnded": "2026-11-25T17:55:43.182Z",
+   "dateStarted": "2026-11-25T17:55:43.067Z",
+   "name": "Main",
+   "prerequisites": [],
+   "reasonForStopping": "PR 417 sandbox E2E",
+   "savedGroupTargeting": [],
+   "seed": "52269dd8-d2c0-423e-8b28-4c3f3bac3073",
+   "targetingCondition": "",
+   "trafficSplit": [
+    {
+     "variationId": "var_4w9jq1zx7mwwfck9d",
+     "weight": 0.5
+    },
+    {
+     "variationId": "var_4w9jq1zx7mwwfck9e",
+     "weight": 0.5
+    }
+   ]
+  },
+  "linkedFeatures": [
+   "sb-417-market-flag-29342"
+  ],
+  "message": "Stopped: no new assignments from the SDKs' next refresh, unless a variation was rolled out.",
+  "name": "SB 417 Market Test",
+  "project": "prj_2ChQ5PcJW8cW4d5UHcBKjs",
+  "resultSummary": {
+   "conclusions": "NA Banner won in the sandbox",
+   "excludeFromPayload": false,
+   "releasedVariationId": "var_4w9jq1zx7mwwfck9e",
+   "status": "won",
+   "winner": "var_4w9jq1zx7mwwfck9e"
+  },
+  "status": "stopped",
+  "trackingKey": "sb-417-market-29342",
+  "variations": [
+   {
+    "description": "",
+    "key": "0",
+    "name": "Control",
+    "screenshots": [],
+    "variationId": "var_4w9jq1zx7mwwfck9d"
+   },
+   {
+    "description": "",
+    "key": "1",
+    "name": "NA Banner",
+    "screenshots": [],
+    "variationId": "var_4w9jq1zx7mwwfck9e"
+   }
+  ]
+ }
+}

@@ -1,0 +1,335 @@
+{
+ "phase": "reread",
+ "step": "list_features",
+ "tool": "growthbook_list_features",
+ "args": {},
+ "status": "PASS",
+ "note": "5276B: {\"features\":[{\"archived\":false,\"dateUpdated\":\"2026-11-25T17:55:42.446Z\",\"defaultValue\":\"false\",\"description\":\"Express checkout (boolean)\",\"environments\":{\"production\":{\"defaultValue\":\"false\",\"enabled\":false},\"staging\":{\"",
+ "ms": 14,
+ "bytes": 5276,
+ "response": {
+  "features": [
+   {
+    "archived": false,
+    "dateUpdated": "2026-11-25T17:55:42.446Z",
+    "defaultValue": "false",
+    "description": "Express checkout (boolean)",
+    "environments": {
+     "production": {
+      "defaultValue": "false",
+      "enabled": false
+     },
+     "staging": {
+      "defaultValue": "false",
+      "enabled": true
+     }
+    },
+    "id": "sb-checkout-express",
+    "ownerEmail": "sb-admin@example.test",
+    "project": "prj_2ChQ5PcJW8cW4d5UHcBKjs",
+    "tags": [
+     "checkout"
+    ],
+    "valueType": "boolean",
+    "version": 3
+   },
+   {
+    "archived": false,
+    "dateUpdated": "2026-11-25T17:55:42.692Z",
+    "defaultValue": "off",
+    "description": "Beta banner (string, rules)",
+    "environments": {
+     "production": {
+      "defaultValue": "off",
+      "enabled": true
+     },
+     "staging": {
+      "defaultValue": "off",
+      "enabled": false
+     }
+    },
+    "id": "sb-beta-banner",
+    "ownerEmail": "sb-admin@example.test",
+    "prerequisites": [
+     "sb-checkout-express"
+    ],
+    "project": "prj_2ChQ5PcJW8cW4d5UHcBKjs",
+    "rules": [
+     {
+      "allEnvironments": false,
+      "allProjects": true,
+      "condition": "",
+      "description": "Beta testers only",
+      "enabled": true,
+      "environments": [
+       "production"
+      ],
+      "id": "fr_4w9jq1zx7mwwfcenp",
+      "prerequisites": [],
+      "savedGroupTargeting": [
+       {
+        "matchType": "any",
+        "savedGroups": [
+         "grp_2ChQ5Pg7TFJ9mV4XtXbaVf"
+        ]
+       }
+      ],
+      "type": "force",
+      "value": "on"
+     },
+     {
+      "allEnvironments": false,
+      "allProjects": true,
+      "condition": "",
+      "coverage": 0.1,
+      "description": "10% rollout",
+      "enabled": true,
+      "environments": [
+       "production"
+      ],
+      "hashAttribute": "id",
+      "id": "fr_4w9jq1zx7mwwfcenq",
+      "prerequisites": [],
+      "savedGroupTargeting": [],
+      "seed": "fr_4w9jq1zx7mwwfcenq",
+      "type": "rollout",
+      "value": "on"
+     },
+     {
+      "allEnvironments": false,
+      "allProjects": true,
+      "condition": "{\"country\":{\"$in\":[\"US\",\"CA\"]}}",
+      "description": "North America market (sb417)",
+      "enabled": true,
+      "environments": [
+       "production"
+      ],
+      "id": "585a0e8b-aac1-4d2b-837d-1b733ffaf4f0",
+      "prerequisites": [],
+      "savedGroupTargeting": [],
+      "scheduleRules": null,
+      "scheduleType": null,
+      "type": "force",
+      "value": "na-on"
+     }
+    ],
+    "tags": [
+     "growth"
+    ],
+    "valueType": "string",
+    "version": 3
+   },
+   {
+    "archived": false,
+    "dateUpdated": "2026-11-25T17:55:35.738Z",
+    "defaultValue": "classic",
+    "description": "Experiment flag",
+    "environments": {
+     "production": {
+      "defaultValue": "classic",
+      "enabled": false
+     },
+     "staging": {
+      "defaultValue": "classic",
+      "enabled": false
+     }
+    },
+    "id": "sb-checkout-flow",
+    "ownerEmail": "sb-admin@example.test",
+    "project": "prj_2ChQ5PcJW8cW4d5UHcBKjs",
+    "rules": [
+     {
+      "allEnvironments": false,
+      "allProjects": true,
+      "condition": "",
+      "description": "",
+      "enabled": true,
+      "environments": [
+       "production"
+      ],
+      "experimentId": "exp_4w9jq1zx7mwwfceos",
+      "id": "fr_4w9jq1zx7mwwfcerg",
+      "prerequisites": [],
+      "savedGroupTargeting": [],
+      "type": "experiment-ref",
+      "variations": [
+       {
+        "value": "classic",
+        "variationId": "var_4w9jq1zx7mwwfceoq"
+       },
+       {
+        "value": "express",
+        "variationId": "var_4w9jq1zx7mwwfceor"
+       }
+      ]
+     }
+    ],
+    "valueType": "string",
+    "version": 1
+   },
+   {
+    "archived": false,
+    "dateUpdated": "2026-11-25T17:55:35.771Z",
+    "defaultValue": "none",
+    "description": "Experiment flag",
+    "environments": {
+     "production": {
+      "defaultValue": "none",
+      "enabled": false
+     },
+     "staging": {
+      "defaultValue": "none",
+      "enabled": false
+     }
+    },
+    "id": "sb-banner-flow",
+    "ownerEmail": "sb-admin@example.test",
+    "project": "prj_2ChQ5PcJW8cW4d5UHcBKjs",
+    "rules": [
+     {
+      "allEnvironments": false,
+      "allProjects": true,
+      "condition": "",
+      "description": "",
+      "enabled": true,
+      "environments": [
+       "production"
+      ],
+      "experimentId": "exp_4w9jq1zx7mwwfcepv",
+      "id": "fr_4w9jq1zx7mwwfcesd",
+      "prerequisites": [],
+      "savedGroupTargeting": [],
+      "type": "experiment-ref",
+      "variations": [
+       {
+        "value": "none",
+        "variationId": "var_4w9jq1zx7mwwfcept"
+       },
+       {
+        "value": "banner",
+        "variationId": "var_4w9jq1zx7mwwfcepu"
+       }
+      ]
+     }
+    ],
+    "valueType": "string",
+    "version": 1
+   },
+   {
+    "archived": false,
+    "dateUpdated": "2026-11-25T17:55:42.476Z",
+    "defaultValue": "false",
+    "description": "Created by the sandbox E2E for PR 417",
+    "environments": {
+     "production": {
+      "defaultValue": "false",
+      "enabled": false
+     },
+     "staging": {
+      "defaultValue": "false",
+      "enabled": false
+     }
+    },
+    "id": "sb-agent-flag-29342",
+    "ownerEmail": "sb-admin@example.test",
+    "project": "prj_2ChQ5PcJW8cW4d5UHcBKjs",
+    "tags": [
+     "agent",
+     "sandbox"
+    ],
+    "valueType": "boolean",
+    "version": 1
+   },
+   {
+    "archived": false,
+    "dateUpdated": "2026-11-25T17:55:43.075Z",
+    "defaultValue": "control",
+    "description": "PR 417 experiment flag",
+    "environments": {
+     "production": {
+      "defaultValue": "control",
+      "enabled": false
+     },
+     "staging": {
+      "defaultValue": "control",
+      "enabled": false
+     }
+    },
+    "id": "sb-417-market-flag-29342",
+    "ownerEmail": "sb-admin@example.test",
+    "project": "prj_2ChQ5PcJW8cW4d5UHcBKjs",
+    "rules": [
+     {
+      "allEnvironments": false,
+      "allProjects": true,
+      "condition": "",
+      "description": "",
+      "enabled": true,
+      "environments": [
+       "production"
+      ],
+      "experimentId": "exp_4w9jq1zx7mwwfck9f",
+      "id": "ebf1314b-9397-4206-809f-889a82487621",
+      "prerequisites": [],
+      "savedGroupTargeting": [],
+      "scheduleRules": null,
+      "scheduleType": null,
+      "type": "experiment-ref",
+      "variations": [
+       {
+        "value": "control",
+        "variationId": "var_4w9jq1zx7mwwfck9d"
+       },
+       {
+        "value": "na-banner",
+        "variationId": "var_4w9jq1zx7mwwfck9e"
+       }
+      ]
+     }
+    ],
+    "valueType": "string",
+    "version": 2
+   },
+   {
+    "archived": false,
+    "dateUpdated": "2026-11-25T17:55:43.369Z",
+    "defaultValue": "off",
+    "description": "",
+    "environments": {
+     "production": {
+      "defaultValue": "off",
+      "enabled": true
+     },
+     "staging": {
+      "defaultValue": "off",
+      "enabled": false
+     }
+    },
+    "id": "sb-edge-unscoped-29342",
+    "ownerEmail": "sb-admin@example.test",
+    "project": "",
+    "rules": [
+     {
+      "allEnvironments": false,
+      "allProjects": true,
+      "condition": "",
+      "description": "edge scope",
+      "enabled": true,
+      "environments": [],
+      "id": "dc01d599-12ab-4ced-b921-32d76f6dccd9",
+      "prerequisites": [],
+      "savedGroupTargeting": [],
+      "scheduleRules": null,
+      "scheduleType": null,
+      "type": "force",
+      "value": "EDGE-ON"
+     }
+    ],
+    "valueType": "string",
+    "version": 3
+   }
+  ],
+  "hasMore": false,
+  "total": 7
+ }
+}

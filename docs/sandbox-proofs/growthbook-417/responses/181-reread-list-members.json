@@ -1,0 +1,23 @@
+{
+ "phase": "reread",
+ "step": "list_members",
+ "tool": "growthbook_list_members",
+ "args": {},
+ "status": "PASS",
+ "note": "204B: {\"hasMore\":false,\"members\":[{\"email\":\"sb-admin@example.test\",\"globalRole\":\"admin\",\"id\":\"u_4w9jq1yzdmwwfadzj\",\"lastLoginDate\":\"2026-11-25T17:54:02.139Z\",\"name\":\"SB Sandbox Admin\"}],\"total\":1}\npinned as $91",
+ "ms": 6,
+ "bytes": 204,
+ "response": {
+  "hasMore": false,
+  "members": [
+   {
+    "email": "sb-admin@example.test",
+    "globalRole": "admin",
+    "id": "u_4w9jq1yzdmwwfadzj",
+    "lastLoginDate": "2026-11-25T17:54:02.139Z",
+    "name": "SB Sandbox Admin"
+   }
+  ],
+  "total": 1
+ }
+}

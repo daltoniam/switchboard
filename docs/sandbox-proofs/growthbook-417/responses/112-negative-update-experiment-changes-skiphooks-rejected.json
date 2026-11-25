@@ -1,0 +1,16 @@
+{
+ "phase": "negative",
+ "step": "update_experiment: changes.skipHooks rejected",
+ "tool": "growthbook_update_experiment",
+ "args": {
+  "experiment_id": "exp_4w9jq1zx7mwwfck9f",
+  "changes": {
+   "skipHooks": true
+  }
+ },
+ "status": "PASS",
+ "note": "isError=True; changes.skipHooks is not accepted: a person must resolve GrowthBook's gates in the app",
+ "ms": 1,
+ "bytes": 86,
+ "response": "changes.skipHooks is not accepted: a person must resolve GrowthBook's gates in the app"
+}

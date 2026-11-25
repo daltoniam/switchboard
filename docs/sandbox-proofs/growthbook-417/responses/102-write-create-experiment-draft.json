@@ -1,0 +1,82 @@
+{
+ "phase": "write",
+ "step": "create_experiment: draft",
+ "tool": "growthbook_create_experiment",
+ "args": {
+  "experiment": {
+   "trackingKey": "sb-417-market-29342",
+   "name": "SB 417 Market Test",
+   "project": "prj_2ChQ5PcJW8cW4d5UHcBKjs",
+   "datasourceId": "ds_4w9jq1zx7mwwfcefs",
+   "assignmentQuery": {
+    "id": "exq_4w9jq1zx7mwwfceg5"
+   },
+   "hypothesis": "A North America banner lifts purchases",
+   "owner": "sb-admin@example.test",
+   "tags": [
+    "sb417"
+   ],
+   "variations": [
+    {
+     "key": "0",
+     "name": "Control"
+    },
+    {
+     "key": "1",
+     "name": "NA Banner"
+    }
+   ]
+  }
+ },
+ "status": "PASS",
+ "note": "{\"hashAttribute\":\"id\",\"id\":\"exp_4w9jq1zx7mwwfck9f\",\"latestPhase\":{\"coverage\":1,\"dateEnded\":\"\",\"dateStarted\":\"2026-11-25T17:55:42.865Z\",\"name\":\"Main\",\"prerequisites\":[],\"reasonForStopping\":\"\",\"savedGroupTargeting\":[],\"seed\":\"52269dd8-d2c0-42",
+ "ms": 28,
+ "bytes": 915,
+ "response": {
+  "hashAttribute": "id",
+  "id": "exp_4w9jq1zx7mwwfck9f",
+  "latestPhase": {
+   "coverage": 1,
+   "dateEnded": "",
+   "dateStarted": "2026-11-25T17:55:42.865Z",
+   "name": "Main",
+   "prerequisites": [],
+   "reasonForStopping": "",
+   "savedGroupTargeting": [],
+   "seed": "52269dd8-d2c0-423e-8b28-4c3f3bac3073",
+   "targetingCondition": "",
+   "trafficSplit": [
+    {
+     "variationId": "var_4w9jq1zx7mwwfck9d",
+     "weight": 0.5
+    },
+    {
+     "variationId": "var_4w9jq1zx7mwwfck9e",
+     "weight": 0.5
+    }
+   ]
+  },
+  "linkedFeatures": [],
+  "message": "Created as a draft; nothing is served. Link it to a flag with an experiment-ref rule, then growthbook_start_experiment.",
+  "name": "SB 417 Market Test",
+  "project": "prj_2ChQ5PcJW8cW4d5UHcBKjs",
+  "status": "draft",
+  "trackingKey": "sb-417-market-29342",
+  "variations": [
+   {
+    "description": "",
+    "key": "0",
+    "name": "Control",
+    "screenshots": [],
+    "variationId": "var_4w9jq1zx7mwwfck9d"
+   },
+   {
+    "description": "",
+    "key": "1",
+    "name": "NA Banner",
+    "screenshots": [],
+    "variationId": "var_4w9jq1zx7mwwfck9e"
+   }
+  ]
+ }
+}

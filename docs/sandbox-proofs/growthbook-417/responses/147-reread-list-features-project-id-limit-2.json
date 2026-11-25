@@ -1,0 +1,130 @@
+{
+ "phase": "reread",
+ "step": "list_features project_id+limit=2",
+ "tool": "growthbook_list_features",
+ "args": {
+  "project_id": "prj_2ChQ5Gk4djffjvT3jwN2R2",
+  "limit": 2
+ },
+ "status": "PASS",
+ "note": "{\"features\":[{\"archived\":false,\"dateUpdated\":\"2026-11-25T17:54:09.295Z\",\"defaultValue\":\"false\",\"description\":\"Express checkout (boolean)\",\"environments\":{\"production\":{\"defaultValue\":\"false\",\"enabled\":false},\"staging\":{\"defaultValue\":\"false\",\"enabled\":true}},\"",
+ "ms": 14,
+ "bytes": 1866,
+ "response": {
+  "features": [
+   {
+    "archived": false,
+    "dateUpdated": "2026-11-25T17:54:09.295Z",
+    "defaultValue": "false",
+    "description": "Express checkout (boolean)",
+    "environments": {
+     "production": {
+      "defaultValue": "false",
+      "enabled": false
+     },
+     "staging": {
+      "defaultValue": "false",
+      "enabled": true
+     }
+    },
+    "id": "sb-checkout-express",
+    "ownerEmail": "sb-admin@example.test",
+    "project": "prj_2ChQ5Gk4djffjvT3jwN2R2",
+    "tags": [
+     "checkout"
+    ],
+    "valueType": "boolean",
+    "version": 3
+   },
+   {
+    "archived": false,
+    "dateUpdated": "2026-11-25T17:54:09.548Z",
+    "defaultValue": "off",
+    "description": "Beta banner (string, rules)",
+    "environments": {
+     "production": {
+      "defaultValue": "off",
+      "enabled": true
+     },
+     "staging": {
+      "defaultValue": "off",
+      "enabled": false
+     }
+    },
+    "id": "sb-beta-banner",
+    "ownerEmail": "sb-admin@example.test",
+    "prerequisites": [
+     "sb-checkout-express"
+    ],
+    "project": "prj_2ChQ5Gk4djffjvT3jwN2R2",
+    "rules": [
+     {
+      "allEnvironments": false,
+      "allProjects": true,
+      "condition": "",
+      "description": "Beta testers only",
+      "enabled": true,
+      "environments": [
+       "production"
+      ],
+      "id": "fr_4w9jq1yzdmwwfaesh",
+      "prerequisites": [],
+      "savedGroupTargeting": [
+       {
+        "matchType": "any",
+        "savedGroups": [
+         "grp_2ChQ5GowJQpFpxfktQ4kxq"
+        ]
+       }
+      ],
+      "type": "force",
+      "value": "on"
+     },
+     {
+      "allEnvironments": false,
+      "allProjects": true,
+      "condition": "",
+      "coverage": 0.1,
+      "description": "10% rollout",
+      "enabled": true,
+      "environments": [
+       "production"
+      ],
+      "hashAttribute": "id",
+      "id": "fr_4w9jq1yzdmwwfaesi",
+      "prerequisites": [],
+      "savedGroupTargeting": [],
+      "seed": "fr_4w9jq1yzdmwwfaesi",
+      "type": "rollout",
+      "value": "on"
+     },
+     {
+      "allEnvironments": false,
+      "allProjects": true,
+      "condition": "{\"country\":{\"$in\":[\"US\",\"CA\"]}}",
+      "description": "North America market (sb417)",
+      "enabled": true,
+      "environments": [
+       "production"
+      ],
+      "id": "93714524-122c-4d54-b692-8d66ac6073b8",
+      "prerequisites": [],
+      "savedGroupTargeting": [],
+      "scheduleRules": null,
+      "scheduleType": null,
+      "type": "force",
+      "value": "na-on"
+     }
+    ],
+    "tags": [
+     "growth"
+    ],
+    "valueType": "string",
+    "version": 3
+   }
+  ],
+  "hasMore": true,
+  "nextOffset": 2,
+  "total": 6
+ }
+}

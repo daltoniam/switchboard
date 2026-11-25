@@ -1,0 +1,13 @@
+{
+ "phase": "negative",
+ "step": "get_snapshot unknown id",
+ "tool": "growthbook_get_snapshot",
+ "args": {
+  "snapshot_id": "snp_nope417"
+ },
+ "status": "PASS",
+ "note": "isError=True; growthbook API error (404): {\"message\":\"Snapshot not found or no permission to access\"}",
+ "ms": 4,
+ "bytes": 87,
+ "response": "growthbook API error (404): {\"message\":\"Snapshot not found or no permission to access\"}"
+}

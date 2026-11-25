@@ -1,0 +1,17 @@
+{
+ "phase": "negative",
+ "step": "add_feature_rule: neither environments nor allEnvironments",
+ "tool": "growthbook_add_feature_rule",
+ "args": {
+  "feature_id": "sb-beta-banner",
+  "rule": {
+   "type": "force",
+   "value": "x"
+  }
+ },
+ "status": "PASS",
+ "note": "isError=True; rule must name its environments (environments: [\"dev\"]) or set allEnvironments: true, so production is never targeted by accident",
+ "ms": 1,
+ "bytes": 129,
+ "response": "rule must name its environments (environments: [\"dev\"]) or set allEnvironments: true, so production is never targeted by accident"
+}

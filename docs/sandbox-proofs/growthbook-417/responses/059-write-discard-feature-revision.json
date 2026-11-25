@@ -1,0 +1,42 @@
+{
+ "phase": "write",
+ "step": "discard_feature_revision",
+ "tool": "growthbook_discard_feature_revision",
+ "args": {
+  "feature_id": "sb-checkout-express",
+  "version": 4
+ },
+ "status": "PASS",
+ "note": "{\"baseVersion\":3,\"comment\":\"\",\"defaultValue\":\"false\",\"environmentsEnabled\":{\"production\":false,\"staging\":true},\"feature_id\":\"sb-checkout-express\",\"message\":\"The draft is discarded; the live revision is unchanged.\",\"rules\":[{\"allEnvironments",
+ "ms": 21,
+ "bytes": 559,
+ "response": {
+  "baseVersion": 3,
+  "comment": "",
+  "defaultValue": "false",
+  "environmentsEnabled": {
+   "production": false,
+   "staging": true
+  },
+  "feature_id": "sb-checkout-express",
+  "message": "The draft is discarded; the live revision is unchanged.",
+  "rules": [
+   {
+    "allEnvironments": true,
+    "allProjects": true,
+    "condition": "{\"country\":\"DE\"}",
+    "description": "discard me (sb417)",
+    "enabled": true,
+    "id": "6c1e72e2-bfb0-44d8-aa29-4263788992cf",
+    "prerequisites": [],
+    "savedGroupTargeting": [],
+    "scheduleRules": null,
+    "scheduleType": null,
+    "type": "force",
+    "value": "true"
+   }
+  ],
+  "status": "discarded",
+  "version": 4
+ }
+}

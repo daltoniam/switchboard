@@ -1,0 +1,14 @@
+{
+ "phase": "xcheck",
+ "step": "publish audit comment stored by GrowthBook",
+ "tool": "GET /api/v1/audits (direct)",
+ "args": {},
+ "status": "PASS",
+ "note": "feature.publish details.context={'revision': 3, 'comment': 'Sandbox E2E PR 417: ship the North America force rule'}",
+ "response": {
+  "context": {
+   "revision": 3,
+   "comment": "Sandbox E2E PR 417: ship the North America force rule"
+  }
+ }
+}

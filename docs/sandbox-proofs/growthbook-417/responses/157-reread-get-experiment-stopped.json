@@ -1,0 +1,112 @@
+{
+ "phase": "reread",
+ "step": "get_experiment (stopped)",
+ "tool": "growthbook_get_experiment",
+ "args": {
+  "experiment_id": "exp_4w9jq1yzdmwwfaeue"
+ },
+ "status": "PASS",
+ "note": "1733B: {\"experiment\":{\"archived\":false,\"dateCreated\":\"2026-11-25T17:54:02.533Z\",\"dateUpdated\":\"2026-11-25T17:54:02.557Z\",\"description\":\"\",\"enhancedStatus\":{\"detailedStatus\":\"Won\",\"needsAttention\":false,\"status\":\"Stopped\"},\"hash",
+ "ms": 9,
+ "bytes": 1733,
+ "response": {
+  "experiment": {
+   "archived": false,
+   "dateCreated": "2026-11-25T17:54:02.533Z",
+   "dateUpdated": "2026-11-25T17:54:02.557Z",
+   "description": "",
+   "enhancedStatus": {
+    "detailedStatus": "Won",
+    "needsAttention": false,
+    "status": "Stopped"
+   },
+   "hashAttribute": "id",
+   "hypothesis": "SB Banner Test raises conversion",
+   "id": "exp_4w9jq1yzdmwwfaeue",
+   "linkedFeatures": [
+    "sb-banner-flow"
+   ],
+   "name": "SB Banner Test",
+   "ownerEmail": "sb-admin@example.test",
+   "phases": [
+    {
+     "coverage": 1,
+     "dateEnded": "2026-11-25T17:54:02.557Z",
+     "dateStarted": "2026-11-20T17:54:02.000Z",
+     "name": "Main",
+     "prerequisites": [],
+     "reasonForStopping": "Reached significance",
+     "savedGroupTargeting": [],
+     "seed": "347cacc4-0ead-47b9-9638-030f52f04e85",
+     "targetingCondition": "{}",
+     "trafficSplit": [
+      {
+       "variationId": "var_4w9jq1yzdmwwfaeuc",
+       "weight": 0.5
+      },
+      {
+       "variationId": "var_4w9jq1yzdmwwfaeud",
+       "weight": 0.5
+      }
+     ]
+    }
+   ],
+   "project": "prj_2ChQ5Gk4djffjvT3jwN2R2",
+   "resultSummary": {
+    "conclusions": "Banner won",
+    "excludeFromPayload": true,
+    "releasedVariationId": "",
+    "status": "won",
+    "winner": "var_4w9jq1yzdmwwfaeud"
+   },
+   "settings": {
+    "assignmentQueryId": "exq_4w9jq1yzdmwwfaeli",
+    "attributionModel": "firstExposure",
+    "datasourceId": "ds_4w9jq1yzdmwwfael6",
+    "experimentId": "sb-banner-test",
+    "goals": [
+     {
+      "metricId": "fact__2ChQ5Gok9BNMZ4CNHsJMjS",
+      "overrides": {}
+     }
+    ],
+    "guardrails": [
+     {
+      "metricId": "fact__2ChQ5Gok9BNMZ4CNHsJMjS",
+      "overrides": {}
+     }
+    ],
+    "secondaryMetrics": [
+     {
+      "metricId": "met_4w9jq1yzdmwwfaeos",
+      "overrides": {}
+     }
+    ],
+    "segmentId": "",
+    "statsEngine": "bayesian"
+   },
+   "status": "stopped",
+   "tags": [
+    "checkout"
+   ],
+   "trackingKey": "sb-banner-test",
+   "type": "standard",
+   "variations": [
+    {
+     "description": "",
+     "key": "0",
+     "name": "Control",
+     "screenshots": [],
+     "variationId": "var_4w9jq1yzdmwwfaeuc"
+    },
+    {
+     "description": "",
+     "key": "1",
+     "name": "Express",
+     "screenshots": [],
+     "variationId": "var_4w9jq1yzdmwwfaeud"
+    }
+   ]
+  }
+ }
+}

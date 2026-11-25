@@ -1,0 +1,15 @@
+{
+ "phase": "negative",
+ "step": "delete_feature_rule: rule_id path traversal",
+ "tool": "growthbook_delete_feature_rule",
+ "args": {
+  "feature_id": "sb-beta-banner",
+  "version": 3,
+  "rule_id": "../../x"
+ },
+ "status": "PASS",
+ "note": "isError=True; rule_id is not a valid GrowthBook id",
+ "ms": 0,
+ "bytes": 36,
+ "response": "rule_id is not a valid GrowthBook id"
+}

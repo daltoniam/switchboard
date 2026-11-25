@@ -1,0 +1,130 @@
+{
+ "phase": "reread",
+ "step": "list_attributes",
+ "tool": "growthbook_list_attributes",
+ "args": {},
+ "status": "PASS",
+ "note": "730B: {\"attributes\":{\"columns\":[\"datatype\",\"property\",\"enum\",\"description\",\"hashAttribute\",\"projects\"],\"rows\":[[\"string\",\"id\",null,null,true,null],[\"string\",\"url\",null,null,null,null],[\"string\",\"path\",null,null,null,null],[\"st",
+ "ms": 5,
+ "bytes": 730,
+ "response": {
+  "attributes": {
+   "columns": [
+    "datatype",
+    "property",
+    "enum",
+    "description",
+    "hashAttribute",
+    "projects"
+   ],
+   "rows": [
+    [
+     "string",
+     "id",
+     null,
+     null,
+     true,
+     null
+    ],
+    [
+     "string",
+     "url",
+     null,
+     null,
+     null,
+     null
+    ],
+    [
+     "string",
+     "path",
+     null,
+     null,
+     null,
+     null
+    ],
+    [
+     "string",
+     "host",
+     null,
+     null,
+     null,
+     null
+    ],
+    [
+     "string",
+     "query",
+     null,
+     null,
+     null,
+     null
+    ],
+    [
+     "enum",
+     "deviceType",
+     "desktop,mobile",
+     null,
+     null,
+     null
+    ],
+    [
+     "enum",
+     "browser",
+     "chrome,edge,firefox,safari,unknown",
+     null,
+     null,
+     null
+    ],
+    [
+     "string",
+     "utmSource",
+     null,
+     null,
+     null,
+     null
+    ],
+    [
+     "string",
+     "utmMedium",
+     null,
+     null,
+     null,
+     null
+    ],
+    [
+     "string",
+     "utmCampaign",
+     null,
+     null,
+     null,
+     null
+    ],
+    [
+     "string",
+     "utmTerm",
+     null,
+     null,
+     null,
+     null
+    ],
+    [
+     "string",
+     "utmContent",
+     null,
+     null,
+     null,
+     null
+    ],
+    [
+     "string",
+     "country",
+     null,
+     "Visitor country",
+     null,
+     [
+      "prj_2ChQ5Gk4djffjvT3jwN2R2"
+     ]
+    ]
+   ]
+  }
+ }
+}

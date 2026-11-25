@@ -1,0 +1,16 @@
+{
+ "phase": "negative",
+ "step": "update_experiment: changes.ignoreWarnings rejected",
+ "tool": "growthbook_update_experiment",
+ "args": {
+  "experiment_id": "exp_4w9jq1zx7mwwfck9f",
+  "changes": {
+   "ignoreWarnings": true
+  }
+ },
+ "status": "PASS",
+ "note": "isError=True; changes.ignoreWarnings is not accepted: a person must resolve GrowthBook's gates in the app",
+ "ms": 1,
+ "bytes": 91,
+ "response": "changes.ignoreWarnings is not accepted: a person must resolve GrowthBook's gates in the app"
+}

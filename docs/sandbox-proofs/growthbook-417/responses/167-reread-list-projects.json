@@ -1,0 +1,23 @@
+{
+ "phase": "reread",
+ "step": "list_projects",
+ "tool": "growthbook_list_projects",
+ "args": {},
+ "status": "PASS",
+ "note": "202B: {\"hasMore\":false,\"projects\":[{\"description\":\"Sandbox checkout growth experiments\",\"id\":\"prj_2ChQ5Gk4djffjvT3jwN2R2\",\"name\":\"SB Growth\",\"owner\":\"\",\"publicId\":\"my-first-project\"}],\"total\":1}\npinned as $77",
+ "ms": 4,
+ "bytes": 202,
+ "response": {
+  "hasMore": false,
+  "projects": [
+   {
+    "description": "Sandbox checkout growth experiments",
+    "id": "prj_2ChQ5Gk4djffjvT3jwN2R2",
+    "name": "SB Growth",
+    "owner": "",
+    "publicId": "my-first-project"
+   }
+  ],
+  "total": 1
+ }
+}

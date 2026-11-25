@@ -1,0 +1,83 @@
+{
+ "phase": "reread",
+ "step": "list_experiments status=running",
+ "tool": "growthbook_list_experiments",
+ "args": {
+  "status": "running"
+ },
+ "status": "PASS",
+ "note": "{\"experiments\":[{\"archived\":false,\"datasourceId\":\"ds_4w9jq1yzdmwwfael6\",\"dateUpdated\":\"2026-11-25T17:54:08.082Z\",\"goals\":[{\"metricId\":\"fact__2ChQ5Gok9BNMZ4CNHsJMjS\",\"overrides\":{}}],\"hypothesis\":\"SB Checkout Test raises conversion\",\"id\":\"exp_4w9jq1yzdmwwfaetg\"",
+ "ms": 7,
+ "bytes": 1133,
+ "response": {
+  "experiments": [
+   {
+    "archived": false,
+    "datasourceId": "ds_4w9jq1yzdmwwfael6",
+    "dateUpdated": "2026-11-25T17:54:08.082Z",
+    "goals": [
+     {
+      "metricId": "fact__2ChQ5Gok9BNMZ4CNHsJMjS",
+      "overrides": {}
+     }
+    ],
+    "hypothesis": "SB Checkout Test raises conversion",
+    "id": "exp_4w9jq1yzdmwwfaetg",
+    "linkedFeatures": [
+     "sb-checkout-flow"
+    ],
+    "name": "SB Checkout Test",
+    "ownerEmail": "sb-admin@example.test",
+    "phases": [
+     {
+      "coverage": 1,
+      "dateEnded": "",
+      "dateStarted": "2026-11-20T17:54:02.000Z",
+      "name": "Main",
+      "prerequisites": [],
+      "reasonForStopping": "",
+      "savedGroupTargeting": [],
+      "seed": "13421519-458a-49c3-99c1-01c4ccd0e88d",
+      "targetingCondition": "{}",
+      "trafficSplit": [
+       {
+        "variationId": "var_4w9jq1yzdmwwfaete",
+        "weight": 0.5
+       },
+       {
+        "variationId": "var_4w9jq1yzdmwwfaetf",
+        "weight": 0.5
+       }
+      ]
+     }
+    ],
+    "project": "prj_2ChQ5Gk4djffjvT3jwN2R2",
+    "statsEngine": "bayesian",
+    "status": "running",
+    "tags": [
+     "checkout"
+    ],
+    "trackingKey": "sb-checkout-test",
+    "type": "standard",
+    "variations": [
+     {
+      "description": "",
+      "key": "0",
+      "name": "Control",
+      "screenshots": [],
+      "variationId": "var_4w9jq1yzdmwwfaete"
+     },
+     {
+      "description": "",
+      "key": "1",
+      "name": "Express",
+      "screenshots": [],
+      "variationId": "var_4w9jq1yzdmwwfaetf"
+     }
+    ]
+   }
+  ],
+  "hasMore": false,
+  "total": 1
+ }
+}

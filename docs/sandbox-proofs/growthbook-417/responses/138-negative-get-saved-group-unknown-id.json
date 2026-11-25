@@ -1,0 +1,13 @@
+{
+ "phase": "negative",
+ "step": "get_saved_group unknown id",
+ "tool": "growthbook_get_saved_group",
+ "args": {
+  "saved_group_id": "grp_nope417"
+ },
+ "status": "PASS",
+ "note": "isError=True; growthbook API error (404): {\"message\":\"Could not find savedGroup with that id\"}",
+ "ms": 4,
+ "bytes": 80,
+ "response": "growthbook API error (404): {\"message\":\"Could not find savedGroup with that id\"}"
+}

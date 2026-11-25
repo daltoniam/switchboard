@@ -1,0 +1,14 @@
+{
+ "phase": "negative",
+ "step": "stop_experiment: path traversal id",
+ "tool": "growthbook_stop_experiment",
+ "args": {
+  "experiment_id": "../features",
+  "results": "won"
+ },
+ "status": "PASS",
+ "note": "isError=True; experiment_id is not a valid GrowthBook id",
+ "ms": 0,
+ "bytes": 42,
+ "response": "experiment_id is not a valid GrowthBook id"
+}

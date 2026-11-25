@@ -1,0 +1,19 @@
+{
+ "phase": "write",
+ "step": "refresh_experiment_results (sandbox warehouse query)",
+ "tool": "growthbook_refresh_experiment_results",
+ "args": {
+  "experiment_id": "exp_4w9jq1zx7mwwfceos"
+ },
+ "status": "PASS",
+ "note": "118B: {\"snapshot\":{\"experiment\":\"exp_4w9jq1zx7mwwfceos\",\"id\":\"snp_2ChQ5Q23GLzwJExkcXG9oa\",\"status\":\"running\"}}\npinned as $15",
+ "ms": 76,
+ "bytes": 118,
+ "response": {
+  "snapshot": {
+   "experiment": "exp_4w9jq1zx7mwwfceos",
+   "id": "snp_2ChQ5Q23GLzwJExkcXG9oa",
+   "status": "running"
+  }
+ }
+}

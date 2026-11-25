@@ -1,0 +1,106 @@
+{
+ "phase": "verify",
+ "step": "get_experiment shows won + released variation",
+ "tool": "growthbook_get_experiment",
+ "args": {
+  "experiment_id": "exp_4w9jq1yzdmwwfaked"
+ },
+ "status": "PASS",
+ "note": "1758B: {\"experiment\":{\"archived\":false,\"dateCreated\":\"2026-11-25T17:54:09.731Z\",\"dateUpdated\":\"2026-11-25T17:54:10.027Z\",\"description\":\"Running; edited through Switchboard\",\"enhancedStatus\":{\"detailedStatus\":\"Won\",\"needsAttenti",
+ "ms": 8,
+ "bytes": 1758,
+ "response": {
+  "experiment": {
+   "archived": false,
+   "dateCreated": "2026-11-25T17:54:09.731Z",
+   "dateUpdated": "2026-11-25T17:54:10.027Z",
+   "description": "Running; edited through Switchboard",
+   "enhancedStatus": {
+    "detailedStatus": "Won",
+    "needsAttention": false,
+    "status": "Stopped"
+   },
+   "hashAttribute": "id",
+   "hypothesis": "A North America banner lifts purchase rate",
+   "id": "exp_4w9jq1yzdmwwfaked",
+   "linkedFeatures": [
+    "sb-417-market-flag-29249"
+   ],
+   "name": "SB 417 Market Test",
+   "ownerEmail": "sb-admin@example.test",
+   "phases": [
+    {
+     "coverage": 1,
+     "dateEnded": "2026-11-25T17:54:10.027Z",
+     "dateStarted": "2026-11-25T17:54:09.919Z",
+     "name": "Main",
+     "prerequisites": [],
+     "reasonForStopping": "PR 417 sandbox E2E",
+     "savedGroupTargeting": [],
+     "seed": "3eb2992c-d9fa-4963-85fb-0c1eeaf4121d",
+     "targetingCondition": "",
+     "trafficSplit": [
+      {
+       "variationId": "var_4w9jq1yzdmwwfakeb",
+       "weight": 0.5
+      },
+      {
+       "variationId": "var_4w9jq1yzdmwwfakec",
+       "weight": 0.5
+      }
+     ]
+    }
+   ],
+   "project": "prj_2ChQ5Gk4djffjvT3jwN2R2",
+   "resultSummary": {
+    "conclusions": "NA Banner won in the sandbox",
+    "excludeFromPayload": false,
+    "releasedVariationId": "var_4w9jq1yzdmwwfakec",
+    "status": "won",
+    "winner": "var_4w9jq1yzdmwwfakec"
+   },
+   "settings": {
+    "assignmentQueryId": "exq_4w9jq1yzdmwwfaeli",
+    "attributionModel": "firstExposure",
+    "datasourceId": "ds_4w9jq1yzdmwwfael6",
+    "experimentId": "sb-417-market-29249",
+    "goals": [
+     {
+      "metricId": "fact__2ChQ5Gok9BNMZ4CNHsJMjS",
+      "overrides": {}
+     }
+    ],
+    "guardrails": [
+     {
+      "metricId": "met_4w9jq1yzdmwwfaeos",
+      "overrides": {}
+     }
+    ],
+    "segmentId": "",
+    "statsEngine": "bayesian"
+   },
+   "status": "stopped",
+   "tags": [
+    "sb417"
+   ],
+   "trackingKey": "sb-417-market-29249",
+   "type": "standard",
+   "variations": [
+    {
+     "description": "",
+     "key": "0",
+     "name": "Control",
+     "screenshots": [],
+     "variationId": "var_4w9jq1yzdmwwfakeb"
+    },
+    {
+     "description": "",
+     "key": "1",
+     "name": "NA Banner",
+     "screenshots": [],
+     "variationId": "var_4w9jq1yzdmwwfakec"
+    }
+   ]
+  }
+ }
+}

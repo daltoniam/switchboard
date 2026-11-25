@@ -1,0 +1,11 @@
+{
+ "phase": "xcheck",
+ "step": "experiment still draft after the 409",
+ "tool": "GET /api/v1/experiments/exp_4w9jq1zx7mwwfck9f",
+ "args": {},
+ "status": "PASS",
+ "note": "status=draft",
+ "response": {
+  "status": "draft"
+ }
+}

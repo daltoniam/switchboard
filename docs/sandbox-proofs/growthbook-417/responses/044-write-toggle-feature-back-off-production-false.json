@@ -1,0 +1,23 @@
+{
+ "phase": "write",
+ "step": "toggle_feature back off (production=false)",
+ "tool": "growthbook_toggle_feature",
+ "args": {
+  "feature_id": "sb-checkout-express",
+  "environment": "production",
+  "enabled": false,
+  "reason": "restore"
+ },
+ "status": "PASS",
+ "note": "166B: {\"date_updated\":\"2026-11-25T17:55:42.446Z\",\"enabled\":false,\"environment\":\"production\",\"feature_id\":\"sb-checkout-express\",\"status\":\"updated\",\"version\":3}\npinned as $38",
+ "ms": 29,
+ "bytes": 166,
+ "response": {
+  "date_updated": "2026-11-25T17:55:42.446Z",
+  "enabled": false,
+  "environment": "production",
+  "feature_id": "sb-checkout-express",
+  "status": "updated",
+  "version": 3
+ }
+}

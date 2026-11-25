@@ -1,0 +1,42 @@
+{
+ "phase": "xcheck",
+ "step": "published rule is live, temp rule is not",
+ "tool": "GET /api/v2/features/sb-beta-banner",
+ "args": {},
+ "status": "PASS",
+ "note": "live rules 2 -> 3; NA rule present, temp rollout absent",
+ "response": {
+  "live_rules": [
+   {
+    "id": "fr_4w9jq1zx7mwwfcenp",
+    "type": "force",
+    "description": "Beta testers only",
+    "value": "on",
+    "condition": "",
+    "environments": [
+     "production"
+    ]
+   },
+   {
+    "id": "fr_4w9jq1zx7mwwfcenq",
+    "type": "rollout",
+    "description": "10% rollout",
+    "value": "on",
+    "condition": "",
+    "environments": [
+     "production"
+    ]
+   },
+   {
+    "id": "585a0e8b-aac1-4d2b-837d-1b733ffaf4f0",
+    "type": "force",
+    "description": "North America market (sb417)",
+    "value": "na-on",
+    "condition": "{\"country\":{\"$in\":[\"US\",\"CA\"]}}",
+    "environments": [
+     "production"
+    ]
+   }
+  ]
+ }
+}

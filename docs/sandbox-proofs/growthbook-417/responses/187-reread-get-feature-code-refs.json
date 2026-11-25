@@ -1,0 +1,30 @@
+{
+ "phase": "reread",
+ "step": "get_feature_code_refs",
+ "tool": "growthbook_get_feature_code_refs",
+ "args": {
+  "feature_id": "sb-checkout-express"
+ },
+ "status": "PASS",
+ "note": "281B: {\"codeRefs\":[{\"branch\":\"main\",\"dateUpdated\":\"2026-11-25T17:55:38.975Z\",\"feature\":\"sb-checkout-express\",\"refs\":[{\"filePath\":\"src/checkout.ts\",\"flagKey\":\"sb-checkout-express\",\"lines\":\"if (gb.isOn('sb-checkout-express')) {\"",
+ "ms": 6,
+ "bytes": 281,
+ "response": {
+  "codeRefs": [
+   {
+    "branch": "main",
+    "dateUpdated": "2026-11-25T17:55:38.975Z",
+    "feature": "sb-checkout-express",
+    "refs": [
+     {
+      "filePath": "src/checkout.ts",
+      "flagKey": "sb-checkout-express",
+      "lines": "if (gb.isOn('sb-checkout-express')) {",
+      "startingLineNumber": 42
+     }
+    ],
+    "repo": "acme/web"
+   }
+  ]
+ }
+}

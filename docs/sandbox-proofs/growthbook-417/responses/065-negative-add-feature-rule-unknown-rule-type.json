@@ -1,0 +1,20 @@
+{
+ "phase": "negative",
+ "step": "add_feature_rule: unknown rule type",
+ "tool": "growthbook_add_feature_rule",
+ "args": {
+  "feature_id": "sb-beta-banner",
+  "rule": {
+   "type": "holdout",
+   "value": "x",
+   "environments": [
+    "production"
+   ]
+  }
+ },
+ "status": "PASS",
+ "note": "isError=True; rule.type must be one of force, rollout, experiment-ref",
+ "ms": 1,
+ "bytes": 55,
+ "response": "rule.type must be one of force, rollout, experiment-ref"
+}

@@ -1,0 +1,57 @@
+{
+ "phase": "verify",
+ "step": "list_audit_logs experiment start/stop",
+ "tool": "growthbook_list_audit_logs",
+ "args": {
+  "entity_type": "experiment",
+  "entity_id": "exp_4w9jq1zx7mwwfck9f"
+ },
+ "status": "PASS",
+ "note": "824B: {\"audits\":[{\"dateCreated\":\"2026-11-25T17:55:43.193Z\",\"entity\":{\"id\":\"exp_4w9jq1zx7mwwfck9f\",\"object\":\"experiment\"},\"event\":\"experiment.stop\",\"id\":\"aud_2ChQ5QF3r6gqCJN2N9EBA9\",\"name\":\"switchboard sandbox 417\"},{\"dateCreat",
+ "ms": 7,
+ "bytes": 824,
+ "response": {
+  "audits": [
+   {
+    "dateCreated": "2026-11-25T17:55:43.193Z",
+    "entity": {
+     "id": "exp_4w9jq1zx7mwwfck9f",
+     "object": "experiment"
+    },
+    "event": "experiment.stop",
+    "id": "aud_2ChQ5QF3r6gqCJN2N9EBA9",
+    "name": "switchboard sandbox 417"
+   },
+   {
+    "dateCreated": "2026-11-25T17:55:43.167Z",
+    "entity": {
+     "id": "exp_4w9jq1zx7mwwfck9f",
+     "object": "experiment"
+    },
+    "event": "experiment.update",
+    "id": "aud_2ChQ5QEwQKat8MKtz5kE6J",
+    "name": "switchboard sandbox 417"
+   },
+   {
+    "dateCreated": "2026-11-25T17:55:43.108Z",
+    "entity": {
+     "id": "exp_4w9jq1zx7mwwfck9f",
+     "object": "experiment"
+    },
+    "event": "experiment.start",
+    "id": "aud_2ChQ5QEgmiALThnYyvhcoD",
+    "name": "switchboard sandbox 417"
+   },
+   {
+    "dateCreated": "2026-11-25T17:55:42.954Z",
+    "entity": {
+     "id": "exp_4w9jq1zx7mwwfck9f",
+     "object": "experiment"
+    },
+    "event": "experiment.update",
+    "id": "aud_2ChQ5QE2aebzhs8TvNrSCm",
+    "name": "switchboard sandbox 417"
+   }
+  ]
+ }
+}

@@ -1,0 +1,40 @@
+{
+ "phase": "xcheck",
+ "step": "experiment running; flag rule live",
+ "tool": "GET experiment + feature",
+ "args": {},
+ "status": "PASS",
+ "note": "running; experiment-ref rule live on sb-417-market-flag-29342",
+ "response": {
+  "status": "running",
+  "rules": [
+   {
+    "description": "",
+    "id": "ebf1314b-9397-4206-809f-889a82487621",
+    "condition": "",
+    "enabled": true,
+    "scheduleRules": null,
+    "scheduleType": null,
+    "savedGroupTargeting": [],
+    "prerequisites": [],
+    "type": "experiment-ref",
+    "variations": [
+     {
+      "variationId": "var_4w9jq1zx7mwwfck9d",
+      "value": "control"
+     },
+     {
+      "variationId": "var_4w9jq1zx7mwwfck9e",
+      "value": "na-banner"
+     }
+    ],
+    "experimentId": "exp_4w9jq1zx7mwwfck9f",
+    "allEnvironments": false,
+    "environments": [
+     "production"
+    ],
+    "allProjects": true
+   }
+  ]
+ }
+}

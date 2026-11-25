@@ -1,0 +1,25 @@
+{
+ "phase": "xcheck",
+ "step": "update persisted (metrics, hypothesis), status still draft",
+ "tool": "GET /api/v1/experiments/exp_4w9jq1zx7mwwfck9f",
+ "args": {},
+ "status": "PASS",
+ "note": "settings.goals=['fact__2ChQ5PfuoJCzyqbsYfZoUU'] guardrails=['met_4w9jq1zx7mwwfcejq'] status=draft",
+ "response": {
+  "goals": [
+   {
+    "metricId": "fact__2ChQ5PfuoJCzyqbsYfZoUU",
+    "overrides": {}
+   }
+  ],
+  "guardrails": [
+   {
+    "metricId": "met_4w9jq1zx7mwwfcejq",
+    "overrides": {}
+   }
+  ],
+  "hypothesis": "A North America banner lifts purchase rate",
+  "description": "Updated through Switchboard (PR 417 sandbox)",
+  "status": "draft"
+ }
+}

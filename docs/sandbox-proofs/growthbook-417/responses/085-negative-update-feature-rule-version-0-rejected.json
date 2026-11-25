@@ -1,0 +1,18 @@
+{
+ "phase": "negative",
+ "step": "update_feature_rule: version 0 rejected",
+ "tool": "growthbook_update_feature_rule",
+ "args": {
+  "feature_id": "sb-beta-banner",
+  "version": 0,
+  "rule_id": "585a0e8b-aac1-4d2b-837d-1b733ffaf4f0",
+  "rule": {
+   "value": "x"
+  }
+ },
+ "status": "PASS",
+ "note": "isError=True; version must be a positive draft revision version",
+ "ms": 0,
+ "bytes": 49,
+ "response": "version must be a positive draft revision version"
+}

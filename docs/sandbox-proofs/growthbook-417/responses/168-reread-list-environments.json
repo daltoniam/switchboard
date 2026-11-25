@@ -1,0 +1,29 @@
+{
+ "phase": "reread",
+ "step": "list_environments",
+ "tool": "growthbook_list_environments",
+ "args": {},
+ "status": "PASS",
+ "note": "234B: {\"environments\":[{\"defaultState\":true,\"description\":\"\",\"id\":\"production\",\"isProduction\":true},{\"defaultState\":false,\"description\":\"Staging\",\"id\":\"staging\",\"isProduction\":false,\"projects\":[\"prj_2ChQ5Gk4djffjvT3jwN2R2\"]}]}",
+ "ms": 4,
+ "bytes": 234,
+ "response": {
+  "environments": [
+   {
+    "defaultState": true,
+    "description": "",
+    "id": "production",
+    "isProduction": true
+   },
+   {
+    "defaultState": false,
+    "description": "Staging",
+    "id": "staging",
+    "isProduction": false,
+    "projects": [
+     "prj_2ChQ5Gk4djffjvT3jwN2R2"
+    ]
+   }
+  ]
+ }
+}

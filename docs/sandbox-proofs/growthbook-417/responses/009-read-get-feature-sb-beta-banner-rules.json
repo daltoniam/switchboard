@@ -1,0 +1,89 @@
+{
+ "phase": "read",
+ "step": "get_feature sb-beta-banner (rules)",
+ "tool": "growthbook_get_feature",
+ "args": {
+  "feature_id": "sb-beta-banner"
+ },
+ "status": "PASS",
+ "note": "1235B: {\"feature\":{\"archived\":false,\"dateCreated\":\"2026-11-25T17:55:35.597Z\",\"dateUpdated\":\"2026-11-25T17:55:38.930Z\",\"defaultValue\":\"off\",\"description\":\"Beta banner (string, rules)\",\"environments\":{\"production\":{\"defaultValue\"",
+ "ms": 25,
+ "bytes": 1235,
+ "response": {
+  "feature": {
+   "archived": false,
+   "dateCreated": "2026-11-25T17:55:35.597Z",
+   "dateUpdated": "2026-11-25T17:55:38.930Z",
+   "defaultValue": "off",
+   "description": "Beta banner (string, rules)",
+   "environments": {
+    "production": {
+     "defaultValue": "off",
+     "enabled": true
+    },
+    "staging": {
+     "defaultValue": "off",
+     "enabled": false
+    }
+   },
+   "id": "sb-beta-banner",
+   "ownerEmail": "sb-admin@example.test",
+   "prerequisites": [
+    "sb-checkout-express"
+   ],
+   "project": "prj_2ChQ5PcJW8cW4d5UHcBKjs",
+   "revision": {
+    "comment": "Created via REST API",
+    "date": "2026-11-25T17:55:38.922Z",
+    "publishedBy.name": "switchboard sandbox 417",
+    "version": 2
+   },
+   "rules": [
+    {
+     "allEnvironments": false,
+     "allProjects": true,
+     "condition": "",
+     "description": "Beta testers only",
+     "enabled": true,
+     "environments": [
+      "production"
+     ],
+     "id": "fr_4w9jq1zx7mwwfcenp",
+     "prerequisites": [],
+     "savedGroupTargeting": [
+      {
+       "matchType": "any",
+       "savedGroups": [
+        "grp_2ChQ5Pg7TFJ9mV4XtXbaVf"
+       ]
+      }
+     ],
+     "type": "force",
+     "value": "on"
+    },
+    {
+     "allEnvironments": false,
+     "allProjects": true,
+     "condition": "",
+     "coverage": 0.1,
+     "description": "10% rollout",
+     "enabled": true,
+     "environments": [
+      "production"
+     ],
+     "hashAttribute": "id",
+     "id": "fr_4w9jq1zx7mwwfcenq",
+     "prerequisites": [],
+     "savedGroupTargeting": [],
+     "seed": "fr_4w9jq1zx7mwwfcenq",
+     "type": "rollout",
+     "value": "on"
+    }
+   ],
+   "tags": [
+    "growth"
+   ],
+   "valueType": "string"
+  }
+ }
+}

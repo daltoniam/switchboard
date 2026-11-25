@@ -1,0 +1,23 @@
+{
+ "phase": "write",
+ "step": "toggle_feature sb-checkout-express production=true",
+ "tool": "growthbook_toggle_feature",
+ "args": {
+  "feature_id": "sb-checkout-express",
+  "environment": "production",
+  "enabled": true,
+  "reason": "switchboard sandbox 417"
+ },
+ "status": "PASS",
+ "note": "165B: {\"date_updated\":\"2026-11-25T17:55:42.405Z\",\"enabled\":true,\"environment\":\"production\",\"feature_id\":\"sb-checkout-express\",\"status\":\"updated\",\"version\":2}\npinned as $37",
+ "ms": 27,
+ "bytes": 165,
+ "response": {
+  "date_updated": "2026-11-25T17:55:42.405Z",
+  "enabled": true,
+  "environment": "production",
+  "feature_id": "sb-checkout-express",
+  "status": "updated",
+  "version": 2
+ }
+}

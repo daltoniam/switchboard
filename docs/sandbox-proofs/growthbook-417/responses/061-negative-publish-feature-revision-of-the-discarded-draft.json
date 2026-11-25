@@ -1,0 +1,15 @@
+{
+ "phase": "negative",
+ "step": "publish_feature_revision of the discarded draft",
+ "tool": "growthbook_publish_feature_revision",
+ "args": {
+  "feature_id": "sb-checkout-express",
+  "version": 4,
+  "comment": "should fail"
+ },
+ "status": "PASS",
+ "note": "isError=True; growthbook API error (400): {\"message\":\"Cannot publish a revision with status \\\"discarded\\\"\"}",
+ "ms": 7,
+ "bytes": 93,
+ "response": "growthbook API error (400): {\"message\":\"Cannot publish a revision with status \\\"discarded\\\"\"}"
+}

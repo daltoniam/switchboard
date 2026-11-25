@@ -1,0 +1,35 @@
+{
+ "phase": "negative",
+ "step": "create_experiment: missing trackingKey rejected",
+ "tool": "growthbook_create_experiment",
+ "args": {
+  "experiment": {
+   "name": "SB 417 Market Test",
+   "project": "prj_2ChQ5PcJW8cW4d5UHcBKjs",
+   "datasourceId": "ds_4w9jq1zx7mwwfcefs",
+   "assignmentQuery": {
+    "id": "exq_4w9jq1zx7mwwfceg5"
+   },
+   "hypothesis": "A North America banner lifts purchases",
+   "owner": "sb-admin@example.test",
+   "tags": [
+    "sb417"
+   ],
+   "variations": [
+    {
+     "key": "0",
+     "name": "Control"
+    },
+    {
+     "key": "1",
+     "name": "NA Banner"
+    }
+   ]
+  }
+ },
+ "status": "PASS",
+ "note": "isError=True; experiment.trackingKey is required",
+ "ms": 0,
+ "bytes": 34,
+ "response": "experiment.trackingKey is required"
+}

@@ -1,0 +1,115 @@
+{
+ "phase": "read",
+ "step": "list_features offset=2 limit=2",
+ "tool": "growthbook_list_features",
+ "args": {
+  "limit": 2,
+  "offset": 2
+ },
+ "status": "PASS",
+ "note": "{\"features\":[{\"archived\":false,\"dateUpdated\":\"2026-11-25T17:55:35.738Z\",\"defaultValue\":\"classic\",\"description\":\"Experiment flag\",\"environments\":{\"production\":{\"defaultValue\":\"classic\",\"enabled\":false},\"staging\":{\"defaultValue\":\"classic\",\"enabled\":false}},\"id\":",
+ "ms": 16,
+ "bytes": 1586,
+ "response": {
+  "features": [
+   {
+    "archived": false,
+    "dateUpdated": "2026-11-25T17:55:35.738Z",
+    "defaultValue": "classic",
+    "description": "Experiment flag",
+    "environments": {
+     "production": {
+      "defaultValue": "classic",
+      "enabled": false
+     },
+     "staging": {
+      "defaultValue": "classic",
+      "enabled": false
+     }
+    },
+    "id": "sb-checkout-flow",
+    "ownerEmail": "sb-admin@example.test",
+    "project": "prj_2ChQ5PcJW8cW4d5UHcBKjs",
+    "rules": [
+     {
+      "allEnvironments": false,
+      "allProjects": true,
+      "condition": "",
+      "description": "",
+      "enabled": true,
+      "environments": [
+       "production"
+      ],
+      "experimentId": "exp_4w9jq1zx7mwwfceos",
+      "id": "fr_4w9jq1zx7mwwfcerg",
+      "prerequisites": [],
+      "savedGroupTargeting": [],
+      "type": "experiment-ref",
+      "variations": [
+       {
+        "value": "classic",
+        "variationId": "var_4w9jq1zx7mwwfceoq"
+       },
+       {
+        "value": "express",
+        "variationId": "var_4w9jq1zx7mwwfceor"
+       }
+      ]
+     }
+    ],
+    "valueType": "string",
+    "version": 1
+   },
+   {
+    "archived": false,
+    "dateUpdated": "2026-11-25T17:55:35.771Z",
+    "defaultValue": "none",
+    "description": "Experiment flag",
+    "environments": {
+     "production": {
+      "defaultValue": "none",
+      "enabled": false
+     },
+     "staging": {
+      "defaultValue": "none",
+      "enabled": false
+     }
+    },
+    "id": "sb-banner-flow",
+    "ownerEmail": "sb-admin@example.test",
+    "project": "prj_2ChQ5PcJW8cW4d5UHcBKjs",
+    "rules": [
+     {
+      "allEnvironments": false,
+      "allProjects": true,
+      "condition": "",
+      "description": "",
+      "enabled": true,
+      "environments": [
+       "production"
+      ],
+      "experimentId": "exp_4w9jq1zx7mwwfcepv",
+      "id": "fr_4w9jq1zx7mwwfcesd",
+      "prerequisites": [],
+      "savedGroupTargeting": [],
+      "type": "experiment-ref",
+      "variations": [
+       {
+        "value": "none",
+        "variationId": "var_4w9jq1zx7mwwfcept"
+       },
+       {
+        "value": "banner",
+        "variationId": "var_4w9jq1zx7mwwfcepu"
+       }
+      ]
+     }
+    ],
+    "valueType": "string",
+    "version": 1
+   }
+  ],
+  "hasMore": false,
+  "total": 4
+ }
+}

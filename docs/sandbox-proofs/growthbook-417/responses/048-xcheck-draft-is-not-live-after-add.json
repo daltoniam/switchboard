@@ -1,0 +1,11 @@
+{
+ "phase": "xcheck",
+ "step": "draft is not live after add",
+ "tool": "GET /api/v2/features/sb-beta-banner",
+ "args": {},
+ "status": "PASS",
+ "note": "live rules still 2, no sb417 rule",
+ "response": {
+  "live_rule_count": 2
+ }
+}

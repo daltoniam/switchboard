@@ -1,0 +1,106 @@
+{
+ "phase": "verify",
+ "step": "get_feature shows the published NA rule",
+ "tool": "growthbook_get_feature",
+ "args": {
+  "feature_id": "sb-beta-banner"
+ },
+ "status": "PASS",
+ "note": "1608B: {\"feature\":{\"archived\":false,\"dateCreated\":\"2026-11-25T17:54:02.458Z\",\"dateUpdated\":\"2026-11-25T17:54:09.548Z\",\"defaultValue\":\"off\",\"description\":\"Beta banner (string, rules)\",\"environments\":{\"production\":{\"defaultValue\"",
+ "ms": 9,
+ "bytes": 1608,
+ "response": {
+  "feature": {
+   "archived": false,
+   "dateCreated": "2026-11-25T17:54:02.458Z",
+   "dateUpdated": "2026-11-25T17:54:09.548Z",
+   "defaultValue": "off",
+   "description": "Beta banner (string, rules)",
+   "environments": {
+    "production": {
+     "defaultValue": "off",
+     "enabled": true
+    },
+    "staging": {
+     "defaultValue": "off",
+     "enabled": false
+    }
+   },
+   "id": "sb-beta-banner",
+   "ownerEmail": "sb-admin@example.test",
+   "prerequisites": [
+    "sb-checkout-express"
+   ],
+   "project": "prj_2ChQ5Gk4djffjvT3jwN2R2",
+   "revision": {
+    "comment": "Sandbox E2E for PR 417: add a US force rule",
+    "date": "2026-11-25T17:54:09.371Z",
+    "publishedBy.name": "switchboard sandbox 417",
+    "version": 3
+   },
+   "rules": [
+    {
+     "allEnvironments": false,
+     "allProjects": true,
+     "condition": "",
+     "description": "Beta testers only",
+     "enabled": true,
+     "environments": [
+      "production"
+     ],
+     "id": "fr_4w9jq1yzdmwwfaesh",
+     "prerequisites": [],
+     "savedGroupTargeting": [
+      {
+       "matchType": "any",
+       "savedGroups": [
+        "grp_2ChQ5GowJQpFpxfktQ4kxq"
+       ]
+      }
+     ],
+     "type": "force",
+     "value": "on"
+    },
+    {
+     "allEnvironments": false,
+     "allProjects": true,
+     "condition": "",
+     "coverage": 0.1,
+     "description": "10% rollout",
+     "enabled": true,
+     "environments": [
+      "production"
+     ],
+     "hashAttribute": "id",
+     "id": "fr_4w9jq1yzdmwwfaesi",
+     "prerequisites": [],
+     "savedGroupTargeting": [],
+     "seed": "fr_4w9jq1yzdmwwfaesi",
+     "type": "rollout",
+     "value": "on"
+    },
+    {
+     "allEnvironments": false,
+     "allProjects": true,
+     "condition": "{\"country\":{\"$in\":[\"US\",\"CA\"]}}",
+     "description": "North America market (sb417)",
+     "enabled": true,
+     "environments": [
+      "production"
+     ],
+     "id": "93714524-122c-4d54-b692-8d66ac6073b8",
+     "prerequisites": [],
+     "savedGroupTargeting": [],
+     "scheduleRules": null,
+     "scheduleType": null,
+     "type": "force",
+     "value": "na-on"
+    }
+   ],
+   "tags": [
+    "growth"
+   ],
+   "valueType": "string"
+  }
+ }
+}

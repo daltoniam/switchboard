@@ -1,0 +1,61 @@
+{
+ "phase": "write",
+ "step": "create_feature sb-edge-unscoped-29342 (edge scratch flag)",
+ "tool": "growthbook_create_feature",
+ "args": {
+  "feature_id": "sb-edge-unscoped-29342",
+  "value_type": "string",
+  "default_value": "off",
+  "owner": "sb-admin@example.test"
+ },
+ "status": "PASS",
+ "note": "831B: {\"feature\":{\"archived\":false,\"customFields\":{},\"dateCreated\":\"2026-11-25T17:55:43.268Z\",\"dateUpdated\":\"2026-11-25T17:55:43.268Z\",\"defaultValue\":\"off\",\"description\":\"\",\"environments\":{\"production\":{\"defaultValue\":\"off\",\"e",
+ "ms": 18,
+ "bytes": 831,
+ "response": {
+  "feature": {
+   "archived": false,
+   "customFields": {},
+   "dateCreated": "2026-11-25T17:55:43.268Z",
+   "dateUpdated": "2026-11-25T17:55:43.268Z",
+   "defaultValue": "off",
+   "description": "",
+   "environments": {
+    "production": {
+     "defaultValue": "off",
+     "enabled": false
+    },
+    "staging": {
+     "defaultValue": "off",
+     "enabled": false
+    }
+   },
+   "id": "sb-edge-unscoped-29342",
+   "owner": "u_4w9jq1zx7mwwfcdv0",
+   "ownerEmail": "sb-admin@example.test",
+   "prerequisites": [],
+   "project": "",
+   "revision": {
+    "comment": "",
+    "createdBy": {
+     "apiKey": "key_2ChQ5PfBtYebLf15Y65VwN",
+     "name": "switchboard sandbox 417",
+     "type": "api_key"
+    },
+    "date": "2026-11-25T17:55:43.271Z",
+    "id": "frev_4w9jq1zx7mwwfckko",
+    "publishedBy": {
+     "apiKey": "key_2ChQ5PfBtYebLf15Y65VwN",
+     "name": "switchboard sandbox 417",
+     "type": "api_key"
+    },
+    "version": 1
+   },
+   "rules": [],
+   "tags": [],
+   "targetingAllProjects": false,
+   "targetingProjects": [],
+   "valueType": "string"
+  }
+ }
+}

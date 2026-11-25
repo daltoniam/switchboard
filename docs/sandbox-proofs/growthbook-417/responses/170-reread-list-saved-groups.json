@@ -1,0 +1,28 @@
+{
+ "phase": "reread",
+ "step": "list_saved_groups",
+ "tool": "growthbook_list_saved_groups",
+ "args": {},
+ "status": "PASS",
+ "note": "264B: {\"hasMore\":false,\"savedGroups\":[{\"archived\":false,\"attributeKey\":\"id\",\"condition\":\"\",\"dateUpdated\":\"2026-11-25T17:54:02.358Z\",\"id\":\"grp_2ChQ5GowJQpFpxfktQ4kxq\",\"name\":\"Beta Testers\",\"projects\":[\"prj_2ChQ5Gk4djffjvT3jwN2R",
+ "ms": 5,
+ "bytes": 264,
+ "response": {
+  "hasMore": false,
+  "savedGroups": [
+   {
+    "archived": false,
+    "attributeKey": "id",
+    "condition": "",
+    "dateUpdated": "2026-11-25T17:54:02.358Z",
+    "id": "grp_2ChQ5GowJQpFpxfktQ4kxq",
+    "name": "Beta Testers",
+    "projects": [
+     "prj_2ChQ5Gk4djffjvT3jwN2R2"
+    ],
+    "type": "list"
+   }
+  ],
+  "total": 1
+ }
+}

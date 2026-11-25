@@ -1,0 +1,15 @@
+{
+ "phase": "negative",
+ "step": "create_feature bad key chars",
+ "tool": "growthbook_create_feature",
+ "args": {
+  "feature_id": "bad key/../x",
+  "value_type": "boolean",
+  "default_value": "false"
+ },
+ "status": "PASS",
+ "note": "isError=True; feature_id may contain only letters, digits and _ . : | -",
+ "ms": 0,
+ "bytes": 57,
+ "response": "feature_id may contain only letters, digits and _ . : | -"
+}

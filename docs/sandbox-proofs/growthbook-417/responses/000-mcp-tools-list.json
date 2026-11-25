@@ -1,0 +1,1392 @@
+{
+ "phase": "mcp",
+ "step": "tools/list",
+ "tool": "tools/list",
+ "args": {},
+ "status": "PASS",
+ "note": "meta tools: ['execute', 'history', 'pin', 'project_agent_profile_delete', 'project_agent_profile_get', 'project_agent_profile_list', 'project_agent_profile_put', 'project_create', 'project_delete', 'project_get', 'project_list', 'project_patch', 'project_resolve', 'project_resource_binding_create', 'project_resource_binding_delete', 'project_resource_binding_get', 'project_resource_binding_list', 'project_resource_binding_patch', 'project_resource_binding_transition', 'project_resource_delete', 'project_resource_get', 'project_resource_list', 'project_resource_put', 'project_search', 'project_update', 'project_validate', 'project_work_profile_delete', 'project_work_profile_get', 'project_work_profile_list', 'project_work_profile_put', 'project_work_session_create', 'project_work_session_delete', 'project_work_session_get', 'project_work_session_list', 'project_work_session_patch', 'project_work_session_transition', 'search', 'session']",
+ "response": {
+  "ttlMs": 0,
+  "cacheScope": "public",
+  "tools": [
+   {
+    "description": "Execute a tool or run a JavaScript script that chains multiple tool calls.\n\nPREFER scripts when a task requires 2+ tool calls or crosses integrations — intermediate\nresults stay server-side and never enter the conversation, saving tokens dramatically.\n\nMode 1 — Script (provide script):\n  Write ES5 JavaScript (var, function(){}, string + concatenation). No let/const, arrow functions, template literals, or destructuring.\n  Call api.call(toolName, args) to invoke tools. Chain multiple calls, filter results, and return only what you need.\n\n  {\"script\": \"var issues = api.call('linear_search_issues', {query: 'BUG-1234'}); var email = issues[0].assignee.email; var user = api.call('postgres_execute_query', {query: 'SELECT * FROM users WHERE email = $1', params: [email]}); ({issue: issues[0], dbUser: user[0]});\"}\n\nMode 2 — Single tool (provide tool_name + arguments):\n  Use for one-off calls where scripting adds no benefit.\n\n  {\"tool_name\": \"github_list_issues\", \"arguments\": {\"owner\": \"golang\", \"repo\": \"go\"}}\n\nScript API:\n  api.call(toolName, args[, opts]) — returns parsed JSON object. Use for data you need to read fields from (issues, PRs, metrics).\n    Optional opts: {fields: [\"id\", \"title\", \"user.login\"]} for server-side field projection. Dot-notation and brackets supported.\n    Throws on error (kills script). For partial-failure resilience, use tryCall.\n  api.tryCall(toolName, args[, opts]) — non-throwing call. Returns {ok: true, data: ...} or {ok: false, error: \"...\"}.\n    Also supports field projection. Prefer for cross-integration scripts where partial results are useful.\n  api.callRendered(toolName, args) — returns LLM-readable STRING (markdown or compacted JSON) instead of a JSON object.\n    The return value is a STRING, not an object — use string concatenation (+), not .field access.\n    Use for document content you need as readable text (pages, emails, issues). Do NOT use when you need field access.\n    No field projection. Throws on error.\n  api.tryCallRendered(toolName, args) — non-throwing callRendered. Returns {ok: true, data: \"rendered string\"} or {ok: false, error: \"...\"}.\n    The data value is a STRING. Do not JSON.parse() it — it is already the final readable text.\n  console.log(...) — debug logging (included in output on error)\n\nWhen to use call vs callRendered:\n  Need .field access (data.id, result.items[0])? → api.call()\n  Need readable text to pass to another tool or return to user? → api.callRendered()\n\nScripts can call integration tools — chain GitHub, Linear, Sentry, Datadog, Slack, etc. in one script.\nScripts CANNOT call the search or execute meta-tools. Use search before writing a script to discover tool names.\n\nList and search responses are automatically compacted to essential fields.\nUse single-item get tools (e.g., github_get_issue) for full detail.\nResponses over 50KB return an error — use filters, lower limit/per_page, or fetch individual items.\nScript output is also capped at 50KB — return only the fields you need, not entire API responses.\n\nScript examples:\n\nFetch a GitHub PR with field projection (only title, state, and branch refs returned):\n  {\"script\": \"var pr = api.call('github_get_pull', {owner: 'o', repo: 'r', pull_number: 42}, {fields: ['title', 'state', 'body', 'base.ref', 'head.ref']}); var diff = api.call('github_get_pull_diff', {owner: 'o', repo: 'r', pull_number: 42}); ({pr: pr, diff: diff});\"}\n\nCreate a Linear issue then open a GitHub PR referencing it:\n  {\"script\": \"var issue = api.call('linear_create_issue', {team_id: 'TEAM-ID', title: 'Fix auth bug', description: 'Details...'}); var pr = api.call('github_create_pull', {owner: 'o', repo: 'r', title: issue.identifier + ': ' + issue.title, head: 'fix-auth', base: 'main', body: 'Resolves ' + issue.url}); ({issue: issue.identifier, pr_url: pr.html_url});\"}\n\nLook up a Sentry error, find the responsible deploy, and notify Slack:\n  {\"script\": \"var issue = api.call('sentry_get_issue', {issue_id: '12345'}); var deploys = api.call('sentry_list_deploys', {organization_slug: 'org', version: issue.firstRelease.version}); api.call('slack_post_message', {channel: '#alerts', text: 'Sentry issue ' + issue.title + ' introduced in deploy ' + deploys[0].environment}); ({sentry: issue.shortId, deploy: deploys[0].environment});\"}\n\nCross-integration correlation with tryCall and field projection:\n  {\"script\": \"var pr = api.call('github_get_pull', {owner: 'o', repo: 'r', pull_number: 42}, {fields: ['title', 'state']}); var linear = api.tryCall('linear_search_issues', {query: pr.title}, {fields: ['issues.nodes[].identifier', 'issues.nodes[].title']}); ({pr: pr, linear: linear.ok ? linear.data : {error: linear.error}});\"}\n\nList issues with server-side projection (only id, title, labels — no manual .map() needed):\n  {\"script\": \"api.call('github_list_issues', {owner: 'o', repo: 'r', state: 'open'}, {fields: ['number', 'title', 'labels[].name']});\"}\n\nPipe rendered document content between tools (callRendered returns readable text, not raw JSON):\n  {\"script\": \"var page = api.callRendered('notion_get_page_content', {page_id: 'abc'}); var summary = api.call('ollama_chat', {model: 'gemma3', messages: [{role: 'user', content: 'Summarize:\\\\n' + page}]}); ({summary: summary.message.content});\"}",
+    "inputSchema": {
+     "properties": {
+      "arguments": {
+       "description": "Arguments to pass to the tool (mutually exclusive with script)",
+       "type": "object"
+      },
+      "script": {
+       "description": "ES5 JavaScript code to execute server-side. Use var (not let/const), function() (not =>), string + concatenation (not template literals). Use api.call(toolName, args, {fields: [...]}) to invoke tools with optional field projection. Return the final result. (mutually exclusive with tool_name)",
+       "type": "string"
+      },
+      "tool_name": {
+       "description": "The exact name of the tool to execute (mutually exclusive with script)",
+       "type": "string"
+      }
+     },
+     "type": "object"
+    },
+    "name": "execute"
+   },
+   {
+    "description": "Retrieve a compact log of tool calls made in this session.\n\nUseful after context compression to recover what was already fetched without re-executing.\nReturns: [{seq, tool, args, summary, is_error, timestamp}] ordered by time.",
+    "inputSchema": {
+     "properties": {
+      "last_n": {
+       "description": "Number of recent entries to return (default 20, max 200).",
+       "type": "integer"
+      },
+      "tool": {
+       "description": "Filter breadcrumbs to a specific tool name.",
+       "type": "string"
+      }
+     },
+     "type": "object"
+    },
+    "name": "history"
+   },
+   {
+    "description": "Manage pinned results from previous execute calls.\n\nEvery successful execute auto-pins its result with a handle ($1, $2, ...).\nUse handles in execute arguments to reference previous results without re-fetching:\n  execute({tool_name: \"github_get_issue\", arguments: {owner: \"$1.owner.login\", issue_number: \"$2.number\"}})\n\nActions:\n- \"list\": Show all pinned handles with tool name and size\n- \"get\": Retrieve a pinned result by handle, optionally extracting a sub-field via path\n- \"unpin\": Free memory by removing a pinned result",
+    "inputSchema": {
+     "properties": {
+      "action": {
+       "description": "The action to perform: \"list\", \"get\", or \"unpin\".",
+       "enum": [
+        "list",
+        "get",
+        "unpin"
+       ],
+       "type": "string"
+      },
+      "handle": {
+       "description": "The handle to operate on (e.g. \"$1\"). Required for get and unpin.",
+       "type": "string"
+      },
+      "path": {
+       "description": "Dot-notation path to extract a sub-field (e.g. \"user.login\"). Only for get.",
+       "type": "string"
+      }
+     },
+     "required": [
+      "action"
+     ],
+     "type": "object"
+    },
+    "name": "pin"
+   },
+   {
+    "annotations": {
+     "destructiveHint": true,
+     "idempotentHint": false,
+     "openWorldHint": false,
+     "readOnlyHint": false
+    },
+    "description": "Delete an AgentProfile by id.",
+    "inputSchema": {
+     "type": "object",
+     "properties": {
+      "id": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "id"
+     ],
+     "additionalProperties": false
+    },
+    "name": "project_agent_profile_delete"
+   },
+   {
+    "annotations": {
+     "idempotentHint": false,
+     "readOnlyHint": true
+    },
+    "description": "Get an AgentProfile by agent_profile_id.",
+    "inputSchema": {
+     "type": "object",
+     "properties": {
+      "id": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "id"
+     ],
+     "additionalProperties": false
+    },
+    "name": "project_agent_profile_get"
+   },
+   {
+    "annotations": {
+     "idempotentHint": false,
+     "readOnlyHint": true
+    },
+    "description": "List AgentProfile kinds (eligible agent types, not running instances).",
+    "inputSchema": {
+     "type": "object",
+     "additionalProperties": false
+    },
+    "name": "project_agent_profile_list"
+   },
+   {
+    "annotations": {
+     "destructiveHint": false,
+     "idempotentHint": false,
+     "openWorldHint": false,
+     "readOnlyHint": false
+    },
+    "description": "Create or replace an AgentProfile.",
+    "inputSchema": {
+     "type": "object",
+     "properties": {
+      "version": {
+       "type": "string"
+      },
+      "agent_profile_id": {
+       "type": "string"
+      },
+      "display_name": {
+       "type": "string"
+      },
+      "description": {
+       "type": "string"
+      },
+      "capabilities": {
+       "type": [
+        "null",
+        "array"
+       ],
+       "items": {
+        "type": "string"
+       }
+      },
+      "constraints": {
+       "type": [
+        "null",
+        "object"
+       ],
+       "properties": {
+        "project_id": {
+         "type": "string"
+        },
+        "project_ids": {
+         "type": [
+          "null",
+          "array"
+         ],
+         "items": {
+          "type": "string"
+         }
+        }
+       },
+       "additionalProperties": false
+      }
+     },
+     "required": [
+      "version",
+      "agent_profile_id"
+     ],
+     "additionalProperties": false
+    },
+    "name": "project_agent_profile_put"
+   },
+   {
+    "annotations": {
+     "destructiveHint": false,
+     "idempotentHint": false,
+     "openWorldHint": false,
+     "readOnlyHint": false
+    },
+    "description": "Create a user-level project definition (resources map schema).",
+    "inputSchema": {
+     "type": "object",
+     "properties": {
+      "definition": {
+       "type": "object",
+       "additionalProperties": true
+      }
+     },
+     "required": [
+      "definition"
+     ],
+     "additionalProperties": false
+    },
+    "name": "project_create"
+   },
+   {
+    "annotations": {
+     "destructiveHint": true,
+     "idempotentHint": false,
+     "openWorldHint": false,
+     "readOnlyHint": false
+    },
+    "description": "Delete a user-level project definition. Does not cascade to repo, context, or revisions.",
+    "inputSchema": {
+     "type": "object",
+     "properties": {
+      "projectId": {
+       "type": "string"
+      },
+      "expectedSourceRevision": {
+       "type": "string"
+      },
+      "expectedRawSourceRevision": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "projectId"
+     ],
+     "additionalProperties": false
+    },
+    "name": "project_delete"
+   },
+   {
+    "annotations": {
+     "destructiveHint": false,
+     "idempotentHint": true,
+     "openWorldHint": false,
+     "readOnlyHint": false
+    },
+    "description": "Get a project envelope (definition + summary) by id. May materialize an immutable revision archive under revisions/ (content-addressed, idempotent).",
+    "inputSchema": {
+     "type": "object",
+     "properties": {
+      "projectId": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "projectId"
+     ],
+     "additionalProperties": false
+    },
+    "name": "project_get",
+    "outputSchema": {
+     "type": "object",
+     "properties": {
+      "projectId": {
+       "type": "string"
+      },
+      "revision": {
+       "type": "string"
+      },
+      "sourceRevision": {
+       "type": "string"
+      },
+      "definition": {
+       "type": "object",
+       "additionalProperties": true
+      },
+      "summary": {
+       "type": "object",
+       "properties": {
+        "projectId": {
+         "type": "string"
+        },
+        "title": {
+         "type": "string"
+        },
+        "description": {
+         "type": "string"
+        },
+        "revision": {
+         "type": "string"
+        },
+        "sourceRevision": {
+         "type": "string"
+        },
+        "definitionUri": {
+         "type": "string"
+        },
+        "diagnosticCount": {
+         "type": "integer"
+        }
+       },
+       "required": [
+        "projectId",
+        "title",
+        "revision",
+        "sourceRevision",
+        "definitionUri",
+        "diagnosticCount"
+       ],
+       "additionalProperties": false
+      },
+      "sources": {
+       "type": [
+        "null",
+        "array"
+       ],
+       "items": {
+        "type": "object",
+        "properties": {
+         "kind": {
+          "type": "string"
+         },
+         "uri": {
+          "type": "string"
+         },
+         "precedence": {
+          "type": "integer"
+         }
+        },
+        "required": [
+         "kind",
+         "uri",
+         "precedence"
+        ],
+        "additionalProperties": false
+       }
+      },
+      "diagnostics": {
+       "type": [
+        "null",
+        "array"
+       ],
+       "items": {
+        "type": "object",
+        "properties": {
+         "severity": {
+          "type": "string"
+         },
+         "code": {
+          "type": "string"
+         },
+         "message": {
+          "type": "string"
+         },
+         "sourceUri": {
+          "type": "string"
+         },
+         "path": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "severity",
+         "code",
+         "message"
+        ],
+        "additionalProperties": false
+       }
+      },
+      "uri": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "projectId",
+      "revision",
+      "sourceRevision",
+      "definition",
+      "summary",
+      "sources",
+      "diagnostics",
+      "uri"
+     ],
+     "additionalProperties": false
+    }
+   },
+   {
+    "annotations": {
+     "idempotentHint": false,
+     "readOnlyHint": true
+    },
+    "description": "List or search Project Catalog summaries. Start here to discover local projects.",
+    "inputSchema": {
+     "type": "object",
+     "properties": {
+      "query": {
+       "type": "string"
+      },
+      "cursor": {
+       "type": "string"
+      }
+     },
+     "additionalProperties": false
+    },
+    "name": "project_list",
+    "outputSchema": {
+     "type": "object",
+     "properties": {
+      "projects": {
+       "type": [
+        "null",
+        "array"
+       ],
+       "items": {
+        "type": "object",
+        "properties": {
+         "projectId": {
+          "type": "string"
+         },
+         "title": {
+          "type": "string"
+         },
+         "description": {
+          "type": "string"
+         },
+         "revision": {
+          "type": "string"
+         },
+         "sourceRevision": {
+          "type": "string"
+         },
+         "definitionUri": {
+          "type": "string"
+         },
+         "diagnosticCount": {
+          "type": "integer"
+         }
+        },
+        "required": [
+         "projectId",
+         "title",
+         "revision",
+         "sourceRevision",
+         "definitionUri",
+         "diagnosticCount"
+        ],
+        "additionalProperties": false
+       }
+      },
+      "nextCursor": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "projects"
+     ],
+     "additionalProperties": false
+    }
+   },
+   {
+    "annotations": {
+     "destructiveHint": true,
+     "idempotentHint": false,
+     "openWorldHint": false,
+     "readOnlyHint": false
+    },
+    "description": "Alias of project_update. Patch a user-level project definition with optimistic concurrency.",
+    "inputSchema": {
+     "type": "object",
+     "properties": {
+      "projectId": {
+       "type": "string"
+      },
+      "expectedSourceRevision": {
+       "type": "string"
+      },
+      "patch": {
+       "type": "object",
+       "additionalProperties": true
+      }
+     },
+     "required": [
+      "projectId",
+      "expectedSourceRevision",
+      "patch"
+     ],
+     "additionalProperties": false
+    },
+    "name": "project_patch"
+   },
+   {
+    "annotations": {
+     "destructiveHint": false,
+     "idempotentHint": true,
+     "openWorldHint": false,
+     "readOnlyHint": false
+    },
+    "description": "Resolve a project by id and/or explicit file:// rootUri. May materialize an immutable revision archive under revisions/ (content-addressed, idempotent).",
+    "inputSchema": {
+     "type": "object",
+     "properties": {
+      "projectId": {
+       "type": "string"
+      },
+      "rootUri": {
+       "type": "string"
+      }
+     },
+     "additionalProperties": false
+    },
+    "name": "project_resolve",
+    "outputSchema": {
+     "type": "object",
+     "properties": {
+      "projectId": {
+       "type": "string"
+      },
+      "revision": {
+       "type": "string"
+      },
+      "definitionUri": {
+       "type": "string"
+      },
+      "rootUri": {
+       "type": "string"
+      },
+      "sources": {
+       "type": [
+        "null",
+        "array"
+       ],
+       "items": {
+        "type": "object",
+        "properties": {
+         "kind": {
+          "type": "string"
+         },
+         "uri": {
+          "type": "string"
+         },
+         "precedence": {
+          "type": "integer"
+         }
+        },
+        "required": [
+         "kind",
+         "uri",
+         "precedence"
+        ],
+        "additionalProperties": false
+       }
+      },
+      "diagnostics": {
+       "type": [
+        "null",
+        "array"
+       ],
+       "items": {
+        "type": "object",
+        "properties": {
+         "severity": {
+          "type": "string"
+         },
+         "code": {
+          "type": "string"
+         },
+         "message": {
+          "type": "string"
+         },
+         "sourceUri": {
+          "type": "string"
+         },
+         "path": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "severity",
+         "code",
+         "message"
+        ],
+        "additionalProperties": false
+       }
+      }
+     },
+     "required": [
+      "projectId",
+      "revision",
+      "definitionUri",
+      "sources",
+      "diagnostics"
+     ],
+     "additionalProperties": false
+    }
+   },
+   {
+    "annotations": {
+     "destructiveHint": false,
+     "idempotentHint": false,
+     "openWorldHint": false,
+     "readOnlyHint": false
+    },
+    "description": "Create a WorkSession-specific binding to one Resource with a resolved locator and narrowed capability grant.",
+    "inputSchema": {
+     "type": "object",
+     "properties": {
+      "version": {
+       "type": "string"
+      },
+      "resource_binding_id": {
+       "type": "string"
+      },
+      "work_session_id": {
+       "type": "string"
+      },
+      "resource_id": {
+       "type": "string"
+      },
+      "grant": {
+       "type": "object",
+       "additionalProperties": {
+        "type": "boolean"
+       }
+      },
+      "resolved_locator": {
+       "type": "string"
+      },
+      "state": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "version",
+      "resource_binding_id",
+      "work_session_id",
+      "resource_id"
+     ],
+     "additionalProperties": false
+    },
+    "name": "project_resource_binding_create"
+   },
+   {
+    "annotations": {
+     "destructiveHint": true,
+     "idempotentHint": false,
+     "openWorldHint": false,
+     "readOnlyHint": false
+    },
+    "description": "Delete a ResourceBinding record. Does not delete its WorkSession or Resource.",
+    "inputSchema": {
+     "type": "object",
+     "properties": {
+      "resource_binding_id": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "resource_binding_id"
+     ],
+     "additionalProperties": false
+    },
+    "name": "project_resource_binding_delete"
+   },
+   {
+    "annotations": {
+     "idempotentHint": false,
+     "readOnlyHint": true
+    },
+    "description": "Get a ResourceBinding by resource_binding_id.",
+    "inputSchema": {
+     "type": "object",
+     "properties": {
+      "resource_binding_id": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "resource_binding_id"
+     ],
+     "additionalProperties": false
+    },
+    "name": "project_resource_binding_get"
+   },
+   {
+    "annotations": {
+     "idempotentHint": false,
+     "readOnlyHint": true
+    },
+    "description": "List session-specific ResourceBindings. Start here to discover which resources are attached to WorkSessions; optional filters are state, work_session_id, and resource_id.",
+    "inputSchema": {
+     "type": "object",
+     "properties": {
+      "state": {
+       "type": "string"
+      },
+      "work_session_id": {
+       "type": "string"
+      },
+      "resource_id": {
+       "type": "string"
+      }
+     },
+     "additionalProperties": false
+    },
+    "name": "project_resource_binding_list"
+   },
+   {
+    "annotations": {
+     "destructiveHint": false,
+     "idempotentHint": false,
+     "openWorldHint": false,
+     "readOnlyHint": false
+    },
+    "description": "Patch a non-revoked ResourceBinding's resolved_locator and/or narrowed grant.",
+    "inputSchema": {
+     "type": "object",
+     "properties": {
+      "resource_binding_id": {
+       "type": "string"
+      },
+      "resolved_locator": {
+       "type": [
+        "null",
+        "string"
+       ]
+      },
+      "grant": {
+       "type": "object",
+       "additionalProperties": {
+        "type": "boolean"
+       }
+      }
+     },
+     "required": [
+      "resource_binding_id"
+     ],
+     "additionalProperties": false
+    },
+    "name": "project_resource_binding_patch"
+   },
+   {
+    "annotations": {
+     "destructiveHint": true,
+     "idempotentHint": false,
+     "openWorldHint": false,
+     "readOnlyHint": false
+    },
+    "description": "Transition ResourceBinding state (proposed|bound|revoked).",
+    "inputSchema": {
+     "type": "object",
+     "properties": {
+      "resource_binding_id": {
+       "type": "string"
+      },
+      "state": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "resource_binding_id",
+      "state"
+     ],
+     "additionalProperties": false
+    },
+    "name": "project_resource_binding_transition"
+   },
+   {
+    "annotations": {
+     "destructiveHint": true,
+     "idempotentHint": false,
+     "openWorldHint": false,
+     "readOnlyHint": false
+    },
+    "description": "Delete a Resource. Fails while any retained ResourceBinding references it.",
+    "inputSchema": {
+     "type": "object",
+     "properties": {
+      "resource_id": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "resource_id"
+     ],
+     "additionalProperties": false
+    },
+    "name": "project_resource_delete"
+   },
+   {
+    "annotations": {
+     "idempotentHint": false,
+     "readOnlyHint": true
+    },
+    "description": "Get a Resource by resource_id. Resource identity is descriptive and does not grant access.",
+    "inputSchema": {
+     "type": "object",
+     "properties": {
+      "resource_id": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "resource_id"
+     ],
+     "additionalProperties": false
+    },
+    "name": "project_resource_get"
+   },
+   {
+    "annotations": {
+     "idempotentHint": false,
+     "readOnlyHint": true
+    },
+    "description": "List independently addressable Resources known to AWM. Start here to discover repositories, workspace roots, datasets, and other bindable resources.",
+    "inputSchema": {
+     "type": "object",
+     "additionalProperties": false
+    },
+    "name": "project_resource_list"
+   },
+   {
+    "annotations": {
+     "destructiveHint": false,
+     "idempotentHint": false,
+     "openWorldHint": false,
+     "readOnlyHint": false
+    },
+    "description": "Create or replace an independently addressable Resource.",
+    "inputSchema": {
+     "type": "object",
+     "properties": {
+      "version": {
+       "type": "string"
+      },
+      "resource_id": {
+       "type": "string"
+      },
+      "uri": {
+       "type": "string"
+      },
+      "kind": {
+       "type": "string"
+      },
+      "display_name": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "version",
+      "resource_id",
+      "uri",
+      "kind"
+     ],
+     "additionalProperties": false
+    },
+    "name": "project_resource_put"
+   },
+   {
+    "annotations": {
+     "idempotentHint": false,
+     "readOnlyHint": true
+    },
+    "description": "Alias of project_list. Search Project Catalog summaries.",
+    "inputSchema": {
+     "type": "object",
+     "properties": {
+      "query": {
+       "type": "string"
+      },
+      "cursor": {
+       "type": "string"
+      }
+     },
+     "additionalProperties": false
+    },
+    "name": "project_search",
+    "outputSchema": {
+     "type": "object",
+     "properties": {
+      "projects": {
+       "type": [
+        "null",
+        "array"
+       ],
+       "items": {
+        "type": "object",
+        "properties": {
+         "projectId": {
+          "type": "string"
+         },
+         "title": {
+          "type": "string"
+         },
+         "description": {
+          "type": "string"
+         },
+         "revision": {
+          "type": "string"
+         },
+         "sourceRevision": {
+          "type": "string"
+         },
+         "definitionUri": {
+          "type": "string"
+         },
+         "diagnosticCount": {
+          "type": "integer"
+         }
+        },
+        "required": [
+         "projectId",
+         "title",
+         "revision",
+         "sourceRevision",
+         "definitionUri",
+         "diagnosticCount"
+        ],
+        "additionalProperties": false
+       }
+      },
+      "nextCursor": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "projects"
+     ],
+     "additionalProperties": false
+    }
+   },
+   {
+    "annotations": {
+     "destructiveHint": true,
+     "idempotentHint": false,
+     "openWorldHint": false,
+     "readOnlyHint": false
+    },
+    "description": "Update a user-level project definition with optimistic concurrency (merge-patch or full definition).",
+    "inputSchema": {
+     "type": "object",
+     "properties": {
+      "projectId": {
+       "type": "string"
+      },
+      "expectedSourceRevision": {
+       "type": "string"
+      },
+      "definition": {
+       "type": "object",
+       "additionalProperties": true
+      },
+      "patch": {
+       "type": "object",
+       "additionalProperties": true
+      }
+     },
+     "required": [
+      "projectId",
+      "expectedSourceRevision"
+     ],
+     "additionalProperties": false
+    },
+    "name": "project_update"
+   },
+   {
+    "annotations": {
+     "idempotentHint": false,
+     "readOnlyHint": true
+    },
+    "description": "Validate a candidate project definition (resources schema + semantic repo refs) without writing.",
+    "inputSchema": {
+     "type": "object",
+     "properties": {
+      "definition": {
+       "type": "object",
+       "additionalProperties": true
+      },
+      "rootUri": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "definition"
+     ],
+     "additionalProperties": false
+    },
+    "name": "project_validate",
+    "outputSchema": {
+     "type": "object",
+     "properties": {
+      "valid": {
+       "type": "boolean"
+      },
+      "diagnostics": {
+       "type": [
+        "null",
+        "array"
+       ],
+       "items": {
+        "type": "object",
+        "properties": {
+         "severity": {
+          "type": "string"
+         },
+         "code": {
+          "type": "string"
+         },
+         "message": {
+          "type": "string"
+         },
+         "sourceUri": {
+          "type": "string"
+         },
+         "path": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "severity",
+         "code",
+         "message"
+        ],
+        "additionalProperties": false
+       }
+      }
+     },
+     "required": [
+      "valid",
+      "diagnostics"
+     ],
+     "additionalProperties": false
+    }
+   },
+   {
+    "annotations": {
+     "destructiveHint": true,
+     "idempotentHint": false,
+     "openWorldHint": false,
+     "readOnlyHint": false
+    },
+    "description": "Delete a WorkProfile by id.",
+    "inputSchema": {
+     "type": "object",
+     "properties": {
+      "id": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "id"
+     ],
+     "additionalProperties": false
+    },
+    "name": "project_work_profile_delete"
+   },
+   {
+    "annotations": {
+     "idempotentHint": false,
+     "readOnlyHint": true
+    },
+    "description": "Get a WorkProfile by work_profile_id.",
+    "inputSchema": {
+     "type": "object",
+     "properties": {
+      "id": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "id"
+     ],
+     "additionalProperties": false
+    },
+    "name": "project_work_profile_get"
+   },
+   {
+    "annotations": {
+     "idempotentHint": false,
+     "readOnlyHint": true
+    },
+    "description": "List WorkProfile blueprints (session blueprints / session profiles). Start here to discover reusable work episode templates.",
+    "inputSchema": {
+     "type": "object",
+     "additionalProperties": false
+    },
+    "name": "project_work_profile_list"
+   },
+   {
+    "annotations": {
+     "destructiveHint": false,
+     "idempotentHint": false,
+     "openWorldHint": false,
+     "readOnlyHint": false
+    },
+    "description": "Create or replace a WorkProfile (session blueprint).",
+    "inputSchema": {
+     "type": "object",
+     "properties": {
+      "version": {
+       "type": "string"
+      },
+      "work_profile_id": {
+       "type": "string"
+      },
+      "display_name": {
+       "type": "string"
+      },
+      "description": {
+       "type": "string"
+      },
+      "project_ids": {
+       "type": [
+        "null",
+        "array"
+       ],
+       "items": {
+        "type": "string"
+       }
+      },
+      "intended_resources": {
+       "type": [
+        "null",
+        "array"
+       ],
+       "items": {
+        "type": "string"
+       }
+      },
+      "default_policy": {
+       "type": "object",
+       "additionalProperties": {
+        "type": "boolean"
+       }
+      }
+     },
+     "required": [
+      "version",
+      "work_profile_id"
+     ],
+     "additionalProperties": false
+    },
+    "name": "project_work_profile_put"
+   },
+   {
+    "annotations": {
+     "destructiveHint": false,
+     "idempotentHint": false,
+     "openWorldHint": false,
+     "readOnlyHint": false
+    },
+    "description": "Create a WorkSession. May reference project_id, project_revision, work_profile_id, agent_profile_ids.",
+    "inputSchema": {
+     "type": "object",
+     "properties": {
+      "version": {
+       "type": "string"
+      },
+      "work_session_id": {
+       "type": "string"
+      },
+      "display_name": {
+       "type": "string"
+      },
+      "project_id": {
+       "type": "string"
+      },
+      "project_snapshot_id": {
+       "type": "string"
+      },
+      "project_revision": {
+       "type": "string"
+      },
+      "work_profile_id": {
+       "type": "string"
+      },
+      "agent_profile_ids": {
+       "type": [
+        "null",
+        "array"
+       ],
+       "items": {
+        "type": "string"
+       }
+      },
+      "state": {
+       "type": "string"
+      },
+      "policy": {
+       "type": "object",
+       "additionalProperties": {
+        "type": "boolean"
+       }
+      }
+     },
+     "required": [
+      "version",
+      "work_session_id"
+     ],
+     "additionalProperties": false
+    },
+    "name": "project_work_session_create"
+   },
+   {
+    "annotations": {
+     "destructiveHint": true,
+     "idempotentHint": false,
+     "openWorldHint": false,
+     "readOnlyHint": false
+    },
+    "description": "Delete a WorkSession record. Does not delete projects or profiles.",
+    "inputSchema": {
+     "type": "object",
+     "properties": {
+      "id": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "id"
+     ],
+     "additionalProperties": false
+    },
+    "name": "project_work_session_delete"
+   },
+   {
+    "annotations": {
+     "idempotentHint": false,
+     "readOnlyHint": true
+    },
+    "description": "Get a WorkSession by work_session_id.",
+    "inputSchema": {
+     "type": "object",
+     "properties": {
+      "id": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "id"
+     ],
+     "additionalProperties": false
+    },
+    "name": "project_work_session_get"
+   },
+   {
+    "annotations": {
+     "idempotentHint": false,
+     "readOnlyHint": true
+    },
+    "description": "List WorkSessions (bounded work episodes). Optional filters: state, project_id. Not MCP transport sessions.",
+    "inputSchema": {
+     "type": "object",
+     "properties": {
+      "state": {
+       "type": "string"
+      },
+      "project_id": {
+       "type": "string"
+      }
+     },
+     "additionalProperties": false
+    },
+    "name": "project_work_session_list"
+   },
+   {
+    "annotations": {
+     "destructiveHint": false,
+     "idempotentHint": false,
+     "openWorldHint": false,
+     "readOnlyHint": false
+    },
+    "description": "Patch mutable WorkSession fields (display_name, agent_profile_ids, policy). Cannot patch terminal sessions.",
+    "inputSchema": {
+     "type": "object",
+     "properties": {
+      "id": {
+       "type": "string"
+      },
+      "display_name": {
+       "type": [
+        "null",
+        "string"
+       ]
+      },
+      "agent_profile_ids": {
+       "type": [
+        "null",
+        "array"
+       ],
+       "items": {
+        "type": "string"
+       }
+      },
+      "policy": {
+       "type": "object",
+       "additionalProperties": {
+        "type": "boolean"
+       }
+      }
+     },
+     "required": [
+      "id"
+     ],
+     "additionalProperties": false
+    },
+    "name": "project_work_session_patch"
+   },
+   {
+    "annotations": {
+     "destructiveHint": true,
+     "idempotentHint": false,
+     "openWorldHint": false,
+     "readOnlyHint": false
+    },
+    "description": "Transition a WorkSession lifecycle state (proposed|open|paused|closed|aborted).",
+    "inputSchema": {
+     "type": "object",
+     "properties": {
+      "id": {
+       "type": "string"
+      },
+      "state": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "id",
+      "state"
+     ],
+     "additionalProperties": false
+    },
+    "name": "project_work_session_transition"
+   },
+   {
+    "description": "Search available tools across all integrations (GitHub, Datadog, Linear, Sentry, Slack, etc.).\n\nIMPORTANT: Always search before calling execute. Do NOT guess tool names.\n\nQuery format — use 1-2 keywords, not full sentences. Fewer words = better results:\n- {\"query\": \"create ticket\"} — synonym matching finds linear_create_issue\n- {\"query\": \"slack send\"} — integration name + verb is ideal\n- {\"integration\": \"sentry\", \"query\": \"errors\"} — or use the integration filter\nAvoid 4+ word queries — they return fewer results. Search twice with short queries instead of once with a long query.",
+    "inputSchema": {
+     "properties": {
+      "integration": {
+       "description": "Filter by integration name (e.g., \"github\", \"slack\", \"linear\"). When set, only returns tools from that integration.",
+       "type": "string"
+      },
+      "limit": {
+       "description": "Maximum number of tools to return. Defaults to 20. Set to 0 to return only the total count.",
+       "type": "integer"
+      },
+      "offset": {
+       "description": "Number of results to skip for pagination. Defaults to 0.",
+       "type": "integer"
+      },
+      "query": {
+       "description": "Search query to filter tools. Leave empty to list all available tools. Matches against tool names, descriptions, and integration names.",
+       "type": "string"
+      }
+     },
+     "type": "object"
+    },
+    "name": "search"
+   },
+   {
+    "description": "Manage session-scoped context to avoid repeating parameters.\n\nSet context once (e.g., owner/repo) and all subsequent execute calls auto-inject those values as defaults.\nExplicit arguments always override session context.\n\nActions:\n- \"set\": Upsert key-value pairs into session context\n- \"get\": Return current session context\n- \"clear\": Reset session context to empty\n\nExample: {\"action\": \"set\", \"context\": {\"owner\": \"daltoniam\", \"repo\": \"switchboard\"}}\nThen: execute({tool_name: \"github_list_issues\", arguments: {state: \"open\"}}) — owner/repo injected automatically.",
+    "inputSchema": {
+     "properties": {
+      "action": {
+       "description": "The action to perform: \"set\", \"get\", or \"clear\".",
+       "enum": [
+        "set",
+        "get",
+        "clear"
+       ],
+       "type": "string"
+      },
+      "context": {
+       "description": "Key-value pairs to set in session context (only for \"set\" action).",
+       "type": "object"
+      }
+     },
+     "required": [
+      "action"
+     ],
+     "type": "object"
+    },
+    "name": "session"
+   }
+  ]
+ }
+}

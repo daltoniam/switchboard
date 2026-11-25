@@ -1,0 +1,20 @@
+{
+ "phase": "write",
+ "step": "publish_feature_revision with audit comment",
+ "tool": "growthbook_publish_feature_revision",
+ "args": {
+  "feature_id": "sb-beta-banner",
+  "version": 3,
+  "comment": "Sandbox E2E PR 417: ship the North America force rule"
+ },
+ "status": "PASS",
+ "note": "{\"feature_id\":\"sb-beta-banner\",\"message\":\"The revision is live: SDKs serve it from their next refresh.\",\"status\":\"published\",\"version\":3}\npinned as $46",
+ "ms": 46,
+ "bytes": 151,
+ "response": {
+  "feature_id": "sb-beta-banner",
+  "message": "The revision is live: SDKs serve it from their next refresh.",
+  "status": "published",
+  "version": 3
+ }
+}

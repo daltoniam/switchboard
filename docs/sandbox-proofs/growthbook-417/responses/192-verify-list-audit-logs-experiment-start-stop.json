@@ -1,0 +1,57 @@
+{
+ "phase": "verify",
+ "step": "list_audit_logs experiment start/stop",
+ "tool": "growthbook_list_audit_logs",
+ "args": {
+  "entity_type": "experiment",
+  "entity_id": "exp_4w9jq1xwimwwf8kgg"
+ },
+ "status": "PASS",
+ "note": "824B: {\"audits\":[{\"dateCreated\":\"2026-11-25T17:52:36.826Z\",\"entity\":{\"id\":\"exp_4w9jq1xwimwwf8kgg\",\"object\":\"experiment\"},\"event\":\"experiment.stop\",\"id\":\"aud_2ChQ5AWFWMdQqJcijfebu3\",\"name\":\"switchboard sandbox 417\"},{\"dateCreat",
+ "ms": 6,
+ "bytes": 824,
+ "response": {
+  "audits": [
+   {
+    "dateCreated": "2026-11-25T17:52:36.826Z",
+    "entity": {
+     "id": "exp_4w9jq1xwimwwf8kgg",
+     "object": "experiment"
+    },
+    "event": "experiment.stop",
+    "id": "aud_2ChQ5AWFWMdQqJcijfebu3",
+    "name": "switchboard sandbox 417"
+   },
+   {
+    "dateCreated": "2026-11-25T17:52:36.801Z",
+    "entity": {
+     "id": "exp_4w9jq1xwimwwf8kgg",
+     "object": "experiment"
+    },
+    "event": "experiment.update",
+    "id": "aud_2ChQ5AW9JnChdfNeyqfW1R",
+    "name": "switchboard sandbox 417"
+   },
+   {
+    "dateCreated": "2026-11-25T17:52:36.747Z",
+    "entity": {
+     "id": "exp_4w9jq1xwimwwf8kgg",
+     "object": "experiment"
+    },
+    "event": "experiment.start",
+    "id": "aud_2ChQ5AVuvTcFV5h7LxBFmy",
+    "name": "switchboard sandbox 417"
+   },
+   {
+    "dateCreated": "2026-11-25T17:52:36.579Z",
+    "entity": {
+     "id": "exp_4w9jq1xwimwwf8kgg",
+     "object": "experiment"
+    },
+    "event": "experiment.update",
+    "id": "aud_2ChQ5AVCFuoHNaTjpBV1mh",
+    "name": "switchboard sandbox 417"
+   }
+  ]
+ }
+}

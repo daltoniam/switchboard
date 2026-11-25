@@ -1,0 +1,78 @@
+{
+ "phase": "verify",
+ "step": "list_feature_revisions experiment flag published by start",
+ "tool": "growthbook_list_feature_revisions",
+ "args": {
+  "feature_id": "sb-417-market-flag-29342",
+  "status": "published"
+ },
+ "status": "PASS",
+ "note": "1122B: {\"hasMore\":false,\"revisions\":[{\"baseVersion\":1,\"comment\":\"Experiment \\\"SB 417 Market Test\\\" started\",\"date\":\"2026-11-25T17:55:42.996Z\",\"defaultValue\":\"control\",\"environmentsEnabled\":{\"production\":false,\"staging\":false},\"",
+ "ms": 8,
+ "bytes": 1122,
+ "response": {
+  "hasMore": false,
+  "revisions": [
+   {
+    "baseVersion": 1,
+    "comment": "Experiment \"SB 417 Market Test\" started",
+    "date": "2026-11-25T17:55:42.996Z",
+    "defaultValue": "control",
+    "environmentsEnabled": {
+     "production": false,
+     "staging": false
+    },
+    "featureId": "sb-417-market-flag-29342",
+    "id": "frev_4w9jq1zx7mwwfckd1",
+    "name": "switchboard sandbox 417",
+    "rules": [
+     {
+      "allEnvironments": false,
+      "allProjects": true,
+      "condition": "",
+      "description": "",
+      "enabled": true,
+      "environments": [
+       "production"
+      ],
+      "experimentId": "exp_4w9jq1zx7mwwfck9f",
+      "id": "ebf1314b-9397-4206-809f-889a82487621",
+      "prerequisites": [],
+      "savedGroupTargeting": [],
+      "scheduleRules": null,
+      "scheduleType": null,
+      "type": "experiment-ref",
+      "variations": [
+       {
+        "value": "control",
+        "variationId": "var_4w9jq1zx7mwwfck9d"
+       },
+       {
+        "value": "na-banner",
+        "variationId": "var_4w9jq1zx7mwwfck9e"
+       }
+      ]
+     }
+    ],
+    "status": "published",
+    "version": 2
+   },
+   {
+    "baseVersion": 0,
+    "comment": "",
+    "date": "2026-11-25T17:55:42.977Z",
+    "defaultValue": "control",
+    "environmentsEnabled": {
+     "production": false,
+     "staging": false
+    },
+    "featureId": "sb-417-market-flag-29342",
+    "id": "frev_4w9jq1zx7mwwfckci",
+    "name": "switchboard sandbox 417",
+    "status": "published",
+    "version": 1
+   }
+  ],
+  "total": 2
+ }
+}

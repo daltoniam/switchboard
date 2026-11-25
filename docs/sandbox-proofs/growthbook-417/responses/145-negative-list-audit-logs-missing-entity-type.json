@@ -1,0 +1,11 @@
+{
+ "phase": "negative",
+ "step": "list_audit_logs missing entity_type",
+ "tool": "growthbook_list_audit_logs",
+ "args": {},
+ "status": "PASS",
+ "note": "isError=True; missing required parameter \"entity_type\" for tool \"growthbook_list_audit_logs\". Required: [entity_type]",
+ "ms": 0,
+ "bytes": 103,
+ "response": "missing required parameter \"entity_type\" for tool \"growthbook_list_audit_logs\". Required: [entity_type]"
+}

@@ -1,0 +1,16 @@
+{
+ "phase": "negative",
+ "step": "update_experiment: linkedChanges rejected",
+ "tool": "growthbook_update_experiment",
+ "args": {
+  "experiment_id": "exp_4w9jq1zx7mwwfck9f",
+  "changes": {
+   "linkedChanges": true
+  }
+ },
+ "status": "PASS",
+ "note": "isError=True; changes.linkedChanges is not accepted; use growthbook_start_experiment or growthbook_stop_experiment",
+ "ms": 1,
+ "bytes": 100,
+ "response": "changes.linkedChanges is not accepted; use growthbook_start_experiment or growthbook_stop_experiment"
+}

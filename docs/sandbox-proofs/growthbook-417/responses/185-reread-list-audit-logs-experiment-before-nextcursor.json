@@ -1,0 +1,29 @@
+{
+ "phase": "reread",
+ "step": "list_audit_logs experiment before=nextCursor",
+ "tool": "growthbook_list_audit_logs",
+ "args": {
+  "entity_type": "experiment",
+  "limit": 1,
+  "before": "2026-11-25T17:55:43.617Z_aud_2ChQ5QGrzKRjrgcppZhM6K"
+ },
+ "status": "PASS",
+ "note": "{\"audits\":[{\"dateCreated\":\"2026-11-25T17:55:43.193Z\",\"entity\":{\"id\":\"exp_4w9jq1zx7mwwfck9f\",\"object\":\"experiment\"},\"event\":\"experiment.stop\",\"id\":\"aud_2ChQ5QF3r6gqCJN2N9EBA9\",\"name\":\"switchboard sandbox 417\"}],\"nextCursor\":\"2026-11-25T17:55:43.193Z_aud_2ChQ5QF",
+ "ms": 7,
+ "bytes": 291,
+ "response": {
+  "audits": [
+   {
+    "dateCreated": "2026-11-25T17:55:43.193Z",
+    "entity": {
+     "id": "exp_4w9jq1zx7mwwfck9f",
+     "object": "experiment"
+    },
+    "event": "experiment.stop",
+    "id": "aud_2ChQ5QF3r6gqCJN2N9EBA9",
+    "name": "switchboard sandbox 417"
+   }
+  ],
+  "nextCursor": "2026-11-25T17:55:43.193Z_aud_2ChQ5QF3r6gqCJN2N9EBA9"
+ }
+}

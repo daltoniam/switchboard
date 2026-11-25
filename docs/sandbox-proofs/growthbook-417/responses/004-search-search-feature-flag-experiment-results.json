@@ -1,0 +1,257 @@
+{
+ "phase": "search",
+ "step": "search \"feature flag experiment results\"",
+ "tool": "search",
+ "args": {
+  "query": "feature flag experiment results",
+  "limit": 20
+ },
+ "status": "PASS",
+ "note": "20 growthbook tools; missing=[]",
+ "ms": 1,
+ "bytes": 10424,
+ "response": {
+  "has_more": true,
+  "integrations": [
+   "growthbook"
+  ],
+  "limit": 20,
+  "offset": 0,
+  "script_hint": "Tip: if your task requires multiple tool calls, use execute with a script to chain them in a single call and reduce token usage.",
+  "shared_parameters": {
+   "experiment_id": "Experiment id (exp_...)",
+   "feature_id": "Feature flag key (id)",
+   "limit": "Page size 1..100 (default 20)",
+   "offset": "Pagination offset (default 0); use nextOffset from the previous page",
+   "project_id": "Optional GrowthBook project id (prj_...)"
+  },
+  "summary": "Found 31 tools matching \"feature flag experiment results\"",
+  "tools": {
+   "columns": [
+    "description",
+    "name",
+    "parameters",
+    "required"
+   ],
+   "constants": {
+    "integration": "growthbook"
+   },
+   "rows": [
+    [
+     "List GrowthBook fact metrics (the current metric type) used as experiment goals and guardrails: name, metric type (proportion, mean, ratio, quantile, retention), fact table and column, inverse flag. Use to resolve metric ids seen in experiments and results.",
+     "growthbook_list_fact_metrics",
+     {
+      "datasource_id": "Optional data source id (ds_...)",
+      "fact_table_id": "Optional fact table id (ftb_...)"
+     },
+     null
+    ],
+    [
+     "Add a targeting rule (force value, percentage rollout, or experiment-ref linking an A/B test) to a GrowthBook feature flag, in a draft revision. Nothing goes live: the result has the draft version and rule ids; publish it with growthbook_publish_feature_revision. Omit version to start a new draft from the live revision. The rule must name its environments. Use after growthbook_get_feature and growthbook_list_attributes.",
+     "growthbook_add_feature_rule",
+     {
+      "revision_comment": "Optional markdown for reviewers: what changes and why (new draft only)",
+      "revision_title": "Optional short title for a new draft",
+      "rule": "JSON object. type: force (default), rollout or experiment-ref. environments: [\"production\"] or allEnvironments: true (required). force/rollout: value (string form, e.g. \"true\" or a JSON string), condition (MongoDB-style JSON string on attributes, e.g. {\"cbsa_name\": \"38300\"}), description, enabled; rollout also coverage (0-1) and hashAttribute. experiment-ref: experimentId and variations [{variationId, value}]",
+      "version": "Optional draft revision version to add to; omit to create a new draft"
+     },
+     [
+      "feature_id",
+      "rule"
+     ]
+    ],
+    [
+     "Create a GrowthBook A/B test experiment as a draft: nothing is served until it is linked to a flag with an experiment-ref rule (growthbook_add_feature_rule) and started (growthbook_start_experiment). Check growthbook_list_data_sources, growthbook_list_fact_metrics and growthbook_list_projects first.",
+     "growthbook_create_experiment",
+     {
+      "experiment": "JSON object: trackingKey, name, variations [{key: \"0\", name: \"Control\"}, {key: \"1\", name: \"Treatment\"}] (required); project, hypothesis, description, owner, hashAttribute, datasourceId, assignmentQuery {id}, metrics, guardrailMetrics, tags, phases [{name, dateStarted, coverage, targetingCondition, trafficSplit}]. status is always draft"
+     },
+     [
+      "experiment"
+     ]
+    ],
+    [
+     "List the GrowthBook audit log (change history) for an entity type or one entity: who changed a feature flag, experiment or metric, what event, when, and why. Use to investigate who toggled a flag or changed an experiment.",
+     "growthbook_list_audit_logs",
+     {
+      "before": "Optional cursor: nextCursor from the previous page, or an ISO date-time",
+      "entity_id": "Optional entity id (e.g. a feature flag key); omit for every entity of the type",
+      "entity_type": "Entity type, e.g. feature, experiment, metric, factMetric, savedGroup, sdkConnection, project, environment",
+      "limit": "Entries to return 1..100 (default 20)"
+     },
+     [
+      "entity_type"
+     ]
+    ],
+    [
+     "List GrowthBook feature flags (features) with per-environment on/off state, default value, value type, tags and targeting rules (force, rollout, experiment). Start here for GrowthBook feature flag management, finding a flag key, and checking whether a flag or rollout is enabled in production. Paginated with limit/offset.",
+     "growthbook_list_features",
+     {
+      "archived": "Optional boolean; true includes archived flags (default false)",
+      "project_id": "Optional GrowthBook project id (prj_...) from growthbook_list_projects"
+     },
+     null
+    ],
+    [
+     "List GrowthBook saved groups (reusable audiences and targeting segments: ID lists or conditions) referenced by feature flag rules and experiment targeting. Use to resolve grp_ ids seen in rules.",
+     "growthbook_list_saved_groups",
+     {},
+     null
+    ],
+    [
+     "Get the latest GrowthBook experiment results (A/B test analysis): users per variation and, per metric, mean, percent change (lift), confidence interval, chance to beat control or p-value, plus health checks (sample ratio mismatch SRM, multiple exposures, power). Use after growthbook_get_experiment to decide a winner. Returns an error when no analysis has run; use growthbook_refresh_experiment_results first.",
+     "growthbook_get_experiment_results",
+     {
+      "dimension": "Optional dimension to break results down by, e.g. exp:country or dim_...",
+      "phase": "Optional zero-based phase index (default: latest phase)"
+     },
+     [
+      "experiment_id"
+     ]
+    ],
+    [
+     "Get the status (running, success, error) of a GrowthBook experiment analysis snapshot. Use after growthbook_refresh_experiment_results to know when new experiment results are ready.",
+     "growthbook_get_snapshot",
+     {
+      "snapshot_id": "Snapshot id (snp_...) from growthbook_refresh_experiment_results"
+     },
+     [
+      "snapshot_id"
+     ]
+    ],
+    [
+     "Start a new GrowthBook experiment analysis snapshot, which runs the experiment's queries against the data warehouse and updates its results. Returns the snapshot id and status; poll growthbook_get_snapshot until status is success, then read growthbook_get_experiment_results. Costs warehouse compute.",
+     "growthbook_refresh_experiment_results",
+     {
+      "dimension": "Optional dimension to break results down by, e.g. exp:country",
+      "phase": "Optional zero-based phase index (default: latest phase)"
+     },
+     [
+      "experiment_id"
+     ]
+    ],
+    [
+     "Stop a running GrowthBook experiment and record its result (won, lost, inconclusive, dnf). With enable_temporary_rollout, one variation is served to all of its traffic. Use after growthbook_get_experiment_results.",
+     "growthbook_stop_experiment",
+     {
+      "analysis": "Optional markdown conclusion shown on the results page",
+      "enable_temporary_rollout": "Optional boolean: keep serving released_variation_id to all of the experiment's traffic",
+      "reason": "Optional reason for stopping",
+      "released_variation_id": "Variation id to serve to everyone, with enable_temporary_rollout",
+      "results": "won, lost, inconclusive or dnf (did not finish)",
+      "winner_variation_id": "Winning variation id (var_...), when results is won"
+     },
+     [
+      "experiment_id",
+      "results"
+     ]
+    ],
+    [
+     "Get one GrowthBook A/B test experiment by id: hypothesis, status, variations, phases with traffic split and targeting, data source, goal, secondary and guardrail metrics, linked flag keys and result summary. Use after growthbook_list_experiments.",
+     "growthbook_get_experiment",
+     {
+      "experiment_id": "Experiment id (exp_...) from growthbook_list_experiments"
+     },
+     [
+      "experiment_id"
+     ]
+    ],
+    [
+     "List GrowthBook A/B test experiments with status (draft, running, stopped), variations, traffic split per phase, goal metrics, linked flag keys and the result summary (won, lost, inconclusive). Start here for GrowthBook experiment analysis and finding an experiment id. Paginated with limit/offset.",
+     "growthbook_list_experiments",
+     {
+      "archived": "Optional boolean; true returns only archived experiments, false only active ones",
+      "search": "Optional search text (same syntax as the GrowthBook experiment list filter)",
+      "status": "Optional status filter: draft, running or stopped",
+      "tag": "Optional comma-separated tags"
+     },
+     null
+    ],
+    [
+     "Start a draft GrowthBook experiment: users matching its targeting are assigned to variations from the SDKs' next refresh, and feature drafts linked to it may be published with it. Only call this when a person has asked to launch. An incomplete launch checklist or a required approval comes back as an error for a person; it is never skipped.",
+     "growthbook_start_experiment",
+     {},
+     [
+      "experiment_id"
+     ]
+    ],
+    [
+     "Create a GrowthBook feature flag that starts disabled in every environment, with no rules. Flag keys cannot be changed later; check growthbook_get_settings for the key format and put context in description. Use growthbook_toggle_feature afterwards to turn it on.",
+     "growthbook_create_feature",
+     {
+      "default_value": "Default value as a string, e.g. false, control, 0 or {}",
+      "description": "Optional markdown: what the flag gates, why, rollout plan and links",
+      "feature_id": "New flag key: letters, digits and _ . : | - (kebab-case unless settings require otherwise)",
+      "owner": "Optional owner email or user id; required when the API key acts as itself",
+      "tags": "Optional comma-separated tags",
+      "value_type": "boolean, string, number or json"
+     },
+     [
+      "feature_id",
+      "value_type",
+      "default_value"
+     ]
+    ],
+    [
+     "Remove one targeting rule from a GrowthBook feature flag in a draft revision. Nothing goes live until growthbook_publish_feature_revision.",
+     "growthbook_delete_feature_rule",
+     {
+      "rule_id": "Rule id within the revision",
+      "version": "Draft revision version"
+     },
+     [
+      "feature_id",
+      "version",
+      "rule_id"
+     ]
+    ],
+    [
+     "Discard a GrowthBook feature flag draft revision without publishing it. The live revision is unchanged.",
+     "growthbook_discard_feature_revision",
+     {
+      "version": "Draft revision version to discard"
+     },
+     [
+      "feature_id",
+      "version"
+     ]
+    ],
+    [
+     "Get one GrowthBook feature flag by key: default value, per-environment enabled state, targeting rules with conditions, saved groups, rollout coverage and linked experiments, prerequisites, and the published revision version. Use after growthbook_list_features.",
+     "growthbook_get_feature",
+     {
+      "feature_id": "Feature flag key (id), e.g. checkout-express-pay"
+     },
+     [
+      "feature_id"
+     ]
+    ],
+    [
+     "Get GrowthBook code references for one feature flag: repositories, branches, files and lines that use the flag key. Use before removing a stale flag.",
+     "growthbook_get_feature_code_refs",
+     {},
+     [
+      "feature_id"
+     ]
+    ],
+    [
+     "Check whether GrowthBook feature flags are stale (unused, fully rolled out, toggled off, no rules) overall and per environment, with the reason and what each environment evaluates to. Use for flag cleanup and tech-debt removal after growthbook_list_features.",
+     "growthbook_get_feature_staleness",
+     {
+      "feature_ids": "Comma-separated feature flag keys (at most 100)"
+     },
+     [
+      "feature_ids"
+     ]
+    ],
+    [
+     "Get GrowthBook organization settings: feature flag key format (featureKeyExample, featureRegexValidator), statistics engine and thresholds, review requirements and kill switch confirmation. Use before growthbook_create_feature to follow the key format.",
+     "growthbook_get_settings",
+     {},
+     null
+    ]
+   ]
+  },
+  "total": 31
+ }
+}

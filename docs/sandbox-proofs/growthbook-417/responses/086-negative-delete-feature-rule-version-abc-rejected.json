@@ -1,0 +1,15 @@
+{
+ "phase": "negative",
+ "step": "delete_feature_rule: version \"abc\" rejected",
+ "tool": "growthbook_delete_feature_rule",
+ "args": {
+  "feature_id": "sb-beta-banner",
+  "version": "abc",
+  "rule_id": "585a0e8b-aac1-4d2b-837d-1b733ffaf4f0"
+ },
+ "status": "PASS",
+ "note": "isError=True; parameter \"version\": cannot convert string \"abc\" to int: strconv.Atoi: parsing \"abc\": invalid syntax",
+ "ms": 0,
+ "bytes": 100,
+ "response": "parameter \"version\": cannot convert string \"abc\" to int: strconv.Atoi: parsing \"abc\": invalid syntax"
+}
