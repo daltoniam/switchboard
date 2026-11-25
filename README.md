@@ -211,39 +211,6 @@ Tools cover repositories, the authenticated user and organizations, issues and
 comments, pull requests (including diffs, files, reviews, and merge), branches,
 commits, content, releases, and labels.
 
-### Slack official hosted MCP (`slackmcp`)
-
-Separate from the native `slack` session-token adapter. Proxies Slack's hosted MCP at `https://mcp.slack.com` (optional `credentials.base_url` override; Switchboard appends `/mcp`).
-
-Each named identity needs a **user OAuth access token** (`access_token`, typically `xoxp-...`). An app/bot may host the agent, but **`xoxb-` bot tokens cannot authenticate** Slack's hosted MCP endpoint.
-
-```json
-{
-  "integrations": {
-    "slackmcp": {
-      "enabled": true,
-      "credentials": {
-        "base_url": ""
-      },
-      "identities": {
-        "work": {
-          "credentials": { "access_token": "xoxp-..." },
-          "metadata": { "label": "Work", "team": "T0123WORK" }
-        },
-        "personal": {
-          "credentials": { "access_token": "xoxp-..." },
-          "metadata": { "label": "Personal", "team": "T0456HOME" }
-        }
-      }
-    }
-  }
-}
-```
-
-- Start with `slackmcp_list_available_identites` (spelling is intentional) — returns identity IDs, metadata, and non-secret tool capability info (never tokens).
-- Every other `slackmcp_*` tool requires `identity_id` selecting which configured identity to use.
-- Upstream tools named `slack_*` are exposed once as `slackmcp_*` (not `slackmcp_slack_*`).
-
 ### LikeC4 Excalidraw (`likec4excalidraw`)
 
 Proxies the project-aware Streamable HTTP MCP server exposed by `likec4-excalidraw`. Start the editor for the architecture directory first, then configure its printed base URL without `/mcp`. The token is optional and only applies when the editor server was embedded with `mcpToken` enabled.
@@ -270,13 +237,13 @@ Proxies Figma's official hosted MCP server and exposes the focused FigJam planni
 
 Use the web UI at `http://localhost:3847/integrations/figma/setup` to authorize with Figma OAuth. Figma currently limits its hosted MCP server to approved MCP clients and eligible paid-plan seats. Figma rejects dynamic registration under Switchboard's own client name, so this beta compatibility path registers with Figma's approved `Codex` client profile while the MCP session still identifies itself as Switchboard. This may stop working as Figma changes enforcement; catalog approval for Switchboard is the durable solution.
 
-### Notion MCP (`notion-mcp`)
+### Notion sign-in through Notion's hosted MCP
 
-Connects to Notion's official hosted Streamable HTTP endpoint at `https://mcp.notion.com/mcp` through the shared `remotemcp` adapter. This is independent of the existing `notion` integration: its tools, credentials, and setup remain unchanged, and both integrations can be enabled together.
+The `notion` integration can connect three ways, in this order of precedence: **Sign in with Notion** (OAuth to Notion's official hosted MCP at `https://mcp.notion.com/mcp`, stored as `mcp_access_token`), a Notion public API OAuth `access_token`, or a browser `token_v2` cookie.
 
-Open `/integrations/notion-mcp/setup` in the web UI and select **Sign in with Notion**. OAuth uses dynamic client registration, PKCE, the `default` scope, and resource binding to the MCP endpoint. Successful authorization saves credentials only under `notion-mcp`, enables that integration, and refreshes tool discovery without restarting Switchboard.
+Open `/integrations/notion/setup` and select **Sign in with Notion**. OAuth uses dynamic client registration, PKCE, the `default` scope, and resource binding to the MCP endpoint. Success enables `notion` and refreshes tool discovery without a restart. While signed in, tools come from Notion's catalog as `notion_<upstream-tool-name>` (start with `notion_notion-search`). Saving a browser token on the same page clears the sign-in and switches back. You can also set `NOTION_MCP_ACCESS_TOKEN` (and optionally `NOTION_MCP_BASE_URL`). Re-authorize in setup if the token expires or is revoked.
 
-Tools are discovered from Notion after authorization and namespaced as `notion-mcp_<upstream-tool-name>`. Start with `search` filtered to `integration: "notion-mcp"`; use the returned names with `execute` rather than the existing `notion_*` tools. The catalog and content permissions depend on the authorized workspace. Re-authorize in setup if the token expires or is revoked; the shared remote OAuth flow currently stores access tokens only and does not refresh them automatically.
+Earlier releases shipped separate `notion-mcp` and `slackmcp` integrations. They were removed so each product has one integration. On startup, a `notion-mcp` sign-in moves into `notion` when `notion` has no credentials of its own, and the first `slackmcp` identity token moves into `slack` when `slack` has no token. Anything that cannot move is dropped with a logged warning.
 
 ### Argo Workflows (`argoworkflows`)
 
@@ -504,13 +471,12 @@ Some integrations support OAuth flows through the web UI at `http://localhost:38
 | Forgejo | Personal Access Token | Set `FORGEJO_BASE_URL` and `FORGEJO_TOKEN` or enter them in the web UI; enable explicitly |
 | Linear | OAuth (PKCE) | Web UI → Linear → Setup, or set `LINEAR_API_KEY` |
 | Figma and FigJam | Hosted MCP OAuth (PKCE) | Web UI → Figma → Setup, or set `FIGMA_MCP_ACCESS_TOKEN` |
-| Notion MCP (`notion-mcp`) | Hosted MCP OAuth (PKCE) | Web UI → notion-mcp → Setup, or set `NOTION_MCP_ACCESS_TOKEN` and enable explicitly |
+| Notion | Hosted MCP OAuth (PKCE) or browser token | Web UI → Notion → Setup → Sign in with Notion, or set `NOTION_MCP_ACCESS_TOKEN` and enable explicitly |
 | Mobbin | Hosted MCP OAuth (PKCE) | Web UI → Mobbin → Setup, or set `MOBBIN_MCP_ACCESS_TOKEN` and enable explicitly |
 | Higgsfield | Hosted MCP OAuth (PKCE) | Web UI → higgsfield → Setup, or set `HIGGSFIELD_MCP_ACCESS_TOKEN` and enable explicitly |
 | Ashby | Hosted MCP OAuth (PKCE) | Web UI → ashby → Setup, or set `ASHBY_MCP_ACCESS_TOKEN` and enable explicitly |
 | Sentry | OAuth Device Flow | Web UI → Sentry → Setup, or set `SENTRY_AUTH_TOKEN` |
 | Slack | Session Token | Web UI → Slack → Setup (auto-extracts from Chrome), or set `SLACK_TOKEN` |
-| Slack MCP (official hosted) | User OAuth access tokens per identity | Edit `~/.config/switchboard/config.json` `slackmcp.identities` (see below). Bot `xoxb-` tokens are **not** accepted by Slack's hosted MCP endpoint. |
 | LikeC4 Excalidraw | Local Streamable HTTP MCP | Start `likec4-excalidraw`, then set `LIKEC4_EXCALIDRAW_BASE_URL` or enter the printed URL in the web UI; bearer token is optional. |
 | Datadog | API + App Key | Set `DD_API_KEY` and `DD_APP_KEY` env vars or enter in web UI |
 | AWS | IAM Credentials | Set `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` env vars, or uses default credential chain |

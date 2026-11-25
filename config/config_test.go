@@ -32,8 +32,8 @@ func TestLoad_CreatesDefaultWhenMissing(t *testing.T) {
 	_, err = os.Stat(path)
 	assert.NoError(t, err)
 
-	assert.Len(t, m.cfg.Integrations, 97)
-	for _, name := range []string{"airflow", "github", "forgejo", "datadog", "linear", "sentry", "slack", "slackmcp", "likec4excalidraw", "figma", "notion-mcp", "mobbin", "metabase", "paperless", "obsidian", "recoll", "imessage", "aws", "posthog", "postgres", "clickhouse", "elasticsearch", "pganalyze", "rwx", "projectinterop", "gmail", "gcal", "gdrive", "gdocs", "gsheets", "gslides", "gforms", "gchat", "gmeet", "gtasks", "gpeople", "notion", "ollama", "ynab", "stripe", "gcp", "suno", "amazon", "jira", "confluence", "salesforce", "servicenow", "cloudflare", "digitalocean", "fly", "kubernetes", "vercel", "snowflake", "acp", "web", "botidentity", "x", "signoz", "nomad", "agents", "switchboard", "netsuite", "ramp", "gong", "zendesk", "hubspot", "intercom", "front", "groupme", "discord", "grist", "okta", "microsoft365", "pagerduty", "launchdarkly", "tailscale", "dbt", "sourcebot", "argoworkflows", "openbao", "keycloak", "prometheus", "druid", "mysql", "semaphoreui", "nexus", "wazuh"} {
+	assert.Len(t, m.cfg.Integrations, 95)
+	for _, name := range []string{"airflow", "github", "forgejo", "datadog", "linear", "sentry", "slack", "likec4excalidraw", "figma", "mobbin", "metabase", "paperless", "obsidian", "recoll", "imessage", "aws", "posthog", "postgres", "clickhouse", "elasticsearch", "pganalyze", "rwx", "projectinterop", "gmail", "gcal", "gdrive", "gdocs", "gsheets", "gslides", "gforms", "gchat", "gmeet", "gtasks", "gpeople", "notion", "ollama", "ynab", "stripe", "gcp", "suno", "amazon", "jira", "confluence", "salesforce", "servicenow", "cloudflare", "digitalocean", "fly", "kubernetes", "vercel", "snowflake", "acp", "web", "botidentity", "x", "signoz", "nomad", "agents", "switchboard", "netsuite", "ramp", "gong", "zendesk", "hubspot", "intercom", "front", "groupme", "discord", "grist", "okta", "microsoft365", "pagerduty", "launchdarkly", "tailscale", "dbt", "sourcebot", "argoworkflows", "openbao", "keycloak", "prometheus", "druid", "mysql", "semaphoreui", "nexus", "wazuh"} {
 		ic, ok := m.cfg.Integrations[name]
 		require.True(t, ok, "missing default integration: %s", name)
 		assert.False(t, ic.Enabled)
@@ -174,7 +174,7 @@ func TestSave(t *testing.T) {
 
 	var cfg mcp.Config
 	require.NoError(t, json.Unmarshal(data, &cfg))
-	assert.Len(t, cfg.Integrations, 97)
+	assert.Len(t, cfg.Integrations, 95)
 }
 
 func TestGet(t *testing.T) {
@@ -183,7 +183,7 @@ func TestGet(t *testing.T) {
 
 	cfg := m.Get()
 	assert.NotNil(t, cfg)
-	assert.Len(t, cfg.Integrations, 97)
+	assert.Len(t, cfg.Integrations, 95)
 }
 
 func TestUpdate(t *testing.T) {
@@ -367,7 +367,7 @@ func countName(names []string, want string) int {
 func TestDefaultConfig(t *testing.T) {
 	cfg := defaultConfig()
 	require.NotNil(t, cfg)
-	assert.Len(t, cfg.Integrations, 97)
+	assert.Len(t, cfg.Integrations, 95)
 
 	expected := map[string][]string{
 		"jenkins":          {"base_url", "username", "api_token", "ca_cert"},
@@ -383,10 +383,8 @@ func TestDefaultConfig(t *testing.T) {
 		"linear":           {"api_key", "mcp_access_token", "token_source"},
 		"sentry":           {"auth_token", "organization", "client_id", "token_source"},
 		"slack":            {"token", "cookie", "token_source"},
-		"slackmcp":         {"base_url"},
 		"likec4excalidraw": {"base_url", "mcp_token"},
 		"figma":            {"mcp_access_token", "base_url", "token_source"},
-		"notion-mcp":       {"mcp_access_token", "base_url", "token_source"},
 		"mobbin":           {"mcp_access_token", "base_url", "token_source"},
 		"metabase":         {"api_key", "url"},
 		"paperless":        {"token", "url"},
@@ -402,7 +400,7 @@ func TestDefaultConfig(t *testing.T) {
 		"rwx":              {"access_token", "org"},
 		"projectinterop":   {"config_root"},
 		"gmail":            {"access_token", "refresh_token", "client_id", "client_secret", "base_url", "token_source"},
-		"notion":           {"token_v2"},
+		"notion":           {"token_v2", "mcp_access_token", "token_source"},
 		"ollama":           {"base_url", "api_key"},
 		"ynab":             {"api_key"},
 		"gong":             {"access_key", "access_key_secret", "base_url"},
@@ -1081,17 +1079,6 @@ func TestLoad_PreservesIdentities(t *testing.T) {
 	require.Contains(t, ic.Identities, "alt")
 	assert.Equal(t, "alt-tok", ic.Identities["alt"].Credentials["token"])
 	assert.Equal(t, "Alt", ic.Identities["alt"].Metadata["label"])
-}
-
-func TestDefaultConfig_SlackMCP(t *testing.T) {
-	cfg := defaultConfig()
-	ic, ok := cfg.Integrations["slackmcp"]
-	require.True(t, ok)
-	assert.False(t, ic.Enabled)
-	_, hasBase := ic.Credentials["base_url"]
-	assert.True(t, hasBase)
-	require.NotNil(t, ic.Identities)
-	assert.Empty(t, ic.Identities)
 }
 
 func TestSetIntegration_RollsBackMemoryWhenSaveFails(t *testing.T) {

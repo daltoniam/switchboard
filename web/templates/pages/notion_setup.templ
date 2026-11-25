@@ -7,6 +7,7 @@ import (
 
 type NotionSetupData struct {
 	HasToken       bool
+	SignedIn       bool
 	Healthy        bool
 	ExtractSnippet string
 	FlashResult    string
@@ -53,12 +54,31 @@ templ NotionSetup(page layouts.PageData, data NotionSetupData) {
 					@components.Badge("Connected", "green")
 				</div>
 				<p style="color: var(--text-muted); font-size: 0.85rem;">
-					Notion is connected. You can re-enter your token below to update it.
+					Notion is connected. You can re-authorize or re-enter your token below to update it.
 				</p>
 			</div>
 		}
+		<section class="card" aria-labelledby="notion-sign-in">
+			<h2 id="notion-sign-in" class="card-title" style="margin-bottom: 0.75rem;">Option 1: Sign in with Notion (recommended)</h2>
+			<p style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.6; margin-bottom: 1rem;">
+				Authorize Switchboard through Notion's official hosted MCP server with OAuth. Tools then come from Notion directly. The access token is saved in your configuration and never displayed here. Saving a browser token below switches back to the browser session.
+			</p>
+			<button type="button" class="btn btn-green" id="notion-oauth-start" onclick="startNotionOAuth()" style="min-height: 44px;">
+				if data.SignedIn {
+					Re-authorize with Notion
+				} else {
+					Sign in with Notion →
+				}
+			</button>
+			<div aria-live="polite" aria-atomic="true" style="margin-top: 0.75rem;">
+				<p id="notion-oauth-status" style="color: var(--text-secondary);"></p>
+				<div id="notion-oauth-error" class="flash flash-error" hidden></div>
+			</div>
+			<button type="button" class="btn btn-outline" id="notion-oauth-retry" onclick="startNotionOAuth()" style="display: none; min-height: 44px;">Try Again</button>
+			<noscript><p style="color: var(--text-secondary); margin-top: 0.75rem;">Enable JavaScript to sign in with Notion.</p></noscript>
+		</section>
 		<div class="card">
-			<div class="card-title" style="margin-bottom: 0.75rem;">Option 1: Extract from Browser</div>
+			<div class="card-title" style="margin-bottom: 0.75rem;">Option 2: Extract from Browser</div>
 			<p style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.6; margin-bottom: 1rem;">
 				Extract your <code>token_v2</code> by running a script in your browser's developer console.
 			</p>
@@ -98,7 +118,7 @@ templ NotionSetup(page layouts.PageData, data NotionSetupData) {
 			</div>
 		</div>
 		<div class="card">
-			<div class="card-title" style="margin-bottom: 0.75rem;">Option 2: Manual Token Entry</div>
+			<div class="card-title" style="margin-bottom: 0.75rem;">Option 3: Manual Token Entry</div>
 			<p style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.6; margin-bottom: 1rem;">
 				If you already have your <code>token_v2</code>, or prefer to extract it manually from
 				<strong>DevTools</strong> → <strong>Application</strong> → <strong>Cookies</strong> → <code>www.notion.so</code>,
@@ -110,6 +130,43 @@ templ NotionSetup(page layouts.PageData, data NotionSetupData) {
 			</form>
 		</div>
 		<script>
+			async function startNotionOAuth() {
+				var button = document.getElementById('notion-oauth-start');
+				var retry = document.getElementById('notion-oauth-retry');
+				var status = document.getElementById('notion-oauth-status');
+				var error = document.getElementById('notion-oauth-error');
+				if (button.disabled) return;
+				button.disabled = true;
+				button.setAttribute('aria-busy', 'true');
+				retry.style.display = 'none';
+				error.hidden = true;
+				status.textContent = 'Starting secure sign-in…';
+				var controller = new AbortController();
+				var timeout = setTimeout(function() { controller.abort(); }, 30000);
+				try {
+					var response = await fetch('/api/remote/notion/oauth/start', { method: 'POST', signal: controller.signal });
+					if (!response.ok) throw new Error('Could not start sign-in. Please try again.');
+					var data = await response.json();
+					if (data.error) throw new Error(data.error);
+					if (!data.authorize_url) throw new Error('No sign-in URL was returned. Please try again.');
+					var authorizeURL = new URL(data.authorize_url);
+					if (authorizeURL.protocol !== 'https:' && authorizeURL.protocol !== 'http:') {
+						throw new Error('Invalid sign-in URL. Please try again.');
+					}
+					status.textContent = 'Redirecting to Notion…';
+					window.location.assign(authorizeURL.href);
+				} catch (err) {
+					status.textContent = '';
+					error.textContent = err.name === 'AbortError' ? 'Sign-in timed out. Please try again.' : err.message;
+					error.hidden = false;
+					button.disabled = false;
+					button.removeAttribute('aria-busy');
+					retry.style.display = 'inline-flex';
+					retry.focus();
+				} finally {
+					clearTimeout(timeout);
+				}
+			}
 			function copySnippet() {
 				var text = document.getElementById('extract-snippet').textContent;
 				navigator.clipboard.writeText(text).then(function() {

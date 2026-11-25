@@ -72,9 +72,6 @@ integrations/
     extract.go               Exported helpers for web UI token extraction (Chrome, manual, snippet)
     oauth.go                 Slack OAuth v2 (authorization code flow, callback handling)
     refresh.go               Cookie-based token refresh (fetches fresh xoxc via xoxd cookie HTTP request)
-  slackmcp/
-    slackmcp.go              Official hosted Slack MCP multi-identity proxy (remotemcp per identity, identity_id routing)
-    slackmcp_test.go         Streamable HTTP MCP fixture tests (bearer routing, union, schema injection)
   figma/
     figma.go                 Official hosted Figma MCP proxy filtered to FigJam planning tools
     figma_test.go            FigJam tool filtering, skill injection, and routing tests
@@ -121,9 +118,6 @@ integrations/
     tools.go                 Reviewed Ashby tool allowlist with access classes
     tools.go                 Tool definitions and dispatch map (exposed name → upstream tool)
     compact.yaml             Compaction specs for verified response shapes
-  notionmcp/
-    notionmcp.go             Independent notion-mcp hosted proxy (dynamic tools, remotemcp OAuth)
-    notionmcp_test.go        Remote protocol, credential isolation, and dynamic routing tests
   notion/
     notion.go                Notion v3 integration adapter (core, dispatch, HTTP helpers)
     tools.go                 Notion tool definitions (~24 tools)
@@ -136,6 +130,8 @@ integrations/
     comments.go              Comments create, retrieve handlers
     recordmap.go             recordMap extraction helpers (extractRecord, extractAllRecords)
     transaction.go           submitTransaction builder helpers (buildOp, buildTransaction)
+    hosted.go                Hosted Notion MCP backend for Sign in with Notion (dynamic tools, remotemcp OAuth)
+    hosted_test.go           Hosted MCP protocol, credential precedence, and dynamic routing tests
   aws/
     aws.go                   AWS integration adapter (core, dispatch, typed SDK clients, helpers)
     tools.go                 AWS tool definitions (~65 tools)

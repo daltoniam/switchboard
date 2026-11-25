@@ -23,7 +23,7 @@
   - `GET /integrations/github/setup` — GitHub Device Flow OAuth
   - `GET /integrations/linear/setup` — Linear OAuth (PKCE)
   - `GET /integrations/figma/setup` — Figma hosted MCP OAuth (PKCE) for FigJam workflows
-  - `GET /integrations/notion-mcp/setup`: independent Notion hosted MCP OAuth (PKCE). Uses `/api/remote/notion-mcp/oauth/start` and `/api/remote/notion-mcp/oauth/callback`; successful sign-in enables `notion-mcp` and refreshes discovery without changing the existing Notion integration.
+  - `GET /integrations/notion/setup`: Notion setup. **Sign in with Notion** runs hosted MCP OAuth (PKCE) through `/api/remote/notion/oauth/start` and `/api/remote/notion/oauth/callback`, saving `mcp_access_token` and enabling `notion`; the browser `token_v2` options remain and saving one clears the sign-in.
   - `GET /integrations/mobbin/setup`: Mobbin hosted MCP OAuth (PKCE). Uses `/api/remote/mobbin/oauth/start` and `/api/remote/mobbin/oauth/callback`; successful sign-in enables `mobbin`.
   - `GET /integrations/higgsfield/setup`: Higgsfield hosted MCP OAuth (PKCE, scopes `openid email offline_access`). Uses `/api/remote/higgsfield/oauth/start` and `/api/remote/higgsfield/oauth/callback`; successful sign-in enables `higgsfield`.
   - `GET /integrations/ashby/setup`: Ashby hosted MCP OAuth (PKCE, scopes `openid mcp offline_access`, `prompt=consent`, resource `/mcp/v1`). Uses `/api/remote/ashby/oauth/start` and `/api/remote/ashby/oauth/callback`; successful sign-in enables `ashby`.

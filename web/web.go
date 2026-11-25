@@ -36,7 +36,7 @@ import (
 	linearInt "github.com/daltoniam/switchboard/integrations/linear"
 	"github.com/daltoniam/switchboard/integrations/microsoft365"
 	"github.com/daltoniam/switchboard/integrations/mobbin"
-	"github.com/daltoniam/switchboard/integrations/notionmcp"
+	notionInt "github.com/daltoniam/switchboard/integrations/notion"
 	sentryInt "github.com/daltoniam/switchboard/integrations/sentry"
 	slackInt "github.com/daltoniam/switchboard/integrations/slack"
 	xInt "github.com/daltoniam/switchboard/integrations/x"
@@ -142,7 +142,6 @@ func (w *WebServer) Handler() http.Handler {
 	mux.HandleFunc("GET /integrations/linear/setup", w.handleLinearSetup)
 	mux.HandleFunc("POST /api/linear/save-token", w.handleLinearSaveToken)
 	mux.HandleFunc("GET /integrations/figma/setup", w.handleFigmaSetup)
-	mux.HandleFunc("GET /integrations/notion-mcp/setup", w.handleNotionMCPSetup)
 	mux.HandleFunc("GET /integrations/mobbin/setup", w.handleMobbinSetup)
 	mux.HandleFunc("GET /integrations/higgsfield/setup", w.handleHiggsfieldSetup)
 	mux.HandleFunc("GET /integrations/ashby/setup", w.handleAshbySetup)
@@ -453,7 +452,6 @@ var setupIntegrations = map[string]bool{
 	"github":       true,
 	"linear":       true,
 	"figma":        true,
-	"notion-mcp":   true,
 	"mobbin":       true,
 	"higgsfield":   true,
 	"ashby":        true,
@@ -1674,7 +1672,8 @@ func (w *WebServer) handleSlackAddUserToken(rw http.ResponseWriter, r *http.Requ
 
 func (w *WebServer) handleNotionSetup(rw http.ResponseWriter, r *http.Request) {
 	ic, exists := w.services.Config.GetIntegration("notion")
-	hasToken := exists && ic.Credentials["token_v2"] != ""
+	signedIn := exists && ic.Credentials["mcp_access_token"] != ""
+	hasToken := exists && (signedIn || ic.Credentials["token_v2"] != "" || ic.Credentials["access_token"] != "")
 
 	var healthy bool
 	if hasToken {
@@ -1689,6 +1688,7 @@ func (w *WebServer) handleNotionSetup(rw http.ResponseWriter, r *http.Request) {
 	page := w.pageData(r, "Notion Setup", "/integrations")
 	data := pages.NotionSetupData{
 		HasToken:       hasToken,
+		SignedIn:       signedIn,
 		Healthy:        healthy,
 		ExtractSnippet: notionExtractionSnippet,
 	}
@@ -1721,6 +1721,12 @@ func (w *WebServer) handleNotionSaveToken(rw http.ResponseWriter, r *http.Reques
 	}
 	ic.Enabled = true
 	ic.Credentials["token_v2"] = tokenV2
+	// The hosted MCP sign-in takes precedence, so it must be cleared for the
+	// browser token the user just chose to take effect.
+	ic.Credentials["mcp_access_token"] = ""
+	if ic.Credentials[mcp.CredKeyTokenSource] == "oauth" {
+		ic.Credentials[mcp.CredKeyTokenSource] = ""
+	}
 	_ = w.services.Config.SetIntegration("notion", ic)
 
 	http.Redirect(rw, r, "/integrations/notion/setup?result=Token+saved+successfully", http.StatusSeeOther)
@@ -1858,8 +1864,8 @@ var remoteOAuthProfiles = map[string]remoteOAuthProfile{
 		Options:       remotemcp.OAuthOptions{Scope: "mcp:connect", ClientName: "Codex"},
 		CredentialKey: "mcp_access_token",
 	},
-	"notion-mcp": {
-		CallbackPath:  "/api/remote/notion-mcp/oauth/callback",
+	"notion": {
+		CallbackPath:  "/api/remote/notion/oauth/callback",
 		ResourcePath:  "/mcp",
 		Options:       remotemcp.OAuthOptions{Scope: "default"},
 		CredentialKey: "mcp_access_token",
@@ -1908,7 +1914,7 @@ func (w *WebServer) handleRemoteMCPOAuthStart(rw http.ResponseWriter, r *http.Re
 		serverURL = figma.MCPServerURL(integration)
 	}
 	if serverURL == "" {
-		serverURL = notionmcp.MCPServerURL(integration)
+		serverURL = notionInt.MCPServerURL(integration)
 	}
 	if serverURL == "" {
 		serverURL = mobbin.MCPServerURL(integration)
