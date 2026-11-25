@@ -246,6 +246,7 @@ func (w *WebServer) Handler() http.Handler {
 
 	mux.HandleFunc("GET /integrations/postgres/setup", w.handlePostgresSetup)
 	mux.HandleFunc("GET /integrations/clickhouse/setup", w.handleClickHouseSetup)
+	mux.HandleFunc("GET /integrations/onepassword/setup", w.handleOnePasswordSetup)
 
 	mux.HandleFunc("PUT /api/integrations/{name}/credentials", w.handleUpdateCredentials)
 
@@ -469,6 +470,7 @@ var setupIntegrations = map[string]bool{
 	"microsoft365": true,
 	"postgres":     true,
 	"clickhouse":   true,
+	"onepassword":  true,
 }
 
 func (w *WebServer) handleIntegrationDetail(rw http.ResponseWriter, r *http.Request) {
