@@ -35,7 +35,10 @@ func init() {
 			{Tool: "growthbook_get_feature_staleness", Args: map[string]any{"feature_ids": "live-checkout-express,live-beta-banner"}, Expect: []string{"live-checkout-express", "staleByEnv"}},
 			{Tool: "growthbook_list_feature_revisions", Args: map[string]any{"feature_id": "live-beta-banner", "status": "published"}, Expect: []string{"live-beta-banner", "published", "Created via REST API"}},
 			{Tool: "growthbook_list_experiments", Expect: []string{"Live Checkout Test", "Live Banner Test", "won"}},
-			{Tool: "growthbook_list_experiments", Args: map[string]any{"status": "stopped", "search": "Banner"}, Expect: []string{"Live Banner Test", `"total":1`}},
+			// Status alone: ignoring the filter would list the running experiment.
+			// No total, because the experiment writes stop another one before
+			// the read cases are replayed.
+			{Tool: "growthbook_list_experiments", Args: map[string]any{"status": "stopped"}, Expect: []string{"Live Banner Test"}, Absent: []string{"Live Checkout Test", "Live Agent Test"}},
 			{Tool: "growthbook_get_experiment", Args: map[string]any{"experiment_id": "${stopped_id}"}, Expect: []string{"Live Banner Test", "live-banner-flow", "Banner won"}},
 			{Tool: "growthbook_get_experiment_results", Args: map[string]any{"experiment_id": "${experiment_id}"}, Expect: []string{"Purchase Rate", "chanceToBeatControl", "Express", `"totalUsers":400`}},
 			{Tool: "growthbook_refresh_experiment_results", Args: map[string]any{"experiment_id": "${stopped_id}"}, Expect: []string{"snp_", "${stopped_id}"}},
