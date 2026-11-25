@@ -933,27 +933,30 @@ func TestRetryAfterPositiveDelayHonored(t *testing.T) {
 }
 
 func TestDescriptionRawOnlyAndBounded(t *testing.T) {
+	prefix := strings.Repeat("aé界𐐀", 1999) + "Zé界"
 	cases := []struct {
-		name, description string
-		length            int
+		name, input, want string
 		truncated         bool
 	}{
-		{"normal", `{"raw":"Untrusted **task** text","html":"PRIVATE-HTML"}`, len("Untrusted **task** text"), false},
-		{"exact bound", `{"raw":"` + strings.Repeat("é", 8000) + `","html":"PRIVATE-HTML"}`, 8000, false},
-		{"over bound", `{"raw":"` + strings.Repeat("é", 8001) + `","html":"PRIVATE-HTML"}`, 8000, true},
+		{"normal", "Untrusted **task** text", "Untrusted **task** text", false},
+		{"below bound", prefix, prefix, false},
+		{"exact bound", prefix + "𐐀", prefix + "𐐀", false},
+		{"over bound", prefix + "𐐀!", prefix + "𐐀", true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			body := strings.Replace(workPackageFixture, `{"format":"markdown","raw":"Untrusted **task** text","html":"<p>PRIVATE-HTML</p>"}`, tc.description, 1)
+			body := strings.Replace(workPackageFixture, `"raw":"Untrusted **task** text"`, `"raw":`+strconv.Quote(tc.input), 1)
 			integration, _ := fixture(t, func(w http.ResponseWriter, _ *http.Request) {
 				w.Header().Set("Content-Type", "application/hal+json")
 				_, _ = io.WriteString(w, body)
 			})
 			result := execute(t, integration, "openproject_get_work_package", map[string]any{"id": 42})
-			out := successJSON(t, result)
-			description, ok := out["description"].(string)
-			if !ok || !utf8.ValidString(description) || utf8.RuneCountInString(description) != tc.length || out["description_truncated"] != tc.truncated {
-				t.Fatalf("invalid raw description projection: length=%d truncated=%v", utf8.RuneCountInString(description), out["description_truncated"])
+			want := detailJSON()
+			want["description"] = tc.want
+			want["description_truncated"] = tc.truncated
+			want["truncated"] = tc.truncated
+			if got := successJSON(t, result); !reflect.DeepEqual(got, want) {
+				t.Fatalf("raw description projection differs from expected content or metadata: description matches=%v description_truncated=%v truncated=%v", got["description"] == tc.want, got["description_truncated"], got["truncated"])
 			}
 			if len(result.Data) >= 40*1024 {
 				t.Fatal("detail output reached 40 KiB cap")
