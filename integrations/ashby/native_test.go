@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	mcp "github.com/daltoniam/switchboard"
 	"github.com/stretchr/testify/assert"
@@ -232,6 +233,22 @@ func TestNative_EnvelopeErrors(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestNative_RetryableEvenWhenTheBodyIsCutShort(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Retry-After", "7")
+		w.Header().Set("Content-Length", "1000")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, _ = io.WriteString(w, "partial")
+	}))
+	t.Cleanup(server.Close)
+	_, err := newNativeClient(fixtureAPIKey, server.URL).call(t.Context(), "job.list", map[string]any{})
+	require.Error(t, err)
+	var retryable *mcp.RetryableError
+	require.ErrorAs(t, err, &retryable)
+	assert.Equal(t, http.StatusServiceUnavailable, retryable.StatusCode)
+	assert.Equal(t, 7*time.Second, retryable.RetryAfter)
 }
 
 func TestNative_RetryableStatuses(t *testing.T) {

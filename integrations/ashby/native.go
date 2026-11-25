@@ -133,13 +133,9 @@ func (c *nativeClient) call(ctx context.Context, endpoint string, body map[strin
 		return nil, fmt.Errorf("ashby %s: %w", endpoint, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
-	data, err := io.ReadAll(io.LimitReader(resp.Body, maxAPIResponseBytes+1))
-	if err != nil {
-		return nil, fmt.Errorf("ashby %s: read response: %w", endpoint, err)
-	}
-	if len(data) > maxAPIResponseBytes {
-		return nil, fmt.Errorf("ashby %s: response is larger than %d bytes; narrow the request with filters or a smaller limit", endpoint, maxAPIResponseBytes)
-	}
+	data, readErr := io.ReadAll(io.LimitReader(resp.Body, maxAPIResponseBytes+1))
+	// Error statuses are classified before body problems, so a throttled or
+	// failing response stays retryable even when its body is cut short.
 	if resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500 {
 		return nil, &mcp.RetryableError{
 			StatusCode: resp.StatusCode,
@@ -149,6 +145,12 @@ func (c *nativeClient) call(ctx context.Context, endpoint string, body map[strin
 	}
 	if resp.StatusCode >= 400 {
 		return nil, statusError(endpoint, resp.StatusCode, data)
+	}
+	if readErr != nil {
+		return nil, fmt.Errorf("ashby %s: read response: %w", endpoint, readErr)
+	}
+	if len(data) > maxAPIResponseBytes {
+		return nil, fmt.Errorf("ashby %s: response is larger than %d bytes; narrow the request with filters or a smaller limit", endpoint, maxAPIResponseBytes)
 	}
 	var envelope apiEnvelope
 	if err := json.Unmarshal(data, &envelope); err != nil {

@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -257,7 +258,24 @@ func uiAshbyAPISearch(t *testing.T, app *uiApp) {
 	text, ok := result.Content[0].(*mcpsdk.TextContent)
 	require.True(t, ok)
 	require.Contains(t, text.Text, "ashby_search_candidates")
-	require.NotContains(t, text.Text, "ashby_get_pending_tasks", "hosted-only tools are not offered in API key mode")
+	result, err = session.CallTool(ctx, &mcpsdk.CallToolParams{Name: "search", Arguments: map[string]any{"query": "ashby_get_pending_tasks pending tasks scorecards", "integration": "ashby", "limit": 200}})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+	text, ok = result.Content[0].(*mcpsdk.TextContent)
+	require.True(t, ok)
+	var listed struct {
+		Tools struct {
+			Columns []string `json:"columns"`
+			Rows    [][]any  `json:"rows"`
+		} `json:"tools"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(text.Text), &listed))
+	nameColumn := slices.Index(listed.Tools.Columns, "name")
+	require.GreaterOrEqual(t, nameColumn, 0, "search response has no name column")
+	require.Len(t, listed.Tools.Rows, uiAshbyNativeToolCount(t), "search must list exactly the native catalog")
+	for _, row := range listed.Tools.Rows {
+		require.NotEqual(t, "ashby_get_pending_tasks", row[nameColumn], "hosted-only tools are not offered in API key mode")
+	}
 	result, err = session.CallTool(ctx, &mcpsdk.CallToolParams{Name: "execute", Arguments: map[string]any{"tool_name": "ashby_search_candidates", "arguments": map[string]any{"name": "Fixture"}}})
 	require.NoError(t, err)
 	require.NotEmpty(t, result.Content)

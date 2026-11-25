@@ -112,12 +112,25 @@ func sameOriginForm(r *http.Request) bool {
 		return site == "same-origin" || site == "none"
 	}
 	if origin := r.Header.Get("Origin"); origin != "" {
-		parsed, err := url.Parse(origin)
-		return err == nil && parsed.Host != "" && parsed.Host == r.Host
+		return matchesRequestOrigin(r, origin)
 	}
 	if referer := r.Header.Get("Referer"); referer != "" {
-		parsed, err := url.Parse(referer)
-		return err == nil && parsed.Host != "" && parsed.Host == r.Host
+		return matchesRequestOrigin(r, referer)
 	}
 	return true
+}
+
+// matchesRequestOrigin compares scheme and host with the origin this request
+// was served from. A cross-site page cannot set X-Forwarded-Proto on a form
+// post, so trusting it for TLS terminated by a proxy is safe here.
+func matchesRequestOrigin(r *http.Request, raw string) bool {
+	parsed, err := url.Parse(raw)
+	if err != nil || parsed.Host == "" {
+		return false
+	}
+	scheme := "http"
+	if r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https") {
+		scheme = "https"
+	}
+	return strings.EqualFold(parsed.Scheme, scheme) && strings.EqualFold(parsed.Host, r.Host)
 }
