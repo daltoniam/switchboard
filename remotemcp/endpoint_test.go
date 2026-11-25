@@ -253,8 +253,18 @@ func TestListTools_CanceledWhileAnotherConnectIsInFlight(t *testing.T) {
 
 	slowCtx, cancelSlow := context.WithCancel(context.Background())
 	t.Cleanup(cancelSlow)
-	go func() { _, _ = integration.(ToolLister).ListTools(slowCtx) }()
-	<-entered
+	first := make(chan error, 1)
+	go func() {
+		_, err := integration.(ToolLister).ListTools(slowCtx)
+		first <- err
+	}()
+	select {
+	case <-entered:
+	case err := <-first:
+		t.Fatalf("first ListTools returned before reaching the server: %v", err)
+	case <-time.After(5 * time.Second):
+		t.Fatal("first ListTools never reached the server")
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -346,7 +356,11 @@ func TestConnect_QueuedCallDoesNotReopenAfterClose(t *testing.T) {
 			_, err := r.connect(context.Background())
 			queued <- err
 		}()
-		<-waiting
+		select {
+		case <-waiting:
+		case <-time.After(5 * time.Second):
+			t.Error("queued connect never reached the connection gate")
+		}
 		assert.NoError(t, r.Close())
 	}
 	_, err := r.connect(context.Background())
