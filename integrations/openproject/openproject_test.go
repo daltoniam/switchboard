@@ -964,31 +964,57 @@ func TestDescriptionRawOnlyAndBounded(t *testing.T) {
 }
 
 func TestSummaryStringsBoundedBeforeRawOutput(t *testing.T) {
-	cases := []struct{ name, old, replacement string }{
-		{"subject", `"subject":"Fix search bug"`, `"subject":"` + strings.Repeat("é", 513) + `"`},
-		{"display id", `"displayId":"PROJ-42"`, `"displayId":"` + strings.Repeat("é", 513) + `"`},
-		{"status", `"title":"New"`, `"title":"` + strings.Repeat("é", 513) + `"`},
-		{"type", `"title":"Task"`, `"title":"` + strings.Repeat("é", 513) + `"`},
-		{"updated timestamp", `"updatedAt":"2026-10-16T12:00:00Z"`, `"updatedAt":"` + strings.Repeat("é", 513) + `"`},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			body := strings.Replace(workPackageFixture, tc.old, tc.replacement, 1)
-			integration, _ := fixture(t, func(w http.ResponseWriter, _ *http.Request) {
-				w.Header().Set("Content-Type", "application/hal+json")
-				_, _ = io.WriteString(w, body)
-			})
-			result := execute(t, integration, "openproject_get_work_package", map[string]any{"id": 42})
-			assertSafe(t, result.Data)
-			out := successJSON(t, result)
-			if out["truncated"] != true {
-				t.Fatal("summary truncation must be explicit")
-			}
-			for _, key := range []string{"displayId", "subject", "status", "type", "updatedAt"} {
-				value, ok := out[key].(string)
-				if !ok || !utf8.ValidString(value) || utf8.RuneCountInString(value) > 512 {
-					t.Fatalf("unbounded summary string %s", key)
-				}
+	prefix := strings.Repeat("aé界𐐀", 127) + "Zé界"
+	for _, field := range []struct{ key, original string }{
+		{"subject", "Fix search bug"},
+		{"displayId", "PROJ-42"},
+		{"status", "New"},
+		{"type", "Task"},
+		{"updatedAt", "2026-10-16T12:00:00Z"},
+	} {
+		t.Run(field.key, func(t *testing.T) {
+			for _, boundary := range []struct {
+				name, input, want string
+				truncated         bool
+			}{
+				{"below bound", prefix, prefix, false},
+				{"at bound", prefix + "𐐀", prefix + "𐐀", false},
+				{"over bound", prefix + "𐐀!", prefix + "𐐀", true},
+			} {
+				t.Run(boundary.name, func(t *testing.T) {
+					body := strings.Replace(workPackageFixture, strconv.Quote(field.original), strconv.Quote(boundary.input), 1)
+					integration, _ := fixture(t, func(w http.ResponseWriter, r *http.Request) {
+						w.Header().Set("Content-Type", "application/hal+json")
+						if strings.Contains(r.URL.Path, "/workspaces/") {
+							_, _ = io.WriteString(w, collectionFixture(1, 1, 1, 20, body))
+							return
+						}
+						_, _ = io.WriteString(w, body)
+					})
+					for _, request := range []struct {
+						tool mcp.ToolName
+						args map[string]any
+					}{
+						{"openproject_list_work_packages", nil},
+						{"openproject_get_work_package", map[string]any{"id": 42}},
+					} {
+						t.Run(string(request.tool), func(t *testing.T) {
+							result := execute(t, integration, request.tool, request.args)
+							assertSafe(t, result.Data)
+							want := detailJSON()
+							want[field.key] = boundary.want
+							if request.tool == "openproject_list_work_packages" {
+								summary := summaryJSON()
+								summary[field.key] = boundary.want
+								want = listJSON(1, 1, 1, 20, 1, 0, nil, summary)
+							}
+							want["truncated"] = boundary.truncated
+							if got := successJSON(t, result); !reflect.DeepEqual(got, want) {
+								t.Fatalf("summary projection=%#v want %#v", got, want)
+							}
+						})
+					}
+				})
 			}
 		})
 	}
