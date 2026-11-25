@@ -42,6 +42,9 @@ type liveCase struct {
 	Tool   mcp.ToolName
 	Args   map[string]any
 	Expect []string
+	// Absent lists text the response must not contain, for writes whose
+	// effect is a removal.
+	Absent []string
 }
 
 type liveSpec struct {
@@ -343,10 +346,10 @@ func runLiveSpec(t *testing.T, spec liveSpec) {
 		record := liveCaseEvidence{Tool: c.Tool, Access: access[c.Tool]}
 		text, isError := liveCall(t, session, "execute", map[string]any{"tool_name": string(c.Tool), "arguments": liveArgs(c.Args)})
 		record.Bytes = len(text)
-		record.Passed = !isError && liveContainsAll(text, c.Expect)
+		record.Passed = !isError && liveContainsAll(text, c.Expect) && liveContainsNone(text, c.Absent)
 		evidence.Cases = append(evidence.Cases, record)
 		if !record.Passed {
-			t.Errorf("%s: error=%v, expected %q in response:\n%s", c.Tool, isError, c.Expect, liveTruncate(text))
+			t.Errorf("%s: error=%v, expected %q and not %q in response:\n%s", c.Tool, isError, c.Expect, c.Absent, liveTruncate(text))
 		}
 	}
 
@@ -371,7 +374,7 @@ func runLiveSpec(t *testing.T, spec liveSpec) {
 		raw := liveDecodeScript(t, c.Tool, text)
 		rawText, err := json.Marshal(raw)
 		require.NoError(t, err)
-		if !liveContainsAll(string(rawText), c.Expect) {
+		if !liveContainsAll(string(rawText), c.Expect) || !liveContainsNone(string(rawText), c.Absent) {
 			t.Errorf("script call to %s: expected %q in raw response:\n%s", c.Tool, c.Expect, liveTruncate(string(rawText)))
 			continue
 		}
@@ -421,6 +424,9 @@ func liveExpandCases(t *testing.T, cases []liveCase, values map[string]string) [
 		}
 		for _, want := range c.Expect {
 			next.Expect = append(next.Expect, expand(want))
+		}
+		for _, absent := range c.Absent {
+			next.Absent = append(next.Absent, expand(absent))
 		}
 		expanded = append(expanded, next)
 	}
@@ -566,6 +572,15 @@ func liveArgs(args map[string]any) map[string]any {
 func liveContainsAll(text string, expected []string) bool {
 	for _, want := range expected {
 		if !strings.Contains(text, want) {
+			return false
+		}
+	}
+	return true
+}
+
+func liveContainsNone(text string, absent []string) bool {
+	for _, unwanted := range absent {
+		if strings.Contains(text, unwanted) {
 			return false
 		}
 	}

@@ -66,9 +66,12 @@ func init() {
 			{Tool: "growthbook_update_feature_rule", Args: map[string]any{"feature_id": "live-agent-rules", "version": "${draft_version}", "rule_id": "${rule_id}",
 				"rule": `{"description":"Beta testers, updated live"}`}, Expect: []string{"Beta testers, updated live"}},
 			{Tool: "growthbook_delete_feature_rule", Args: map[string]any{"feature_id": "live-agent-rules", "version": "${draft_version}", "rule_id": "${rollout_rule_id}"},
-				Expect: []string{`"status":"draft"`, "US staging"}},
+				Expect: []string{`"status":"draft"`, "US staging", "${rule_id}", "Beta testers, updated live"}, Absent: []string{"${rollout_rule_id}", "Agent rollout"}},
 			{Tool: "growthbook_publish_feature_revision", Args: map[string]any{"feature_id": "live-agent-rules", "version": "${draft_version}", "comment": "switchboard live publish"},
 				Expect: []string{`"status":"published"`, "live-agent-rules"}},
+			// The published flag serves exactly the draft's rules.
+			{Tool: "growthbook_get_feature", Args: map[string]any{"feature_id": "live-agent-rules"},
+				Expect: []string{"US staging", "Beta testers, updated live", "${rule_id}"}, Absent: []string{"${rollout_rule_id}", "Agent rollout"}},
 			{Tool: "growthbook_discard_feature_revision", Args: map[string]any{"feature_id": "live-checkout-express", "version": "${discard_version}"},
 				Expect: []string{"discarded"}},
 			{Tool: "growthbook_create_experiment", Args: map[string]any{"experiment": `{"trackingKey":"live-agent-test","name":"Live Agent Test","project":"${project_id}","owner":"admin@example.test",
@@ -286,6 +289,7 @@ func liveGrowthBookProvision(t *testing.T) liveProvision {
 	// own draft experiment linked to its own flag, so the read cases (which
 	// are replayed through scripts after every case) see unchanged data.
 	rest(http.MethodPost, "/v2/features", map[string]any{"id": "live-agent-rules", "description": "Rule writes", "owner": "admin@example.test", "project": projectID, "valueType": "string", "defaultValue": "off", "environments": disabled,
+		"tags": []string{"agent"}, "prerequisites": []string{"live-checkout-express"},
 		"rules": []any{
 			map[string]any{"type": "force", "description": "Agent rule one", "value": "on", "condition": `{"country":"CA"}`, "environments": []string{"staging"}},
 			map[string]any{"type": "rollout", "description": "Agent rollout", "value": "on", "coverage": 0.2, "hashAttribute": "id", "environments": []string{"staging"}},
