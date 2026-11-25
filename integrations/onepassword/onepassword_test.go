@@ -227,6 +227,9 @@ func TestConfigure_Rejects(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			a := New().(*onepassword)
 			a.desktopAvailable = tc.desktop
+			a.connect = func(context.Context, auth) (store, error) { return newFake(), nil }
+			require.NoError(t, a.Configure(context.Background(), mcp.Credentials{"service_account_token": "ops_previous"}))
+			require.True(t, a.Healthy(context.Background()))
 			err := a.Configure(context.Background(), tc.creds)
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), tc.want)
@@ -235,6 +238,8 @@ func TestConfigure_Rejects(t *testing.T) {
 				assert.NotContains(t, err.Error(), strconv.Quote(token), "errors must not echo the token, quoted or not")
 			}
 			assert.Equal(t, auth{}, a.auth, "a rejected configuration clears the previous one")
+			assert.Nil(t, a.client, "a rejected configuration drops the signed-in client")
+			assert.False(t, a.Healthy(context.Background()))
 		})
 	}
 }
