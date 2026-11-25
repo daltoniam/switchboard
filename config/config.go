@@ -404,6 +404,11 @@ var envMapping = map[string]map[string]string{
 		"mcp_access_token": "HIGGSFIELD_MCP_ACCESS_TOKEN",
 		"base_url":         "HIGGSFIELD_MCP_BASE_URL",
 	},
+	"render": {
+		"api_key":      "RENDER_API_KEY",
+		"workspace_id": "RENDER_WORKSPACE_ID",
+		"base_url":     "RENDER_MCP_BASE_URL",
+	},
 }
 
 // googleWorkspaceIntegrations lists the integrations that share one Google
@@ -556,6 +561,10 @@ func defaultConfig() *mcp.Config {
 			"higgsfield": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"mcp_access_token": "", "base_url": "", mcp.CredKeyTokenSource: ""},
+			},
+			"render": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"api_key": "", "workspace_id": "", "base_url": ""},
 			},
 			"metabase": {
 				Enabled:     false,
