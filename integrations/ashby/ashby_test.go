@@ -3,11 +3,13 @@ package ashby
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -28,10 +30,11 @@ type upstreamCall struct {
 // serves MCP only at /mcp/v1 and requires the bearer token; every upstream
 // tool takes a "query" string, and search_records_by_name also requires it.
 type hostedFixture struct {
-	server    *httptest.Server
-	mu        sync.Mutex
-	calls     []upstreamCall
-	listCalls int
+	server     *httptest.Server
+	mu         sync.Mutex
+	calls      []upstreamCall
+	listCalls  int
+	tokenCalls atomic.Int32
 	// oauth, when set, serves every path other than /mcp/v1.
 	oauth http.Handler
 }
@@ -396,4 +399,29 @@ func TestMaxResponseBytesForTool(t *testing.T) {
 	assert.Greater(t, limit, 50*1024)
 	_, ok = integration.MaxResponseBytesForTool("ashby_get_pending_tasks")
 	assert.False(t, ok)
+}
+
+type failingRemote struct{ mcp.Integration }
+
+func (failingRemote) Configure(context.Context, mcp.Credentials) error {
+	return errors.New("remote refused")
+}
+
+func TestConfigure_KeepsWorkingLoginWhenNewRemoteFails(t *testing.T) {
+	fixture := newHostedFixture(t, nil)
+	integration := configured(t, fixture.server.URL, fixtureToken)
+	a := integration.(*ashby)
+	a.newRemote = func(string) mcp.Integration { return failingRemote{} }
+
+	err := integration.Configure(t.Context(), mcp.Credentials{"base_url": "https://other.test", "mcp_access_token": "other-token"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "remote refused")
+
+	a.mu.RLock()
+	assert.Equal(t, fixtureToken, a.creds["mcp_access_token"], "credentials stay paired with the remote that still serves them")
+	assert.Equal(t, fixture.server.URL, a.baseURL)
+	a.mu.RUnlock()
+	result, err := integration.Execute(t.Context(), "ashby_get_pending_tasks", nil)
+	require.NoError(t, err)
+	assert.False(t, result.IsError, result.Data)
 }

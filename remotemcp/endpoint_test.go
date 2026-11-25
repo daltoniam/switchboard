@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"testing"
+	"time"
 
 	mcp "github.com/daltoniam/switchboard"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
@@ -191,4 +192,79 @@ func TestRefreshGrant_DiscoversVersionedResource(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "renewed", grant.accessToken)
 	assert.Equal(t, srv.URL+"/mcp/v1", resource)
+}
+
+// A caller whose context ends must not wait for another caller's slow
+// connection attempt to finish.
+func TestListTools_CanceledWhileAnotherConnectIsInFlight(t *testing.T) {
+	release := make(chan struct{})
+	entered := make(chan struct{}, 1)
+	server := mcpsdk.NewServer(&mcpsdk.Implementation{Name: "slow", Version: "1"}, nil)
+	stream := mcpsdk.NewStreamableHTTPHandler(func(*http.Request) *mcpsdk.Server { return server }, &mcpsdk.StreamableHTTPOptions{JSONResponse: true, Stateless: true})
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case entered <- struct{}{}:
+		default:
+		}
+		select {
+		case <-release:
+		case <-r.Context().Done():
+			return
+		}
+		stream.ServeHTTP(w, r)
+	}))
+	t.Cleanup(srv.Close)
+	t.Cleanup(func() { close(release) })
+
+	integration := New("test", srv.URL)
+	t.Cleanup(func() { _ = integration.(io.Closer).Close() })
+	require.NoError(t, integration.Configure(context.Background(), mcp.Credentials{"access_token": "t"}))
+
+	slowCtx, cancelSlow := context.WithCancel(context.Background())
+	t.Cleanup(cancelSlow)
+	go func() { _, _ = integration.(ToolLister).ListTools(slowCtx) }()
+	<-entered
+
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	start := time.Now()
+	_, err := integration.(ToolLister).ListTools(ctx)
+	require.Error(t, err)
+	assert.ErrorIs(t, err, context.DeadlineExceeded)
+	assert.Less(t, time.Since(start), 2*time.Second)
+}
+
+// A connection that finishes after Configure replaced the token is not
+// kept: the next call connects with the new token.
+func TestConnect_DiscardsSessionOpenedWithReplacedToken(t *testing.T) {
+	srv := versionedServer(t)
+	r := NewWithOptions("test", srv.URL, Options{EndpointPath: "/mcp/v1"}).(*remote)
+	t.Cleanup(func() { _ = r.Close() })
+	require.NoError(t, r.Configure(context.Background(), mcp.Credentials{"access_token": "old"}))
+	r.afterDial = func() {
+		r.afterDial = nil
+		require.NoError(t, r.Configure(context.Background(), mcp.Credentials{"access_token": "new"}))
+	}
+	session, err := r.connect(context.Background())
+	require.NoError(t, err)
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	assert.Same(t, r.session, session)
+	assert.Equal(t, "new", r.sessionToken)
+}
+
+func TestConnect_CloseDuringConnectKeepsAdapterClosed(t *testing.T) {
+	srv := versionedServer(t)
+	r := NewWithOptions("test", srv.URL, Options{EndpointPath: "/mcp/v1"}).(*remote)
+	require.NoError(t, r.Configure(context.Background(), mcp.Credentials{"access_token": "t"}))
+	r.afterDial = func() {
+		r.afterDial = nil
+		require.NoError(t, r.Close())
+	}
+	_, err := r.connect(context.Background())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "closed while connecting")
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	assert.Nil(t, r.session)
 }

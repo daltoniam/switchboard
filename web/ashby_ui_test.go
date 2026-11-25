@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -22,24 +23,47 @@ func TestUIAshby(t *testing.T) {
 	app := newUIApp(t)
 	fixture := newAshbyOAuthFixture(t)
 	page := uiPage(t)
+	// Playwright runs route callbacks off the test goroutine, so problems
+	// are recorded and checked here, and every request is answered.
+	var routeMu sync.Mutex
+	var routeProblems []string
 	denied := false
 	require.NoError(t, page.Route(fixture.server.URL+"/oidc/auth*", func(route playwright.Route) {
+		routeMu.Lock()
+		defer routeMu.Unlock()
 		authorize, err := url.Parse(route.Request().URL())
-		require.NoError(t, err)
-		require.Equal(t, "consent", authorize.Query().Get("prompt"))
-		require.Equal(t, fixture.server.URL+"/mcp/v1", authorize.Query().Get("resource"))
-		callback, err := url.Parse(app.URL + "/api/remote/ashby/oauth/callback")
-		require.NoError(t, err)
-		query := callback.Query()
-		query.Set("state", authorize.Query().Get("state"))
+		if err != nil {
+			routeProblems = append(routeProblems, err.Error())
+			_ = route.Abort()
+			return
+		}
+		if got := authorize.Query().Get("prompt"); got != "consent" {
+			routeProblems = append(routeProblems, "prompt="+got)
+		}
+		if got := authorize.Query().Get("resource"); got != fixture.server.URL+"/mcp/v1" {
+			routeProblems = append(routeProblems, "resource="+got)
+		}
+		query := url.Values{"state": {authorize.Query().Get("state")}}
 		if denied {
 			query.Set("error", "access_denied")
 		} else {
 			query.Set("code", "fixture-code")
 		}
-		callback.RawQuery = query.Encode()
-		require.NoError(t, route.Fulfill(playwright.RouteFulfillOptions{Status: playwright.Int(http.StatusFound), Headers: map[string]string{"Location": callback.String()}}))
+		location := app.URL + "/api/remote/ashby/oauth/callback?" + query.Encode()
+		if err := route.Fulfill(playwright.RouteFulfillOptions{Status: playwright.Int(http.StatusFound), Headers: map[string]string{"Location": location}}); err != nil {
+			routeProblems = append(routeProblems, err.Error())
+		}
 	}))
+	setDenied := func(value bool) {
+		routeMu.Lock()
+		defer routeMu.Unlock()
+		denied = value
+	}
+	t.Cleanup(func() {
+		routeMu.Lock()
+		defer routeMu.Unlock()
+		require.Empty(t, routeProblems, "authorize requests must carry prompt=consent and the /mcp/v1 resource")
+	})
 
 	// Fresh install: the card routes to the OAuth setup page, which asks
 	// for no API key and renders no credential inputs.
@@ -70,12 +94,12 @@ func TestUIAshby(t *testing.T) {
 	uiText(t, page.Locator("#ashby-oauth-start"), "Re-authorize with Ashby")
 
 	// Declining consent keeps the old login and shows the provider error.
-	denied = true
+	setDenied(true)
 	require.NoError(t, page.Locator("#ashby-oauth-start").Click())
 	uiText(t, page.Locator(".flash-error").First(), "access_denied")
 	require.Equal(t, "stale-fixture-token", uiAshbySaved(t, app).Credentials["mcp_access_token"])
 
-	denied = false
+	setDenied(false)
 	require.NoError(t, page.Locator("#ashby-oauth-start").Click())
 	uiText(t, page.Locator(".flash-success"), "Connected via MCP OAuth")
 	content, err := page.Content()

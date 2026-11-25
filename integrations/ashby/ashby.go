@@ -54,6 +54,8 @@ type ashby struct {
 	remote  mcp.Integration
 	creds   mcp.Credentials
 	renewal remotemcp.TokenRenewal
+	// newRemote builds the remote client; tests replace it.
+	newRemote func(baseURL string) mcp.Integration
 
 	// schemas holds upstream parameters by exposed tool name for the
 	// current remote; nil until fetched.
@@ -118,25 +120,36 @@ func (a *ashby) Configure(ctx context.Context, creds mcp.Credentials) error {
 
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	a.creds = maps.Clone(creds)
 	credentials := mcp.Credentials{"access_token": token}
 	if a.lifetime == nil {
 		a.lifetime, a.stop = context.WithCancel(context.Background())
 	}
 	if a.remote != nil && a.baseURL == baseURL {
-		return a.remote.Configure(ctx, credentials)
+		if err := a.remote.Configure(ctx, credentials); err != nil {
+			return err
+		}
+		a.creds = maps.Clone(creds)
+		return nil
 	}
-	remote := remotemcp.NewWithOptions(integrationName, baseURL, remotemcp.Options{EndpointPath: endpointPath, Structured: true})
+	remote := a.buildRemote(baseURL)
 	if err := remote.Configure(ctx, credentials); err != nil {
 		return fmt.Errorf("ashby: configure remote: %w", errors.Join(err, closeRemote(remote)))
 	}
 	previous := a.remote
 	a.remote = remote
 	a.baseURL = baseURL
+	a.creds = maps.Clone(creds)
 	a.schemas = nil
 	a.fetching = false
 	a.fetchFailedAt = time.Time{}
 	return closeRemote(previous)
+}
+
+func (a *ashby) buildRemote(baseURL string) mcp.Integration {
+	if a.newRemote != nil {
+		return a.newRemote(baseURL)
+	}
+	return remotemcp.NewWithOptions(integrationName, baseURL, remotemcp.Options{EndpointPath: endpointPath, Structured: true})
 }
 
 // normalizeBaseURL accepts the origin or the full /mcp/v1 endpoint; the

@@ -48,6 +48,7 @@ func withTokenEndpoint(f *hostedFixture, reject bool) {
 				"token_endpoint":         f.server.URL + "/token",
 			})
 		case "/token":
+			f.tokenCalls.Add(1)
 			if reject || r.FormValue("refresh_token") != "refresh-0" || r.FormValue("resource") != f.server.URL+endpointPath {
 				w.WriteHeader(http.StatusBadRequest)
 				_, _ = w.Write([]byte(`{"error":"invalid_grant"}`))
@@ -86,12 +87,13 @@ func TestExecute_RenewsTokenNearExpiry(t *testing.T) {
 	assert.Len(t, fixture.snapshot(), 1)
 	assert.Equal(t, fixtureToken, store.creds[remotemcp.CredKeyAccessToken])
 	assert.Equal(t, "refresh-1", store.creds[remotemcp.CredKeyRefreshToken])
+	assert.Equal(t, int32(1), fixture.tokenCalls.Load())
 
 	// The renewed login is in use: the next call needs no token request.
-	fixture.oauth = nil
 	result, err = integration.Execute(t.Context(), "ashby_get_pending_tasks", nil)
 	require.NoError(t, err)
 	require.False(t, result.IsError, result.Data)
+	assert.Equal(t, int32(1), fixture.tokenCalls.Load(), "a renewed token is not renewed again")
 }
 
 func TestExecute_RenewalFailure(t *testing.T) {
@@ -126,5 +128,6 @@ func TestExecute_RenewalFailure(t *testing.T) {
 		require.NoError(t, err)
 		require.False(t, result.IsError, result.Data)
 		assert.Len(t, fixture.snapshot(), 1)
+		assert.Equal(t, int32(1), fixture.tokenCalls.Load(), "the call succeeds after a refused renewal, not by skipping it")
 	})
 }

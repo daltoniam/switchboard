@@ -43,11 +43,21 @@ type remote struct {
 	mu            sync.RWMutex
 	token         string
 	session       *liveSession
+	sessionToken  string
+	generation    uint64
 	client        *mcpsdk.Client
 	cachedTools   []mcp.ToolDefinition
 	toolsFetched  bool
 	optionalToken bool
 	structured    bool
+
+	// connecting admits one connection attempt at a time without holding mu
+	// over the network, so waiters can give up when their context ends.
+	connectingOnce sync.Once
+	connecting     chan struct{}
+	// afterDial, when set by tests, runs after a connection is opened and
+	// before it is published.
+	afterDial func()
 }
 
 // New creates a remote MCP integration that proxies to the given server URL.
@@ -107,6 +117,7 @@ func (r *remote) Configure(_ context.Context, creds mcp.Credentials) error {
 	}
 
 	if token != r.token {
+		r.generation++
 		if r.session != nil {
 			r.session.close()
 			r.session = nil
@@ -134,21 +145,47 @@ func (t *bearerTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return base.RoundTrip(r)
 }
 
+func (r *remote) connectGate() chan struct{} {
+	r.connectingOnce.Do(func() { r.connecting = make(chan struct{}, 1) })
+	return r.connecting
+}
+
 func (r *remote) connect(ctx context.Context) (*liveSession, error) {
+	gate := r.connectGate()
+	for {
+		r.mu.RLock()
+		if r.session != nil {
+			sess := r.session
+			r.mu.RUnlock()
+			return sess, nil
+		}
+		r.mu.RUnlock()
+
+		select {
+		case gate <- struct{}{}:
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+		sess, retry, err := r.dial(ctx)
+		<-gate
+		if !retry {
+			return sess, err
+		}
+	}
+}
+
+// dial opens a session without holding mu. If Configure replaced the token
+// meanwhile, the new session is closed and retry is true; if Close ran, the
+// session is closed and an error returned so a closed adapter stays closed.
+func (r *remote) dial(ctx context.Context) (sess *liveSession, retry bool, err error) {
 	r.mu.RLock()
 	if r.session != nil {
-		sess := r.session
+		sess = r.session
 		r.mu.RUnlock()
-		return sess, nil
+		return sess, false, nil
 	}
+	token, generation := r.token, r.generation
 	r.mu.RUnlock()
-
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	if r.session != nil {
-		return r.session, nil
-	}
 
 	client := mcpsdk.NewClient(&mcpsdk.Implementation{
 		Name:    "switchboard",
@@ -156,8 +193,8 @@ func (r *remote) connect(ctx context.Context) (*liveSession, error) {
 	}, nil)
 
 	httpClient := &http.Client{Timeout: defaultTimeout}
-	if r.token != "" {
-		httpClient.Transport = &bearerTransport{token: r.token}
+	if token != "" {
+		httpClient.Transport = &bearerTransport{token: token}
 	}
 	transport := &mcpsdk.StreamableClientTransport{
 		Endpoint:             r.endpoint(),
@@ -167,12 +204,25 @@ func (r *remote) connect(ctx context.Context) (*liveSession, error) {
 
 	session, err := client.Connect(ctx, transport, nil)
 	if err != nil {
-		return nil, fmt.Errorf("connect to %s: %w", r.serverURL, err)
+		return nil, false, fmt.Errorf("connect to %s: %w", r.serverURL, err)
+	}
+	if r.afterDial != nil {
+		r.afterDial()
 	}
 
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.generation != generation {
+		_ = session.Close()
+		if r.token == token {
+			return nil, false, fmt.Errorf("%s: closed while connecting", r.name)
+		}
+		return nil, true, nil
+	}
 	r.client = client
 	r.session = &liveSession{ClientSession: session}
-	return r.session, nil
+	r.sessionToken = token
+	return r.session, false, nil
 }
 
 func (r *remote) disconnect() {
@@ -272,6 +322,7 @@ func (r *remote) callTool(ctx context.Context, session *liveSession, params *mcp
 func (r *remote) Close() error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	r.generation++
 	if r.session != nil {
 		r.session.close()
 		r.session = nil
