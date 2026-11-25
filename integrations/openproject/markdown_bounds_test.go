@@ -31,7 +31,14 @@ func TestRenderMarkdown_ExpandedFenceFallsBackToBoundedJSON(t *testing.T) {
 		t.Fatal("safe JSON fallback requires compaction")
 	}
 	projected, err := mcp.CompactJSON(data, fields)
-	if err != nil || len(projected) >= 40*1024 || !strings.Contains(string(projected), "description") {
-		t.Fatalf("JSON fallback lost detail or exceeded cap: bytes=%d err=%v", len(projected), err)
+	if err != nil || len(projected) >= 40*1024 {
+		t.Fatalf("JSON fallback failed or exceeded cap: bytes=%d err=%v", len(projected), err)
+	}
+	var fallback workPackageDetail
+	if err := json.Unmarshal(projected, &fallback); err != nil {
+		t.Fatalf("JSON fallback is invalid: %v", err)
+	}
+	if fallback.Description != detail.Description {
+		t.Fatalf("JSON fallback changed description: got %d bytes, want %d bytes", len(fallback.Description), len(detail.Description))
 	}
 }
