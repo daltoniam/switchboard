@@ -186,8 +186,11 @@ func normalizeBaseURL(raw string) (string, error) {
 // the failure is logged and the token is used until it expires.
 func (a *ashby) renewIfDue(ctx context.Context) error {
 	a.mu.RLock()
-	creds, baseURL, generation := a.creds, a.baseURL, a.configGen
+	creds, baseURL, generation, configured := a.creds, a.baseURL, a.configGen, a.remote != nil
 	a.mu.RUnlock()
+	if !configured {
+		return nil
+	}
 	target := remotemcp.RenewalTarget{Integration: integrationName, ServerURL: baseURL, Resource: baseURL + endpointPath}
 	fresh, renewed, err := a.renewal.Fresh(ctx, target, creds)
 	if err != nil {
@@ -327,6 +330,7 @@ func (a *ashby) Close() error {
 	a.configGen++
 	remote, stop := a.remote, a.stop
 	a.remote = nil
+	a.creds = nil
 	a.schemas = nil
 	a.fetching = false
 	a.lifetime, a.stop = nil, nil

@@ -193,3 +193,25 @@ func TestRenewal_DoesNotReopenAfterClose(t *testing.T) {
 	assert.Nil(t, a.remote, "renewal must not recreate a closed remote")
 	assert.Empty(t, fixture.snapshot())
 }
+
+func TestRenewal_SkippedAfterClose(t *testing.T) {
+	fixture := newHostedFixture(t, nil)
+	withTokenEndpoint(fixture, false)
+	creds := expiringLogin(fixture.server.URL)
+	integration := newIntegration(t)
+	SetConfigService(integration, &sharedStore{creds: maps.Clone(creds)})
+	require.NoError(t, integration.Configure(t.Context(), creds))
+	require.NoError(t, integration.(io.Closer).Close())
+
+	assert.False(t, integration.Healthy(t.Context()))
+	result, err := integration.Execute(t.Context(), "ashby_get_pending_tasks", nil)
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+
+	a := integration.(*ashby)
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	assert.Nil(t, a.remote, "renewal must not reopen a closed adapter")
+	assert.Zero(t, fixture.tokenCalls.Load(), "a closed adapter does not renew")
+	assert.Empty(t, fixture.snapshot())
+}

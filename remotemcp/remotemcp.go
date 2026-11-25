@@ -156,8 +156,15 @@ func (r *remote) connectGate() chan struct{} {
 
 func (r *remote) connect(ctx context.Context) (*liveSession, error) {
 	gate := r.connectGate()
+	r.mu.RLock()
+	closes := r.closes
+	r.mu.RUnlock()
 	for {
 		r.mu.RLock()
+		if r.closes != closes {
+			r.mu.RUnlock()
+			return nil, fmt.Errorf("%s: closed while connecting", r.name)
+		}
 		if r.session != nil {
 			sess := r.session
 			r.mu.RUnlock()
@@ -170,7 +177,7 @@ func (r *remote) connect(ctx context.Context) (*liveSession, error) {
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		}
-		sess, retry, err := r.dial(ctx)
+		sess, retry, err := r.dial(ctx, closes)
 		<-gate
 		if !retry {
 			return sess, err
@@ -178,18 +185,23 @@ func (r *remote) connect(ctx context.Context) (*liveSession, error) {
 	}
 }
 
-// dial opens a session without holding mu. If Configure replaced the token
+// dial opens a session without holding mu. closes is the Close count
+// when the caller entered connect; any Close since then rejects the attempt. If Configure replaced the token
 // meanwhile, the new session is closed and retry is true; if Close ran at
 // all, the session is closed and an error returned so a closed adapter
 // stays closed even if the token also changed.
-func (r *remote) dial(ctx context.Context) (sess *liveSession, retry bool, err error) {
+func (r *remote) dial(ctx context.Context, closes uint64) (sess *liveSession, retry bool, err error) {
 	r.mu.RLock()
+	if r.closes != closes {
+		r.mu.RUnlock()
+		return nil, false, fmt.Errorf("%s: closed while connecting", r.name)
+	}
 	if r.session != nil {
 		sess = r.session
 		r.mu.RUnlock()
 		return sess, false, nil
 	}
-	token, generation, closes := r.token, r.generation, r.closes
+	token, generation := r.token, r.generation
 	r.mu.RUnlock()
 
 	client := mcpsdk.NewClient(&mcpsdk.Implementation{

@@ -295,3 +295,33 @@ func TestConnect_ConfigureThenCloseDuringConnectKeepsAdapterClosed(t *testing.T)
 	defer r.mu.RUnlock()
 	assert.Nil(t, r.session, "no session may be published after Close")
 }
+
+// A call already waiting for the connection gate when Close runs must not
+// open a session afterwards.
+func TestConnect_QueuedCallDoesNotReopenAfterClose(t *testing.T) {
+	srv := versionedServer(t)
+	r := NewWithOptions("test", srv.URL, Options{EndpointPath: "/mcp/v1"}).(*remote)
+	require.NoError(t, r.Configure(context.Background(), mcp.Credentials{"access_token": "t"}))
+	queued := make(chan error, 1)
+	r.afterDial = func() {
+		r.afterDial = nil
+		go func() {
+			_, err := r.connect(context.Background())
+			queued <- err
+		}()
+		time.Sleep(100 * time.Millisecond)
+		assert.NoError(t, r.Close())
+	}
+	_, err := r.connect(context.Background())
+	require.Error(t, err)
+	select {
+	case err := <-queued:
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "closed while connecting")
+	case <-time.After(5 * time.Second):
+		t.Fatal("queued connect did not return")
+	}
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	assert.Nil(t, r.session, "no session may be published after Close")
+}
