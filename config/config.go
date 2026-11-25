@@ -398,9 +398,9 @@ var envMapping = map[string]map[string]string{
 		"mcp_access_token": "FIGMA_MCP_ACCESS_TOKEN",
 		"base_url":         "FIGMA_MCP_BASE_URL",
 	},
-	"notion-mcp": {
+	"notion": {
 		"mcp_access_token": "NOTION_MCP_ACCESS_TOKEN",
-		"base_url":         "NOTION_MCP_BASE_URL",
+		"mcp_base_url":     "NOTION_MCP_BASE_URL",
 	},
 	"mobbin": {
 		"mcp_access_token": "MOBBIN_MCP_ACCESS_TOKEN",
@@ -542,20 +542,11 @@ func defaultConfig() *mcp.Config {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"token": "", "cookie": "", "team_id": "", mcp.CredKeyTokenSource: ""},
 			},
-			"slackmcp": {
-				Enabled:     false,
-				Credentials: mcp.Credentials{"base_url": ""},
-				Identities:  map[string]mcp.IntegrationIdentity{},
-			},
 			"likec4excalidraw": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"base_url": "", "mcp_token": ""},
 			},
 			"figma": {
-				Enabled:     false,
-				Credentials: mcp.Credentials{"mcp_access_token": "", "base_url": "", mcp.CredKeyTokenSource: ""},
-			},
-			"notion-mcp": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"mcp_access_token": "", "base_url": "", mcp.CredKeyTokenSource: ""},
 			},
@@ -673,7 +664,7 @@ func defaultConfig() *mcp.Config {
 			},
 			"notion": {
 				Enabled:     false,
-				Credentials: mcp.Credentials{"token_v2": ""},
+				Credentials: mcp.Credentials{"token_v2": "", "mcp_access_token": "", mcp.CredKeyTokenSource: ""},
 			},
 			"ollama": {
 				Enabled:     false,
@@ -892,6 +883,10 @@ func (m *manager) Load() error {
 	if err := json.Unmarshal(data, &cfg); err != nil {
 		return fmt.Errorf("parse config: %w", err)
 	}
+	retiredWarnings := migrateRetiredIntegrations(&cfg)
+	for _, warning := range retiredWarnings {
+		logRetired("%s", warning)
+	}
 	m.persisted = mergeWithDefaults(&cfg)
 	m.cfg = cloneConfig(m.persisted)
 	m.base = cloneConfig(m.persisted)
@@ -904,11 +899,18 @@ func (m *manager) Load() error {
 	if err := mcp.ValidateProjectCatalogConfig(m.cfg.ProjectCatalog); err != nil {
 		return err
 	}
+	if len(retiredWarnings) > 0 {
+		// Best effort: a read-only config keeps working, it just warns again next start.
+		if err := m.saveLocked(); err != nil {
+			logRetired("config: could not save migrated config: %v", err)
+		}
+	}
 	m.applyEnvOverrides()
 	return nil
 }
 
 func mergeWithDefaults(file *mcp.Config) *mcp.Config {
+	migrateRetiredIntegrations(file)
 	cfg := defaultConfig()
 	cfg.WasmModules = file.WasmModules
 	cfg.SpecImports = file.SpecImports

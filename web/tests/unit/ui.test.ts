@@ -20,7 +20,7 @@ function integrationLogoRules() {
 }
 
 test('every integration shown in the UI has a logo instead of the placeholder', () => {
-  const renamed = { notionmcp: 'notion-mcp', webfetch: 'web' };
+  const renamed = { webfetch: 'web' };
   const entries = readdirSync(new URL('../../../integrations/', import.meta.url), { withFileTypes: true });
   const directories = entries.filter(entry => entry.isDirectory()).map(entry => entry.name);
   const styled = new Set(integrationLogoRules().map(([, name]) => name));
@@ -31,6 +31,7 @@ test('every integration shown in the UI has a logo instead of the placeholder', 
 test('logo CSS uses immutable CDN URLs and preserves theme variants', () => {
   const rules = integrationLogoRules();
   assert.ok(rules.some(([, name]) => name === 'openproject'));
+  assert.ok(!rules.some(([, name]) => ['slackmcp', 'notion-mcp', 'notionmcp'].includes(name)));
   const pinned = /url\("https:\/\/cdn\.jsdelivr\.net\/gh\/[\w-]+\/[\w-]+@[a-f0-9]{40}\/[\w/.-]+\.(svg|png)"\)/;
   const remote = rules.filter(([, , rule]) => rule.includes('url("https:'));
   assert.ok(remote.length > 0);
