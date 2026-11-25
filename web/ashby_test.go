@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -305,13 +306,18 @@ func TestAshbyAPIKeySave(t *testing.T) {
 		{name: "blank key keeps the saved key", creds: mcp.Credentials{"api_base_url": api.URL, "api_key": "good-key"}, form: url.Values{"cred_api_key": {""}}, wantStatus: http.StatusSeeOther, wantFlash: "result=Configuration+saved", wantKey: "good-key"},
 		{name: "rejected key saves but is unhealthy", creds: mcp.Credentials{"api_base_url": api.URL}, form: url.Values{"enabled": {"true"}, "cred_api_key": {"bad-key"}}, wantStatus: http.StatusSeeOther, wantFlash: "result=Configuration+saved", wantKey: "bad-key", wantEnabled: true},
 		{name: "cross-site post refused", creds: mcp.Credentials{}, form: url.Values{"cred_api_key": {"good-key"}}, header: map[string]string{"Sec-Fetch-Site": "cross-site"}, wantStatus: http.StatusForbidden, unchanged: true},
+		{name: "foreign origin refused without fetch metadata", creds: mcp.Credentials{}, form: url.Values{"cred_api_key": {"good-key"}}, header: map[string]string{"Origin": "https://attacker.test"}, wantStatus: http.StatusForbidden, unchanged: true},
+		{name: "opaque origin refused", creds: mcp.Credentials{}, form: url.Values{"cred_api_key": {"good-key"}}, header: map[string]string{"Origin": "null"}, wantStatus: http.StatusForbidden, unchanged: true},
+		{name: "foreign referer refused without origin", creds: mcp.Credentials{}, form: url.Values{"cred_api_key": {"good-key"}}, header: map[string]string{"Referer": "https://attacker.test/form"}, wantStatus: http.StatusForbidden, unchanged: true},
+		{name: "same origin accepted", creds: mcp.Credentials{"api_base_url": api.URL}, form: url.Values{"enabled": {"true"}, "cred_api_key": {"good-key"}}, header: map[string]string{"Origin": "http://example.com"}, wantStatus: http.StatusSeeOther, wantFlash: "result=Configuration+saved", wantKey: "good-key", wantEnabled: true, wantHealthy: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ws, reg, cfg := setupTestWeb()
 			integration := ashby.New()
 			t.Cleanup(func() { assert.NoError(t, integration.(io.Closer).Close()) })
 			reg.integrations["ashby"] = integration
-			cfg.cfg.Integrations["ashby"] = &mcp.IntegrationConfig{Credentials: tc.creds}
+			before := maps.Clone(tc.creds)
+			cfg.cfg.Integrations["ashby"] = &mcp.IntegrationConfig{Credentials: maps.Clone(tc.creds)}
 			req := httptest.NewRequest(http.MethodPost, "/integrations/ashby/api-key", strings.NewReader(tc.form.Encode()))
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 			for k, v := range tc.header {
@@ -322,7 +328,7 @@ func TestAshbyAPIKeySave(t *testing.T) {
 			require.Equal(t, tc.wantStatus, rr.Code, rr.Body.String())
 			saved := cfg.cfg.Integrations["ashby"]
 			if tc.unchanged {
-				assert.Equal(t, tc.creds, saved.Credentials)
+				assert.Equal(t, before, saved.Credentials)
 				assert.False(t, saved.Enabled)
 				if tc.wantFlash != "" {
 					assert.Contains(t, rr.Header().Get("Location"), tc.wantFlash)

@@ -149,12 +149,16 @@ func (a *ashby) Configure(ctx context.Context, creds mcp.Credentials) error {
 		if err != nil {
 			return err
 		}
-		// Ending the hosted session is best effort; it is abandoned either way.
-		_ = a.Close()
+		// The hosted session is detached and the native client published in
+		// one critical section, so a concurrent Configure never sees, or
+		// leaves behind, both backends.
 		a.mu.Lock()
-		defer a.mu.Unlock()
+		retired := a.detachHostedLocked()
 		a.baseURL = baseURL
 		a.native = newNativeClient(key, apiBaseURL)
+		a.mu.Unlock()
+		// Ending the old session is best effort; it is abandoned either way.
+		_ = retired.end()
 		return nil
 	}
 	token := strings.TrimSpace(creds[remotemcp.CredKeyAccessToken])
@@ -168,14 +172,20 @@ func (a *ashby) Configure(ctx context.Context, creds mcp.Credentials) error {
 
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	// A working API key stays active until the hosted remote is configured.
+	if err := a.configureLocked(ctx, creds, token, baseURL); err != nil {
+		return err
+	}
 	a.native = nil
-	return a.configureLocked(ctx, creds, token, baseURL)
+	return nil
 }
 
 func (a *ashby) configureLocked(ctx context.Context, creds mcp.Credentials, token, baseURL string) error {
 	a.configGen++
 	credentials := mcp.Credentials{"access_token": token}
 	if a.lifetime == nil {
+		// #nosec G118 -- a.stop is called by retiredSession.end when Close or
+		// API key mode detaches this session.
 		a.lifetime, a.stop = context.WithCancel(context.Background())
 		a.fetches = &sync.WaitGroup{}
 	}
@@ -414,22 +424,41 @@ func (a *ashby) MaxBytes(toolName mcp.ToolName) (int, bool) {
 // more than once; a later Configure starts fresh.
 func (a *ashby) Close() error {
 	a.mu.Lock()
-	a.configGen++
-	remote, stop, fetches := a.remote, a.stop, a.fetches
-	a.remote = nil
+	retired := a.detachHostedLocked()
 	a.native = nil
+	a.mu.Unlock()
+	return retired.end()
+}
+
+// retiredSession is a hosted session already detached from the adapter.
+type retiredSession struct {
+	remote  mcp.Integration
+	stop    context.CancelFunc
+	fetches *sync.WaitGroup
+}
+
+// detachHostedLocked unhooks the hosted session so it can be ended after
+// the lock is released; callers hold a.mu.
+func (a *ashby) detachHostedLocked() retiredSession {
+	a.configGen++
+	retired := retiredSession{remote: a.remote, stop: a.stop, fetches: a.fetches}
+	a.remote = nil
 	a.creds = nil
 	a.schemas = nil
 	a.fetching = false
 	a.lifetime, a.stop, a.fetches = nil, nil, nil
-	a.mu.Unlock()
-	if stop != nil {
-		stop()
+	return retired
+}
+
+// end cancels the session's schema fetches, waits for them, and closes it.
+func (r retiredSession) end() error {
+	if r.stop != nil {
+		r.stop()
 	}
-	if fetches != nil {
-		fetches.Wait()
+	if r.fetches != nil {
+		r.fetches.Wait()
 	}
-	return closeRemote(remote)
+	return closeRemote(r.remote)
 }
 
 func closeRemote(remote mcp.Integration) error {

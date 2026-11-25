@@ -48,7 +48,7 @@ func (w *WebServer) handleAshbySetup(rw http.ResponseWriter, r *http.Request) {
 // handleAshbyAPIKeySave switches Ashby to API key mode. A blank key keeps
 // the saved one, so the enabled toggle can change without re-entering it.
 func (w *WebServer) handleAshbyAPIKeySave(rw http.ResponseWriter, r *http.Request) {
-	if site := r.Header.Get("Sec-Fetch-Site"); site != "" && site != "same-origin" && site != "none" {
+	if !sameOriginForm(r) {
 		http.Error(rw, "Same-origin request required", http.StatusForbidden)
 		return
 	}
@@ -101,4 +101,23 @@ func (w *WebServer) handleAshbyAPIKeySave(rw http.ResponseWriter, r *http.Reques
 	}
 	w.notifyConfigChanged()
 	http.Redirect(rw, r, ashbySetupPath+"?result="+url.QueryEscape(result), http.StatusSeeOther)
+}
+
+// sameOriginForm refuses cross-site form posts that would replace the API
+// key. Browsers send Fetch Metadata, or failing that an Origin or Referer
+// header, on form posts; a request with none of them is not from a browser
+// page and carries no ambient authority to abuse.
+func sameOriginForm(r *http.Request) bool {
+	if site := r.Header.Get("Sec-Fetch-Site"); site != "" {
+		return site == "same-origin" || site == "none"
+	}
+	if origin := r.Header.Get("Origin"); origin != "" {
+		parsed, err := url.Parse(origin)
+		return err == nil && parsed.Host != "" && parsed.Host == r.Host
+	}
+	if referer := r.Header.Get("Referer"); referer != "" {
+		parsed, err := url.Parse(referer)
+		return err == nil && parsed.Host != "" && parsed.Host == r.Host
+	}
+	return true
 }

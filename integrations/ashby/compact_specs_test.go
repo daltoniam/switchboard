@@ -153,14 +153,14 @@ func TestCompaction_Shape(t *testing.T) {
 			name:     "candidate list keeps identifiers and drops contact details",
 			tool:     "ashby_list_candidates",
 			response: `{"results":[` + candidateRecord + `],"moreDataAvailable":true,"nextCursor":"c2","syncToken":null}`,
-			keep:     []string{"cand-1", "Jordan Lee", "jordan@example.com", "app-1", "2026-01-02T03:04:05.000Z", `"moreDataAvailable":true`, `"nextCursor":"c2"`},
+			keep:     []string{`"id":"cand-1"`, "Jordan Lee", "jordan@example.com", "app-1", "2026-01-02T03:04:05.000Z", `"moreDataAvailable":true`, `"nextCursor":"c2"`},
 			drop:     []string{"+1 555 0100", "linkedin.example", "secret-handle", "Salary expectation", "jl@work.example", "Austin, TX", "America/Chicago"},
 		},
 		{
 			name:     "candidate profile keeps background but not files or custom fields",
 			tool:     "ashby_get_candidate",
 			response: `{"results":` + candidateRecord + `}`,
-			keep:     []string{"cand-1", "Staff Engineer", "Acme", "State University", "Referral", "app-1", "https://app.ashbyhq.com/candidates/cand-1"},
+			keep:     []string{`"id":"cand-1"`, "Staff Engineer", "Acme", "State University", "Referral", "app-1", "https://app.ashbyhq.com/candidates/cand-1"},
 			drop:     []string{"+1 555 0100", "secret-handle", "Salary expectation", "linkedin.example"},
 		},
 		{
@@ -192,4 +192,12 @@ func TestCompaction_Shape(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCompaction_CandidateProfileKeepsIDAtItsPath(t *testing.T) {
+	out := compactFixture(t, "ashby_get_candidate", `{"results":`+candidateRecord+`}`)
+	results, ok := out["results"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, "cand-1", results["id"])
+	assert.Equal(t, "Jordan Lee", results["name"])
 }

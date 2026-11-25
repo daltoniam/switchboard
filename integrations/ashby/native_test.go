@@ -1,6 +1,7 @@
 package ashby
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -468,28 +469,24 @@ func TestDispatch_SharedNamesStayInTheirMode(t *testing.T) {
 	remote := configured(t, hosted.server.URL, fixtureToken)
 	for _, name := range shared {
 		t.Run(string(name), func(t *testing.T) {
-			_, err := native.Execute(t.Context(), name, map[string]any{"candidate_id": "c", "name": "n", "application_id": "a", "interview_stage_id": "s"})
+			apiBefore, hostedBefore := len(api.snapshot()), len(hosted.snapshot())
+			result, err := native.Execute(t.Context(), name, map[string]any{"candidate_id": "c", "name": "n", "application_id": "a", "interview_stage_id": "s"})
 			require.NoError(t, err)
-			_, err = remote.Execute(t.Context(), name, map[string]any{"query": "q"})
+			require.False(t, result.IsError, result.Data)
+			apiCalls := api.snapshot()
+			require.Len(t, apiCalls, apiBefore+1, "native mode must call the REST API")
+			assert.Equal(t, nativeDispatch[name].path, apiCalls[len(apiCalls)-1].path)
+			assert.Len(t, hosted.snapshot(), hostedBefore, "native mode must not reach the hosted server")
+
+			result, err = remote.Execute(t.Context(), name, map[string]any{"query": "q"})
 			require.NoError(t, err)
+			require.False(t, result.IsError, result.Data)
+			hostedCalls := hosted.snapshot()
+			require.Len(t, hostedCalls, hostedBefore+1, "hosted mode must call the hosted server")
+			assert.Equal(t, dispatch[name], hostedCalls[len(hostedCalls)-1].name)
+			assert.Len(t, api.snapshot(), apiBefore+1, "hosted mode must not reach the REST API")
 		})
 	}
-	for _, call := range api.snapshot() {
-		assert.Equal(t, nativeDispatch[toolForPath(t, call.path)].path, call.path)
-	}
-	assert.Len(t, api.snapshot(), len(shared))
-	assert.Len(t, hosted.snapshot(), len(shared))
-}
-
-func toolForPath(t *testing.T, path string) mcp.ToolName {
-	t.Helper()
-	for name, ep := range nativeDispatch {
-		if ep.path == path {
-			return name
-		}
-	}
-	t.Fatalf("no native tool calls %s", path)
-	return ""
 }
 
 func TestNative_CompactionOnlyInAPIKeyMode(t *testing.T) {
@@ -520,4 +517,44 @@ func TestNative_CloseIsIdempotent(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
 	assert.Contains(t, result.Data, mcp.ErrNotConfigured.Error())
+}
+
+func TestConfigure_KeepsAPIKeyWhenSignInFails(t *testing.T) {
+	fixture := newAPIFixture(t, nil)
+	integration := configuredAPI(t, fixture.server.URL, fixtureAPIKey)
+	integration.(*ashby).newRemote = func(string) mcp.Integration { return failingRemote{} }
+
+	err := integration.Configure(t.Context(), mcp.Credentials{"base_url": "https://other.test", "mcp_access_token": "t"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "remote refused")
+	assert.Len(t, integration.Tools(), len(nativeEndpoints), "the working API key stays active")
+	result, err := integration.Execute(t.Context(), "ashby_list_jobs", nil)
+	require.NoError(t, err)
+	assert.False(t, result.IsError, result.Data)
+}
+
+// Racing mode switches must always leave exactly one backend configured.
+func TestConfigure_ConcurrentModeSwitchesLeaveOneBackend(t *testing.T) {
+	integration := newIntegration(t)
+	a := integration.(*ashby)
+	a.newRemote = func(string) mcp.Integration {
+		return &listingRemote{list: func(context.Context) ([]mcp.ToolDefinition, error) { return nil, nil }}
+	}
+	var wg sync.WaitGroup
+	for i := range 50 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			creds := mcp.Credentials{"mcp_access_token": "t", "base_url": "https://hosted.test"}
+			if i%2 == 0 {
+				creds = mcp.Credentials{"api_key": "k", "base_url": "https://hosted.test"}
+			}
+			assert.NoError(t, integration.Configure(t.Context(), creds))
+		}()
+	}
+	wg.Wait()
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	assert.True(t, (a.native == nil) != (a.remote == nil), "native=%v remote=%v", a.native != nil, a.remote != nil)
+	assert.Equal(t, "https://hosted.test", a.baseURL)
 }
