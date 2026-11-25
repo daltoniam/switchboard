@@ -27,4 +27,4 @@ Render API keys have the full access of the account that created them in every w
 
 ## Live acceptance
 
-`web/live_render_test.go` is a read-only sandbox spec. It runs when `RENDER_LIVE_API_KEY`, `RENDER_LIVE_WORKSPACE_ID`, `RENDER_LIVE_SERVICE_ID` (a Git-backed web service that deployed and logged in the last 30 days), `RENDER_LIVE_POSTGRES_ID`, and `RENDER_LIVE_KEY_VALUE_ID` are set, and skips otherwise.
+`web/live_render_test.go` is a read-only sandbox spec. It runs when `RENDER_LIVE_API_KEY`, `RENDER_LIVE_WORKSPACE_ID`, `RENDER_LIVE_SERVICE_ID` (a Git-backed web service that deployed, and so wrote build logs, in the last 7 days; the log and event cases read a 7-day window), `RENDER_LIVE_POSTGRES_ID`, and `RENDER_LIVE_KEY_VALUE_ID` are set, and skips otherwise.

@@ -179,11 +179,11 @@ func TestUIRender(t *testing.T) {
 	uiText(t, page.Locator(".badge").First(), "Not Verified")
 
 	require.NoError(t, form.Locator("#cred_api_key").Fill(uiRenderKey))
-	require.NoError(t, form.Locator("#cred_workspace_id").Fill("tea-fixture"))
+	require.NoError(t, form.Locator("#cred_workspace_id").Fill("tea-configured"))
 	uiSave(t, page)
 	uiText(t, page.Locator(".badge").First(), "Connected")
 	require.Len(t, uiRenderMCP(t, app), uiRenderTools)
-	require.Equal(t, "tea-fixture", fixture.lastWorkspace(), "the saved workspace is the default for scoped tools")
+	require.Equal(t, "tea-configured", fixture.lastWorkspace(), "the configured workspace, not the discovered one, is the default for scoped tools")
 	uiCapture(t, page, "render-desktop")
 	require.NoError(t, page.SetViewportSize(390, 844))
 	require.NoError(t, page.Locator("[data-sidebar-close]").Click())
@@ -205,5 +205,5 @@ func TestUIRender(t *testing.T) {
 	require.NoError(t, json.Unmarshal(data, &saved))
 	require.False(t, saved.Integrations["render"].Enabled)
 	require.Equal(t, fixture.server.URL, saved.Integrations["render"].Credentials["base_url"])
-	require.Equal(t, "tea-fixture", saved.Integrations["render"].Credentials["workspace_id"])
+	require.Equal(t, "tea-configured", saved.Integrations["render"].Credentials["workspace_id"])
 }

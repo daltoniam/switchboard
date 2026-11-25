@@ -20,7 +20,7 @@ import (
 //
 //	RENDER_LIVE_API_KEY       API key of the sandbox account
 //	RENDER_LIVE_WORKSPACE_ID  sandbox workspace (tea-... or usr-...)
-//	RENDER_LIVE_SERVICE_ID    Git-backed web service that deployed and logged in the last 30 days
+//	RENDER_LIVE_SERVICE_ID    Git-backed web service that deployed (and so wrote build logs) in the last 7 days
 //	RENDER_LIVE_POSTGRES_ID   Postgres instance in that workspace
 //	RENDER_LIVE_KEY_VALUE_ID  Key Value instance in that workspace
 func init() {
@@ -87,6 +87,10 @@ func init() {
 	})
 }
 
+// liveRenderWindow is how far back the log and event cases read. The sandbox
+// service must deploy within it; Render keeps logs for at most 30 days.
+const liveRenderWindow = 7 * 24 * time.Hour
+
 func liveRenderProvision(t *testing.T) liveProvision {
 	key := os.Getenv("RENDER_LIVE_API_KEY")
 	workspace := os.Getenv("RENDER_LIVE_WORKSPACE_ID")
@@ -104,7 +108,7 @@ func liveRenderProvision(t *testing.T) liveProvision {
 			"postgres_id":  postgres,
 			"key_value_id": keyValue,
 			"deploy_id":    liveRenderLatestDeploy(t, key, service),
-			"since":        time.Now().UTC().Add(-29 * 24 * time.Hour).Format(time.RFC3339),
+			"since":        time.Now().UTC().Add(-liveRenderWindow).Format(time.RFC3339),
 		},
 	}
 }
