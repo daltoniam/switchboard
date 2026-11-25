@@ -44,6 +44,10 @@ type OAuthOptions struct {
 	Scope      string
 	ClientName string
 	Resource   string
+	// Prompt is sent as the OIDC prompt parameter when set. OpenID
+	// providers grant offline_access (a refresh token) only with
+	// prompt=consent.
+	Prompt string
 }
 
 type oauthServerMeta struct {
@@ -82,15 +86,23 @@ func pkceChallenge(verifier string) string {
 // Metadata comes from the remote server, so it may only send discovery to a
 // local address when the configured server is itself local (development and
 // tests); otherwise a server could aim requests at the Switchboard host.
-func discoverOAuth(serverURL string) (*oauthServerMeta, error) {
+//
+// Protected resource metadata must name the server's /mcp endpoint, its
+// origin, or expectedResource (an endpoint at another path, such as
+// Ashby's /mcp/v1).
+func discoverOAuth(serverURL string, expectedResource ...string) (*oauthServerMeta, error) {
 	parsed, err := url.Parse(serverURL)
 	if err != nil || parsed.Host == "" {
 		return nil, fmt.Errorf("invalid MCP server URL %q", serverURL)
 	}
 	fetch := discoveryFetcher{allowLocal: isLoopback(parsed.Hostname())}
 
-	if resource, ok := fetch.protectedResource(serverURL); ok {
-		if resource.Resource != "" && resource.Resource != serverURL+"/mcp" && resource.Resource != serverURL {
+	expected := ""
+	if len(expectedResource) > 0 {
+		expected = expectedResource[0]
+	}
+	if resource, ok := fetch.protectedResource(serverURL, expected); ok {
+		if resource.Resource != "" && resource.Resource != serverURL+"/mcp" && resource.Resource != serverURL && (expected == "" || resource.Resource != expected) {
 			return nil, fmt.Errorf("protected resource metadata is for %q, not %q", resource.Resource, serverURL+"/mcp")
 		}
 		if len(resource.AuthorizationServers) > 0 {
@@ -135,10 +147,15 @@ type protectedResourceMeta struct {
 	AuthorizationServers []string `json:"authorization_servers"`
 }
 
-// protectedResource reads RFC 9728 metadata for the /mcp endpoint, then at
-// the origin, which MCP servers may publish instead.
-func (f discoveryFetcher) protectedResource(serverURL string) (protectedResourceMeta, bool) {
-	for _, path := range []string{"/.well-known/oauth-protected-resource/mcp", "/.well-known/oauth-protected-resource"} {
+// protectedResource reads RFC 9728 metadata for the expected resource's path
+// (when it is under serverURL), then the /mcp endpoint, then the origin,
+// which MCP servers may publish instead.
+func (f discoveryFetcher) protectedResource(serverURL, expected string) (protectedResourceMeta, bool) {
+	paths := []string{"/.well-known/oauth-protected-resource/mcp", "/.well-known/oauth-protected-resource"}
+	if suffix, ok := strings.CutPrefix(expected, serverURL); ok && strings.HasPrefix(suffix, "/") && suffix != "/mcp" {
+		paths = append([]string{"/.well-known/oauth-protected-resource" + suffix}, paths...)
+	}
+	for _, path := range paths {
 		var resource protectedResourceMeta
 		if f.getJSON(serverURL+path, &resource) == nil {
 			return resource, true
@@ -335,7 +352,11 @@ func registerClient(registerURL, redirectURI string, clientNames ...string) (cli
 // StartOAuth begins the MCP OAuth flow for a remote server.
 // It discovers the OAuth endpoints, registers a dynamic client, and returns the authorize URL.
 func StartOAuth(name, serverURL, redirectURI string, options ...OAuthOptions) (string, error) {
-	meta, err := discoverOAuth(serverURL)
+	resource := ""
+	if len(options) > 0 {
+		resource = strings.TrimSpace(options[0].Resource)
+	}
+	meta, err := discoverOAuth(serverURL, resource)
 	if err != nil {
 		return "", err
 	}
@@ -352,7 +373,8 @@ func StartOAuth(name, serverURL, redirectURI string, options ...OAuthOptions) (s
 		if value := strings.TrimSpace(options[0].ClientName); value != "" {
 			config.ClientName = value
 		}
-		config.Resource = strings.TrimSpace(options[0].Resource)
+		config.Resource = resource
+		config.Prompt = strings.TrimSpace(options[0].Prompt)
 	}
 	clientID, clientSecret, err := registerClient(meta.RegistrationEndpoint, redirectURI, config.ClientName)
 	if err != nil {
@@ -374,6 +396,9 @@ func StartOAuth(name, serverURL, redirectURI string, options ...OAuthOptions) (s
 	}
 	if config.Resource != "" {
 		params.Set("resource", config.Resource)
+	}
+	if config.Prompt != "" {
+		params.Set("prompt", config.Prompt)
 	}
 
 	authorizeURL := meta.AuthorizationEndpoint + "?" + params.Encode()
@@ -414,7 +439,7 @@ func HandleOAuthCallback(name, code, stateParam string) error {
 		return fmt.Errorf("%s", os.err)
 	}
 
-	meta, err := discoverOAuth(os.serverURL)
+	meta, err := discoverOAuth(os.serverURL, os.resource)
 	if err != nil {
 		os.err = err.Error()
 		os.done = true

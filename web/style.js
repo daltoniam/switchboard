@@ -46,6 +46,12 @@ const logoSources = {
 // Sourcebot publishes its "SB." mark only as PNG, so it is redrawn here as a
 // monochrome outline that follows the theme color like the Simple Icons logos.
 const drawnLogos = {
+  // Ashby's "A" mark from the app.ashbyhq.com loading screen; no public icon set ships it.
+  ashby: {
+    width: 216,
+    height: 203,
+    body: '<path fill="currentColor" fill-rule="evenodd" d="M64.536 195.28V202.971H0V195.28C16.7192 195.28 23.4068 191.602 29.4257 175.551L92.2898 0H122.05L191.267 175.551C197.955 191.936 201.299 195.28 215.677 195.28V202.971H114.216V195.28C138.285 195.28 140.316 193.112 133.085 175.551L114.693 127.4H58.8515L42.4667 174.548C37.6818 190.498 38.7274 195.28 64.536 195.28ZM85.2678 51.1607L62.5297 117.034H110.681L85.2678 51.1607Z"/>',
+  },
   sourcebot: {
     body: '<g fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 7.6C8.3 6.6 7.2 6 5.6 6C3.6 6 2.3 7.1 2.3 8.7c0 3.6 6.9 2.3 6.9 6.2c0 1.8-1.4 3.1-3.6 3.1c-1.7 0-3-.7-3.7-1.9"/><path d="M12.5 6v12h3.9c2 0 3.3-1.2 3.3-3s-1.3-3-3.3-3h-3.9h3.5c1.7 0 2.8-1.1 2.8-3S17.7 6 16 6z"/></g><circle cx="22.2" cy="17.4" r="1.5" fill="currentColor"/>',
   },

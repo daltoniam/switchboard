@@ -17,12 +17,28 @@ import (
 )
 
 const (
-	defaultTimeout = 30 * time.Second
+	defaultTimeout      = 30 * time.Second
+	defaultEndpointPath = "/mcp"
 )
 
+// ToolLister lists a remote server's tools under a caller's context, so a
+// fetch can be canceled. Results are cached like Tools.
+type ToolLister interface {
+	ListTools(ctx context.Context) ([]mcp.ToolDefinition, error)
+}
+
+// Options configures a remote MCP integration built with NewWithOptions.
+type Options struct {
+	// EndpointPath is the MCP endpoint path on the server; "" means /mcp.
+	EndpointPath string
+	// Structured returns structuredContent as JSON, like NewStructured.
+	Structured bool
+}
+
 type remote struct {
-	name      string
-	serverURL string
+	name         string
+	serverURL    string
+	endpointPath string
 
 	mu            sync.RWMutex
 	token         string
@@ -61,7 +77,25 @@ func NewStructured(name, serverURL string) mcp.Integration {
 	}
 }
 
+// NewWithOptions creates a remote MCP integration for servers whose endpoint
+// is not /mcp or that need structured results.
+func NewWithOptions(name, serverURL string, opts Options) mcp.Integration {
+	return &remote{
+		name:         name,
+		serverURL:    serverURL,
+		endpointPath: opts.EndpointPath,
+		structured:   opts.Structured,
+	}
+}
+
 func (r *remote) Name() string { return r.name }
+
+func (r *remote) endpoint() string {
+	if r.endpointPath == "" {
+		return r.serverURL + defaultEndpointPath
+	}
+	return r.serverURL + r.endpointPath
+}
 
 func (r *remote) Configure(_ context.Context, creds mcp.Credentials) error {
 	r.mu.Lock()
@@ -126,7 +160,7 @@ func (r *remote) connect(ctx context.Context) (*liveSession, error) {
 		httpClient.Transport = &bearerTransport{token: r.token}
 	}
 	transport := &mcpsdk.StreamableClientTransport{
-		Endpoint:             r.serverURL + "/mcp",
+		Endpoint:             r.endpoint(),
 		HTTPClient:           httpClient,
 		DisableStandaloneSSE: true,
 	}
@@ -263,25 +297,32 @@ func (r *remote) Healthy(ctx context.Context) bool {
 }
 
 func (r *remote) Tools() []mcp.ToolDefinition {
+	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
+	defer cancel()
+	tools, _ := r.ListTools(ctx)
+	return tools
+}
+
+// ListTools returns the cached tool list, fetching it under ctx when no
+// fetch has succeeded yet.
+func (r *remote) ListTools(ctx context.Context) ([]mcp.ToolDefinition, error) {
 	r.mu.RLock()
 	if r.toolsFetched {
 		tools := r.cachedTools
 		r.mu.RUnlock()
-		return tools
+		return tools, nil
 	}
 	r.mu.RUnlock()
 
-	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
-	defer cancel()
-
+	ctx = upstreamContext(ctx)
 	session, err := r.connect(ctx)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 
 	result, err := session.ListTools(ctx, &mcpsdk.ListToolsParams{})
 	if err != nil {
-		return nil
+		return nil, err
 	}
 
 	tools := convertTools(r.name, result.Tools)
@@ -291,7 +332,7 @@ func (r *remote) Tools() []mcp.ToolDefinition {
 	r.toolsFetched = true
 	r.mu.Unlock()
 
-	return tools
+	return tools, nil
 }
 
 func (r *remote) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {

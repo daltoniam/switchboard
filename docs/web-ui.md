@@ -26,6 +26,7 @@
   - `GET /integrations/notion-mcp/setup`: independent Notion hosted MCP OAuth (PKCE). Uses `/api/remote/notion-mcp/oauth/start` and `/api/remote/notion-mcp/oauth/callback`; successful sign-in enables `notion-mcp` and refreshes discovery without changing the existing Notion integration.
   - `GET /integrations/mobbin/setup`: Mobbin hosted MCP OAuth (PKCE). Uses `/api/remote/mobbin/oauth/start` and `/api/remote/mobbin/oauth/callback`; successful sign-in enables `mobbin`.
   - `GET /integrations/higgsfield/setup`: Higgsfield hosted MCP OAuth (PKCE, scopes `openid email offline_access`). Uses `/api/remote/higgsfield/oauth/start` and `/api/remote/higgsfield/oauth/callback`; successful sign-in enables `higgsfield`.
+  - `GET /integrations/ashby/setup`: Ashby hosted MCP OAuth (PKCE, scopes `openid mcp offline_access`, `prompt=consent`, resource `/mcp/v1`). Uses `/api/remote/ashby/oauth/start` and `/api/remote/ashby/oauth/callback`; successful sign-in enables `ashby`.
   - `GET /integrations/sentry/setup` — Sentry Device Flow OAuth
   - `GET /integrations/google/setup` — Unified Google Workspace setup (one OAuth client, one sign-in, fans tokens out to all selected Google services). See [google-setup.md](google-setup.md). The 11 per-service pages (`/integrations/gmail/setup`, `/integrations/gcal/setup`, etc.) remain but link back to this unified page.
   - `GET /integrations/slack/setup` — Slack credentials (browser auto-extract, manual browser snippet, user OAuth token, direct entry)

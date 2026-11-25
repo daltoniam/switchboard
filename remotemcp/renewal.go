@@ -143,7 +143,7 @@ func refreshGrant(ctx context.Context, target RenewalTarget, creds mcp.Credentia
 	if clientID == "" {
 		return tokenGrant{}, fmt.Errorf("no OAuth client ID saved with the login")
 	}
-	meta, err := discoverOAuth(target.ServerURL)
+	meta, err := discoverOAuth(target.ServerURL, target.Resource)
 	if err != nil {
 		return tokenGrant{}, err
 	}
