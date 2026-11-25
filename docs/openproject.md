@@ -64,6 +64,15 @@ The collection namespace and the project relationship namespace are intentionall
 
 `TestRequestAndProjection`, `TestHealthyUsesBoundedReadAndClose` and `TestUIOpenProject` intentionally require the workspace collection route, including the configured installation subpath. Real-product acceptance independently checks it: `liveOpenProjectProvision` requires an authenticated `GET /api/v3/workspaces/{id}/work_packages` to return HTTP 200, the seeded second-page record and correct paging metadata from the pinned official v17.9.2 container before running the adapter and MCP cases. These route assertions are not based only on mock agreement.
 
+To inspect both released contracts independently of this repository's fixtures, retrieve their exact tagged contents with the GitHub CLI:
+
+```sh
+gh api 'repos/opf/openproject/contents/docs/api/apiv3/paths/workspace_work_packages.yml?ref=v17.9.2' -H 'Accept: application/vnd.github.raw+json'
+gh api 'repos/opf/openproject/contents/docs/api/apiv3/paths/project_work_packages.yml?ref=v17.9.2' -H 'Accept: application/vnd.github.raw+json'
+```
+
+The first file must declare the workspace collection GET; the second must identify the project collection as deprecated and replaced by that workspace route. These source reads need no OpenProject token and make no request to an operator's installation. They establish the released contract only; pair them with a successful pinned-container live run before claiming runtime compatibility.
+
 For a collection HTTP 404, first confirm the deployed OpenProject release, the installation subpath in `base_url`, the numeric project ID in `workspace_id`, and that the dedicated token's account can view that project. Check reverse-proxy routing with the installation administrator if those values are correct. A permission-hidden project also produces 404, so this status alone does not establish that the workspace endpoint is missing. Compare routes against the deployed release's contract, not an older API guide or the `_links.project` relationship. This adapter does not retry a failed collection read through the deprecated project alias or claim compatibility with older releases.
 
 The adapter explicitly sends `filters=[]` when no search text is supplied, removing the API's default open-only status filter. Search text is encoded into a constructed `subjectOrId` filter with the documented `**` operator. It is not a caller-supplied filter object or arbitrary query language. Sorting is fixed to `[["id","asc"]]`. Callers cannot supply workspace overrides, URLs, paths, headers, credentials, `select`, grouping, sums, timestamps, baselines or arbitrary expansions.
