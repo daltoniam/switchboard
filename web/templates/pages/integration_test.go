@@ -50,7 +50,7 @@ func TestIntegrationDetail_OmitsToolsSectionWhenEmpty(t *testing.T) {
 
 func TestIntegrationDetail_RendersIdentityEditorWithoutSecrets(t *testing.T) {
 	data := IntegrationDetailData{
-		Name:               "slackmcp",
+		Name:               "testint",
 		SupportsIdentities: true,
 		IdentityCredentialKeys: []string{
 			"access_token",
