@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -85,22 +86,21 @@ func TestBuildTransaction_SerializesToExpectedJSON(t *testing.T) {
 
 func TestSubmitTransaction_PostsToCorrectEndpointWithOps(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "POST", r.Method)
-		assert.Equal(t, "/api/v3/submitTransaction", r.URL.Path)
-
-		var tx transaction
-		err := json.NewDecoder(r.Body).Decode(&tx)
-		require.NoError(t, err)
-		assert.Len(t, tx.Operations, 1)
+		tx := decodeSaveTransaction(t, r, "space-1")
+		assert.Equal(t, "user-1", r.Header.Get("x-notion-active-user-header"))
+		assert.Equal(t, "space-1", r.Header.Get("x-notion-space-id"))
+		assert.Len(t, tx.Operations, 2)
 		assert.Equal(t, "set", tx.Operations[0].Command)
+		assert.Equal(t, "setParent", tx.Operations[1].Command)
+		assert.Equal(t, "space-1", tx.Operations[1].Pointer.SpaceID)
 
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{}`))
 	}))
 	defer ts.Close()
 
-	n := &notion{tokenV2: "test-token", baseURL: ts.URL, client: ts.Client()}
-	ops := []op{buildSetOp("block", "b1", []string{"type"}, "page")}
+	n := &notion{tokenV2: "test-token", spaceID: "space-1", userID: "user-1", baseURL: ts.URL, client: ts.Client()}
+	ops := []op{buildSetOp("block", "b1", []string{"type"}, "page"), buildSetParentOp("space-1", "b1", "collection-1", "collection")}
 
 	data, err := submitTransaction(context.Background(), n, ops)
 	require.NoError(t, err)
@@ -173,4 +173,68 @@ func TestNewBlockID_ReturnsUniqueValues(t *testing.T) {
 	id1 := newBlockID()
 	id2 := newBlockID()
 	assert.NotEqual(t, id1, id2)
+}
+
+func decodeSaveTransaction(t *testing.T, r *http.Request, spaceID string) transaction {
+	t.Helper()
+	assert.Equal(t, http.MethodPost, r.Method)
+	assert.Equal(t, "/api/v3/saveTransactions", r.URL.Path)
+	var body struct {
+		RequestID    string `json:"requestId"`
+		Transactions []struct {
+			ID         string `json:"id"`
+			SpaceID    string `json:"spaceId"`
+			Operations []op   `json:"operations"`
+		} `json:"transactions"`
+		Operations json.RawMessage `json:"operations"`
+	}
+	require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+	_, err := uuid.Parse(body.RequestID)
+	require.NoError(t, err)
+	require.Len(t, body.Transactions, 1)
+	tx := body.Transactions[0]
+	_, err = uuid.Parse(tx.ID)
+	require.NoError(t, err)
+	assert.NotEqual(t, body.RequestID, tx.ID)
+	assert.Equal(t, spaceID, tx.SpaceID)
+	assert.Nil(t, body.Operations)
+	require.NotEmpty(t, tx.Operations)
+	for i := range tx.Operations {
+		op := &tx.Operations[i]
+		require.NotNil(t, op.Pointer)
+		assert.Equal(t, spaceID, op.Pointer.SpaceID)
+		assert.Empty(t, op.Table)
+		assert.Empty(t, op.ID)
+		if op.Command != "setParent" {
+			op.Table = op.Pointer.Table
+			op.ID = op.Pointer.ID
+			op.Pointer = nil
+		}
+	}
+	return transaction{Operations: tx.Operations}
+}
+
+func TestSubmitTransaction_DoesNotMutateCallerOperations(t *testing.T) {
+	n := testNotion(t, func(w http.ResponseWriter, r *http.Request) {
+		decodeSaveTransaction(t, r, "space-1")
+		okJSON(w, `{}`)
+	})
+	ops := []op{
+		buildSetOp("block", "block-1", []string{"properties", "title"}, []any{[]any{"Title"}}),
+		buildSetParentOp("space-1", "block-1", "collection-1", "collection"),
+	}
+	originalPointer := ops[1].Pointer
+	before, err := json.Marshal(ops)
+	require.NoError(t, err)
+
+	_, err = submitTransaction(context.Background(), n, ops)
+	require.NoError(t, err)
+
+	after, err := json.Marshal(ops)
+	require.NoError(t, err)
+	assert.JSONEq(t, string(before), string(after))
+	assert.Nil(t, ops[0].Pointer)
+	assert.Equal(t, "block", ops[0].Table)
+	assert.Equal(t, "block-1", ops[0].ID)
+	assert.Same(t, originalPointer, ops[1].Pointer)
 }

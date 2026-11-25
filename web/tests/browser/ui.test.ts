@@ -23,7 +23,7 @@ before(async () => {
   }, { timeout: 15000 }).toBe(200);
   const response = await fetch(`${baseURL}/static/style.css`);
   const css = await response.text();
-  logoSources = [...new Set(css.match(/https:\/\/cdn\.jsdelivr\.net\/gh\/[\w-]+\/[\w-]+@[a-f0-9]{40}\/[\w/.-]+\.svg/g))];
+  logoSources = [...new Set(css.match(/https:\/\/cdn\.jsdelivr\.net\/gh\/[\w-]+\/[\w-]+@[a-f0-9]{40}\/[\w/.-]+\.(?:svg|png)/g))];
   assert.ok(logoSources.length > 0);
   browser = await chromium.launch();
 });

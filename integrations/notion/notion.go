@@ -286,6 +286,12 @@ func (n *notion) doRequest(ctx context.Context, path string, body any) (json.Raw
 	}
 	req.Header.Set("Cookie", "token_v2="+n.tokenV2)
 	req.Header.Set("Content-Type", "application/json")
+	if n.userID != "" {
+		req.Header.Set("x-notion-active-user-header", n.userID)
+	}
+	if n.spaceID != "" {
+		req.Header.Set("x-notion-space-id", n.spaceID)
+	}
 
 	resp, err := n.client.Do(req)
 	if err != nil {
