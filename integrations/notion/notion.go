@@ -86,6 +86,9 @@ var (
 	_ mcp.MarkdownIntegration        = (*notion)(nil)
 	_ mcp.ToolMaxBytesIntegration    = (*notion)(nil)
 	_ compact.ToolViewsIntegration   = (*notion)(nil)
+	_ mcp.PlainTextCredentials       = (*notion)(nil)
+	_ mcp.OptionalCredentials        = (*notion)(nil)
+	_ io.Closer                      = (*notion)(nil)
 )
 
 // notion is the integration's top-level type. It holds the v3 cookie
@@ -95,14 +98,14 @@ var (
 // and the v3 fields are unused.
 //
 // Backend selection happens in Configure() based on which credential
-// keys are present:
+// keys are present, in this order of precedence:
 //
-//	access_token → v1 (api.notion.com/v1, OAuth bearer, Notion-Version header)
-//	token_v2     → v3 (www.notion.so/api/v3, browser session cookie)
+//	mcp_access_token → Notion's hosted MCP server (OAuth sign-in from setup)
+//	access_token     → v1 (api.notion.com/v1, OAuth bearer, Notion-Version header)
+//	token_v2         → v3 (www.notion.so/api/v3, browser session cookie)
 //
-// If both are present, v1 wins (OAuth is the recommended, supported
-// path; v3 only sticks around for users who set it up before OAuth
-// existed).
+// OAuth paths win over the cookie because they are the supported ones;
+// v3 only sticks around for users who set it up before OAuth existed.
 type notion struct {
 	tokenV2 string
 	spaceID string
@@ -110,7 +113,8 @@ type notion struct {
 	baseURL string
 	client  *http.Client
 
-	v1 *notionV1
+	v1     *notionV1
+	hosted *hostedMCP
 }
 
 func New() mcp.Integration {
@@ -125,12 +129,29 @@ func New() mcp.Integration {
 			},
 		},
 		baseURL: "https://www.notion.so",
+		hosted:  newHostedMCP(),
 	}
 }
 
 func (n *notion) Name() string { return "notion" }
 
+func (n *notion) PlainTextKeys() []string { return []string{"mcp_base_url"} }
+
+func (n *notion) OptionalKeys() []string { return []string{"mcp_base_url"} }
+
+// Close ends the hosted MCP session, if one is open. It is safe to call more
+// than once; a later Configure starts a new session.
+func (n *notion) Close() error {
+	return n.hosted.close()
+}
+
 func (n *notion) Configure(ctx context.Context, creds mcp.Credentials) error {
+	if strings.TrimSpace(creds["mcp_access_token"]) != "" {
+		return n.hosted.configure(ctx, creds["mcp_access_token"], creds["mcp_base_url"])
+	}
+	// Best effort: a session for credentials that were removed is abandoned either way.
+	_ = n.hosted.close()
+
 	// Prefer v1 OAuth if an access token is present.
 	if tok := creds["access_token"]; tok != "" {
 		v1 := newV1Backend(tok)
@@ -149,7 +170,7 @@ func (n *notion) Configure(ctx context.Context, creds mcp.Credentials) error {
 
 	n.tokenV2 = creds["token_v2"]
 	if n.tokenV2 == "" {
-		return fmt.Errorf("notion: access_token (OAuth) or token_v2 (cookie) is required")
+		return fmt.Errorf("notion: mcp_access_token (sign in with Notion), access_token (OAuth), or token_v2 (cookie) is required")
 	}
 	if v := creds["base_url"]; v != "" {
 		n.baseURL = strings.TrimRight(v, "/")
@@ -204,6 +225,9 @@ func (n *notion) resolveSpaceAndUser(ctx context.Context) (string, string, error
 }
 
 func (n *notion) Healthy(ctx context.Context) bool {
+	if n.hosted.active() {
+		return n.hosted.healthy(ctx)
+	}
 	if n.v1 != nil {
 		return n.v1.healthy(ctx)
 	}
@@ -215,10 +239,18 @@ func (n *notion) Healthy(ctx context.Context) bool {
 }
 
 func (n *notion) Tools() []mcp.ToolDefinition {
+	if n.hosted.active() {
+		return n.hosted.tools()
+	}
 	return tools
 }
 
+// The hosted catalog is defined by Notion, so the native specs must never
+// project its responses even when an upstream tool name collides.
 func (n *notion) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
+	if n.hosted.active() {
+		return nil, false
+	}
 	if n.v1 != nil {
 		fields, ok := v1FieldCompactionSpecs[toolName]
 		return fields, ok
@@ -228,6 +260,9 @@ func (n *notion) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 }
 
 func (n *notion) MaxBytes(toolName mcp.ToolName) (int, bool) {
+	if n.hosted.active() {
+		return 0, false
+	}
 	if n.v1 != nil {
 		n2, ok := v1MaxBytesByTool[toolName]
 		return n2, ok
@@ -244,6 +279,9 @@ func (n *notion) MaxBytes(toolName mcp.ToolName) (int, bool) {
 // compact_v1.yaml — the shapes are different enough that the v3 specs
 // would project the wrong paths.
 func (n *notion) Views(toolName mcp.ToolName) (compact.ViewSet, bool) {
+	if n.hosted.active() {
+		return compact.ViewSet{}, false
+	}
 	if n.v1 != nil {
 		vs, ok := v1ViewSets[toolName]
 		return vs, ok
@@ -253,6 +291,9 @@ func (n *notion) Views(toolName mcp.ToolName) (compact.ViewSet, bool) {
 }
 
 func (n *notion) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
+	if n.hosted.active() {
+		return n.hosted.execute(ctx, toolName, args)
+	}
 	if n.v1 != nil {
 		fn, ok := dispatchV1[toolName]
 		if !ok {

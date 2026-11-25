@@ -15,6 +15,7 @@ import (
 
 type NotionSetupData struct {
 	HasToken       bool
+	SignedIn       bool
 	Healthy        bool
 	ExtractSnippet string
 	FlashResult    string
@@ -94,7 +95,7 @@ func NotionSetup(page layouts.PageData, data NotionSetupData) templ.Component {
 				var templ_7745c5c3_Var3 string
 				templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(data.FlashResult)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/notion_setup.templ`, Line: 44, Col: 54}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/notion_setup.templ`, Line: 45, Col: 54}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 				if templ_7745c5c3_Err != nil {
@@ -117,7 +118,7 @@ func NotionSetup(page layouts.PageData, data NotionSetupData) templ.Component {
 				var templ_7745c5c3_Var4 string
 				templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(data.FlashError)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/notion_setup.templ`, Line: 47, Col: 51}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/notion_setup.templ`, Line: 48, Col: 51}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 				if templ_7745c5c3_Err != nil {
@@ -141,25 +142,40 @@ func NotionSetup(page layouts.PageData, data NotionSetupData) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</div><p style=\"color: var(--text-muted); font-size: 0.85rem;\">Notion is connected. You can re-enter your token below to update it.</p></div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</div><p style=\"color: var(--text-muted); font-size: 0.85rem;\">Notion is connected. You can re-authorize or re-enter your token below to update it.</p></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, " <div class=\"card\"><div class=\"card-title\" style=\"margin-bottom: 0.75rem;\">Option 1: Extract from Browser</div><p style=\"color: var(--text-muted); font-size: 0.85rem; line-height: 1.6; margin-bottom: 1rem;\">Extract your <code>token_v2</code> by running a script in your browser's developer console.</p><div class=\"slack-steps\"><div class=\"slack-step\"><div class=\"slack-step-num\">1</div><div><strong>Open Notion in your browser</strong><p class=\"slack-step-detail\">Navigate to <a href=\"https://www.notion.so\" target=\"_blank\" class=\"slack-link\">notion.so</a> and make sure you're signed in.</p></div></div><div class=\"slack-step\"><div class=\"slack-step-num\">2</div><div><strong>Open Developer Console</strong><p class=\"slack-step-detail\">Press <kbd>F12</kbd> (or <kbd>Cmd+Option+J</kbd> on Mac) to open DevTools, then click the <strong>Console</strong> tab.</p></div></div><div class=\"slack-step\"><div class=\"slack-step-num\">3</div><div><strong>Run the extraction script</strong><p class=\"slack-step-detail\">Copy and paste this script into the console, then press Enter:</p><div class=\"slack-code-block\"><pre><code id=\"extract-snippet\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, " <section class=\"card\" aria-labelledby=\"notion-sign-in\"><h2 id=\"notion-sign-in\" class=\"card-title\" style=\"margin-bottom: 0.75rem;\">Option 1: Sign in with Notion (recommended)</h2><p style=\"color: var(--text-muted); font-size: 0.85rem; line-height: 1.6; margin-bottom: 1rem;\">Authorize Switchboard through Notion's official hosted MCP server with OAuth. Tools then come from Notion directly. The access token is saved in your configuration and never displayed here. Saving a browser token below switches back to the browser session.</p><button type=\"button\" class=\"btn btn-green\" id=\"notion-oauth-start\" onclick=\"startNotionOAuth()\" style=\"min-height: 44px;\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			if data.SignedIn {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "Re-authorize with Notion")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			} else {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "Sign in with Notion →")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "</button><div aria-live=\"polite\" aria-atomic=\"true\" style=\"margin-top: 0.75rem;\"><p id=\"notion-oauth-status\" style=\"color: var(--text-secondary);\"></p><div id=\"notion-oauth-error\" class=\"flash flash-error\" hidden></div></div><button type=\"button\" class=\"btn btn-outline\" id=\"notion-oauth-retry\" onclick=\"startNotionOAuth()\" style=\"display: none; min-height: 44px;\">Try Again</button><noscript><p style=\"color: var(--text-secondary); margin-top: 0.75rem;\">Enable JavaScript to sign in with Notion.</p></noscript></section><div class=\"card\"><div class=\"card-title\" style=\"margin-bottom: 0.75rem;\">Option 2: Extract from Browser</div><p style=\"color: var(--text-muted); font-size: 0.85rem; line-height: 1.6; margin-bottom: 1rem;\">Extract your <code>token_v2</code> by running a script in your browser's developer console.</p><div class=\"slack-steps\"><div class=\"slack-step\"><div class=\"slack-step-num\">1</div><div><strong>Open Notion in your browser</strong><p class=\"slack-step-detail\">Navigate to <a href=\"https://www.notion.so\" target=\"_blank\" class=\"slack-link\">notion.so</a> and make sure you're signed in.</p></div></div><div class=\"slack-step\"><div class=\"slack-step-num\">2</div><div><strong>Open Developer Console</strong><p class=\"slack-step-detail\">Press <kbd>F12</kbd> (or <kbd>Cmd+Option+J</kbd> on Mac) to open DevTools, then click the <strong>Console</strong> tab.</p></div></div><div class=\"slack-step\"><div class=\"slack-step-num\">3</div><div><strong>Run the extraction script</strong><p class=\"slack-step-detail\">Copy and paste this script into the console, then press Enter:</p><div class=\"slack-code-block\"><pre><code id=\"extract-snippet\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var5 string
 			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(data.ExtractSnippet)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/notion_setup.templ`, Line: 86, Col: 60}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/notion_setup.templ`, Line: 106, Col: 60}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "</code></pre><button type=\"button\" class=\"btn btn-sm btn-outline\" onclick=\"copySnippet()\" id=\"copy-btn\">Copy</button></div></div></div><div class=\"slack-step\"><div class=\"slack-step-num\">4</div><div><strong>Paste the token below</strong><p class=\"slack-step-detail\">A prompt will appear with the token value. Copy it and paste it in the field below.</p></div></div></div></div><div class=\"card\"><div class=\"card-title\" style=\"margin-bottom: 0.75rem;\">Option 2: Manual Token Entry</div><p style=\"color: var(--text-muted); font-size: 0.85rem; line-height: 1.6; margin-bottom: 1rem;\">If you already have your <code>token_v2</code>, or prefer to extract it manually from <strong>DevTools</strong> → <strong>Application</strong> → <strong>Cookies</strong> → <code>www.notion.so</code>, paste it here.</p><form method=\"POST\" action=\"/api/notion/save-token\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "</code></pre><button type=\"button\" class=\"btn btn-sm btn-outline\" onclick=\"copySnippet()\" id=\"copy-btn\">Copy</button></div></div></div><div class=\"slack-step\"><div class=\"slack-step-num\">4</div><div><strong>Paste the token below</strong><p class=\"slack-step-detail\">A prompt will appear with the token value. Copy it and paste it in the field below.</p></div></div></div></div><div class=\"card\"><div class=\"card-title\" style=\"margin-bottom: 0.75rem;\">Option 3: Manual Token Entry</div><p style=\"color: var(--text-muted); font-size: 0.85rem; line-height: 1.6; margin-bottom: 1rem;\">If you already have your <code>token_v2</code>, or prefer to extract it manually from <strong>DevTools</strong> → <strong>Application</strong> → <strong>Cookies</strong> → <code>www.notion.so</code>, paste it here.</p><form method=\"POST\" action=\"/api/notion/save-token\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -167,7 +183,7 @@ func NotionSetup(page layouts.PageData, data NotionSetupData) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "<button type=\"submit\" class=\"btn\">Save Token</button></form></div><script>\n\t\t\tfunction copySnippet() {\n\t\t\t\tvar text = document.getElementById('extract-snippet').textContent;\n\t\t\t\tnavigator.clipboard.writeText(text).then(function() {\n\t\t\t\t\tvar btn = document.getElementById('copy-btn');\n\t\t\t\t\tbtn.textContent = 'Copied!';\n\t\t\t\t\tsetTimeout(function() { btn.textContent = 'Copy'; }, 2000);\n\t\t\t\t});\n\t\t\t}\n\t\t</script>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "<button type=\"submit\" class=\"btn\">Save Token</button></form></div><script>\n\t\t\tasync function startNotionOAuth() {\n\t\t\t\tvar button = document.getElementById('notion-oauth-start');\n\t\t\t\tvar retry = document.getElementById('notion-oauth-retry');\n\t\t\t\tvar status = document.getElementById('notion-oauth-status');\n\t\t\t\tvar error = document.getElementById('notion-oauth-error');\n\t\t\t\tif (button.disabled) return;\n\t\t\t\tbutton.disabled = true;\n\t\t\t\tbutton.setAttribute('aria-busy', 'true');\n\t\t\t\tretry.style.display = 'none';\n\t\t\t\terror.hidden = true;\n\t\t\t\tstatus.textContent = 'Starting secure sign-in…';\n\t\t\t\tvar controller = new AbortController();\n\t\t\t\tvar timeout = setTimeout(function() { controller.abort(); }, 30000);\n\t\t\t\ttry {\n\t\t\t\t\tvar response = await fetch('/api/remote/notion/oauth/start', { method: 'POST', signal: controller.signal });\n\t\t\t\t\tif (!response.ok) throw new Error('Could not start sign-in. Please try again.');\n\t\t\t\t\tvar data = await response.json();\n\t\t\t\t\tif (data.error) throw new Error(data.error);\n\t\t\t\t\tif (!data.authorize_url) throw new Error('No sign-in URL was returned. Please try again.');\n\t\t\t\t\tvar authorizeURL = new URL(data.authorize_url);\n\t\t\t\t\tif (authorizeURL.protocol !== 'https:' && authorizeURL.protocol !== 'http:') {\n\t\t\t\t\t\tthrow new Error('Invalid sign-in URL. Please try again.');\n\t\t\t\t\t}\n\t\t\t\t\tstatus.textContent = 'Redirecting to Notion…';\n\t\t\t\t\twindow.location.assign(authorizeURL.href);\n\t\t\t\t} catch (err) {\n\t\t\t\t\tstatus.textContent = '';\n\t\t\t\t\terror.textContent = err.name === 'AbortError' ? 'Sign-in timed out. Please try again.' : err.message;\n\t\t\t\t\terror.hidden = false;\n\t\t\t\t\tbutton.disabled = false;\n\t\t\t\t\tbutton.removeAttribute('aria-busy');\n\t\t\t\t\tretry.style.display = 'inline-flex';\n\t\t\t\t\tretry.focus();\n\t\t\t\t} finally {\n\t\t\t\t\tclearTimeout(timeout);\n\t\t\t\t}\n\t\t\t}\n\t\t\tfunction copySnippet() {\n\t\t\t\tvar text = document.getElementById('extract-snippet').textContent;\n\t\t\t\tnavigator.clipboard.writeText(text).then(function() {\n\t\t\t\t\tvar btn = document.getElementById('copy-btn');\n\t\t\t\t\tbtn.textContent = 'Copied!';\n\t\t\t\t\tsetTimeout(function() { btn.textContent = 'Copy'; }, 2000);\n\t\t\t\t});\n\t\t\t}\n\t\t</script>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

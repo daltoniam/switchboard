@@ -15,13 +15,13 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	mcp "github.com/daltoniam/switchboard"
-	"github.com/daltoniam/switchboard/integrations/notionmcp"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 	playwright "github.com/mxschmitt/playwright-go"
 	"github.com/stretchr/testify/require"
@@ -347,6 +347,43 @@ func TestUIIntegrationLifecycle(t *testing.T) {
 	require.Equal(t, provider.URL, saved.Integrations["metabase"].Credentials["url"])
 }
 
+func TestUIOneCardPerProduct(t *testing.T) {
+	app := newUIApp(t)
+	page := uiPage(t)
+	uiNavigate(t, page, app.URL+"/integrations")
+	cards := page.Locator("a.integration-card")
+	require.NoError(t, cards.First().WaitFor())
+	hrefs, err := cards.EvaluateAll(`cards => cards.map(card => card.getAttribute("href"))`)
+	require.NoError(t, err)
+	products := map[string]string{}
+	for _, raw := range hrefs.([]any) {
+		href := raw.(string)
+		name := strings.TrimPrefix(href, "/integrations/")
+		product := strings.TrimSuffix(strings.TrimSuffix(name, "mcp"), "-")
+		existing, duplicate := products[product]
+		require.False(t, duplicate, "%s and %s are the same product", existing, href)
+		products[product] = href
+	}
+	search := page.Locator("#integration-search")
+	require.NoError(t, page.Locator("#integration-filters fieldset:not([disabled])").WaitFor())
+	for _, product := range []string{"slack", "notion"} {
+		t.Run(product, func(t *testing.T) {
+			require.NoError(t, search.Fill(product))
+			visible := page.Locator("a.integration-card:visible")
+			var hrefs []any
+			require.Eventually(t, func() bool {
+				found, evalErr := visible.EvaluateAll(`cards => cards.map(card => card.getAttribute("href"))`)
+				if evalErr != nil {
+					return false
+				}
+				hrefs = found.([]any)
+				return slices.Equal(hrefs, []any{"/integrations/" + product})
+			}, 5*time.Second, 50*time.Millisecond, "searching %q must show exactly one card", product)
+		})
+	}
+	uiCapture(t, page, "one-card-per-product")
+}
+
 func TestUINamedIdentities(t *testing.T) {
 	_ = newUIApp(t)
 	ws, reg, store := setupTestWeb()
@@ -400,20 +437,17 @@ func TestUIOAuthSetup(t *testing.T) {
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			fixture := newNotionMCPOAuthFixture(t, test.status)
+			fixture := newNotionOAuthFixture(t, test.status)
 			ws, reg, store := setupTestWeb()
-			integration := notionmcp.New()
-			t.Cleanup(func() { require.NoError(t, integration.(io.Closer).Close()) })
-			require.NoError(t, integration.Configure(t.Context(), mcp.Credentials{"base_url": fixture.server.URL, "mcp_access_token": "previous-fixture-token"}))
-			reg.integrations["notion-mcp"] = integration
-			require.NoError(t, store.SetIntegration("notion-mcp", &mcp.IntegrationConfig{Credentials: mcp.Credentials{"base_url": fixture.server.URL}}))
+			reg.integrations["notion"] = notionHostedAt(t, fixture.server.URL)
+			require.NoError(t, store.SetIntegration("notion", &mcp.IntegrationConfig{Credentials: mcp.Credentials{"mcp_base_url": fixture.server.URL}}))
 			app := httptest.NewServer(ws.Handler())
 			t.Cleanup(app.Close)
 			page := uiPage(t)
 			require.NoError(t, page.Route(fixture.server.URL+"/authorize*", func(route playwright.Route) {
 				authorize, err := url.Parse(route.Request().URL())
 				require.NoError(t, err)
-				callback, err := url.Parse(app.URL + "/api/remote/notion-mcp/oauth/callback")
+				callback, err := url.Parse(app.URL + "/api/remote/notion/oauth/callback")
 				require.NoError(t, err)
 				query := callback.Query()
 				query.Set("state", authorize.Query().Get("state"))
@@ -425,15 +459,15 @@ func TestUIOAuthSetup(t *testing.T) {
 				callback.RawQuery = query.Encode()
 				require.NoError(t, route.Fulfill(playwright.RouteFulfillOptions{Status: playwright.Int(http.StatusFound), Headers: map[string]string{"Location": callback.String()}}))
 			}))
-			uiNavigate(t, page, app.URL+"/integrations/notion-mcp")
-			uiText(t, page.Locator("h1"), "Notion MCP Setup")
-			require.NoError(t, page.Locator("#notion-mcp-oauth-start").Click())
+			uiNavigate(t, page, app.URL+"/integrations/notion")
+			uiText(t, page.Locator("h1"), "Notion Setup")
+			require.NoError(t, page.Locator("#notion-oauth-start").Click())
 			if test.connected {
 				require.NoError(t, page.Locator(".flash-success").WaitFor())
 				message, err := page.Locator(".flash-success").TextContent()
 				require.NoError(t, err)
 				require.Contains(t, message, "Connected via MCP OAuth")
-				config, ok := store.GetIntegration("notion-mcp")
+				config, ok := store.GetIntegration("notion")
 				require.True(t, ok)
 				require.True(t, config.Enabled)
 				require.Equal(t, "notion-oauth-token", config.Credentials["mcp_access_token"])
@@ -441,7 +475,7 @@ func TestUIOAuthSetup(t *testing.T) {
 				require.NoError(t, err)
 				require.NotContains(t, content, "notion-oauth-token")
 				uiCapture(t, page, "oauth-connected")
-				require.NoError(t, page.Locator("#notion-mcp-oauth-start").Click())
+				require.NoError(t, page.Locator("#notion-oauth-start").Click())
 				uiText(t, page.Locator(".flash-success"), "Connected via MCP OAuth")
 				require.Eventually(t, func() bool {
 					fixture.mu.Lock()
@@ -454,7 +488,7 @@ func TestUIOAuthSetup(t *testing.T) {
 					expected = "access_denied"
 				}
 				uiText(t, page.Locator(".flash-error").First(), expected)
-				config, ok := store.GetIntegration("notion-mcp")
+				config, ok := store.GetIntegration("notion")
 				require.True(t, !ok || !config.Enabled)
 				uiText(t, page.Locator(".badge").First(), "Not Connected")
 			}

@@ -10,105 +10,94 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	mcp "github.com/daltoniam/switchboard"
 	"github.com/daltoniam/switchboard/config"
-	"github.com/daltoniam/switchboard/integrations/notionmcp"
-	"github.com/daltoniam/switchboard/remotemcp"
+	notionInt "github.com/daltoniam/switchboard/integrations/notion"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestNotionMCPOAuthProfile(t *testing.T) {
-	profile, ok := remoteOAuthProfiles["notion-mcp"]
+func TestNotionOAuthProfile(t *testing.T) {
+	profile, ok := remoteOAuthProfiles["notion"]
 	require.True(t, ok)
 	assert.Equal(t, "default", profile.Options.Scope)
 	assert.Equal(t, "/mcp", profile.ResourcePath)
-	assert.Equal(t, "/api/remote/notion-mcp/oauth/callback", profile.CallbackPath)
+	assert.Equal(t, "/api/remote/notion/oauth/callback", profile.CallbackPath)
 	assert.Equal(t, "mcp_access_token", profile.CredentialKey)
 	assert.Empty(t, profile.ClearCredentialKey)
 }
 
-func TestNotionMCPSetup(t *testing.T) {
+func TestNotionSetupSignIn(t *testing.T) {
 	for _, tc := range []struct {
 		name string
 		ic   *mcp.IntegrationConfig
-		want string
+		want []string
 	}{
-		{name: "missing config", want: "Not Connected"},
-		{name: "nil credentials", ic: &mcp.IntegrationConfig{Enabled: true}, want: "Not Connected"},
-		{name: "disabled with token", ic: &mcp.IntegrationConfig{Credentials: mcp.Credentials{"mcp_access_token": "private-token"}}, want: "Disabled"},
-		{name: "enabled with token", ic: &mcp.IntegrationConfig{Enabled: true, Credentials: mcp.Credentials{"mcp_access_token": "private-token"}}, want: "Token Saved"},
+		{name: "missing config", want: []string{"Not Connected", "Sign in with Notion →"}},
+		{name: "browser token", ic: &mcp.IntegrationConfig{Enabled: true, Credentials: mcp.Credentials{"token_v2": "private-cookie"}}, want: []string{"Invalid Token", "Sign in with Notion →"}},
+		{name: "signed in", ic: &mcp.IntegrationConfig{Enabled: true, Credentials: mcp.Credentials{"mcp_access_token": "private-token"}}, want: []string{"Invalid Token", "Re-authorize with Notion"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ws, reg, cfg := setupTestWeb()
-			integration := &mockIntegration{name: "notion-mcp"}
-			reg.integrations["notion-mcp"] = integration
+			reg.integrations["notion"] = &mockIntegration{name: "notion"}
 			if tc.ic != nil {
-				cfg.cfg.Integrations["notion-mcp"] = tc.ic
+				cfg.cfg.Integrations["notion"] = tc.ic
 			}
-			before, err := json.Marshal(cfg.Get())
-			require.NoError(t, err)
 			rr := httptest.NewRecorder()
-			ws.Handler().ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/integrations/notion-mcp/setup", nil))
+			ws.Handler().ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/integrations/notion/setup", nil))
 			require.Equal(t, http.StatusOK, rr.Code)
 			body := rr.Body.String()
-			for _, text := range []string{"Notion MCP Setup", "notion-mcp", "Sign in with Notion", "Successful sign-in enables this plugin", "existing Notion integration is unaffected", "/integrations/notion/setup", "/api/remote/notion-mcp/oauth/start", "aria-live=\"polite\"", "Try Again", "flex-wrap: wrap", tc.want} {
+			for _, text := range append([]string{"Notion Setup", "Option 1: Sign in with Notion (recommended)", "/api/remote/notion/oauth/start", "/api/notion/save-token", `aria-live="polite"`, "Try Again"}, tc.want...) {
 				assert.Contains(t, body, text)
 			}
-			assert.Contains(t, body, `href="/integrations" style="color: var(--accent);"`)
+			assert.NotContains(t, body, "notion-mcp")
 			assert.NotContains(t, body, "private-token")
-			assert.NotContains(t, body, "/api/notion/save-token")
-			assert.NotContains(t, body, "Signing in does not change whether this plugin is enabled")
-			assert.Nil(t, integration.lastCreds, "setup GET must not reconfigure the adapter")
-			after, err := json.Marshal(cfg.Get())
-			require.NoError(t, err)
-			assert.JSONEq(t, string(before), string(after))
+			assert.NotContains(t, body, "private-cookie")
 		})
 	}
 }
 
-func TestNotionMCPSetupHealthAndFlashes(t *testing.T) {
-	for _, tc := range []struct {
-		name    string
-		healthy bool
-		query   string
-		want    string
-	}{
-		{name: "cached healthy", healthy: true, want: "Connected"},
-		{name: "cached failure", want: "Connection Error"},
-		{name: "saved", healthy: true, query: "?result=Saved+successfully", want: "Saved successfully"},
-		{name: "error wins", query: "?result=FORGED_SUCCESS&error=%3Cscript%3Ealert(1)%3C/script%3E", want: "&lt;script&gt;alert(1)&lt;/script&gt;"},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			ws, _, cfg := setupTestWeb()
-			cfg.cfg.Integrations["notion-mcp"] = &mcp.IntegrationConfig{Enabled: true, Credentials: mcp.Credentials{"mcp_access_token": "private-token"}}
-			ws.health.entries["notion-mcp"] = healthEntry{Enabled: true, Healthy: tc.healthy, CheckedAt: time.Now()}
-			rr := httptest.NewRecorder()
-			ws.Handler().ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/integrations/notion-mcp/setup"+tc.query, nil))
-			require.Equal(t, http.StatusOK, rr.Code)
-			assert.Contains(t, rr.Body.String(), tc.want)
-			assert.NotContains(t, rr.Body.String(), "FORGED_SUCCESS")
-			assert.NotContains(t, rr.Body.String(), "<script>alert(1)</script>")
-			assert.NotContains(t, rr.Body.String(), "private-token")
-		})
-	}
-}
-
-func TestNotionMCPDetailRedirect(t *testing.T) {
-	ws, reg, _ := setupTestWeb()
-	reg.integrations["notion-mcp"] = notionmcp.New()
+func TestNotionSaveTokenReplacesSignIn(t *testing.T) {
+	ws, reg, cfg := setupTestWeb()
+	reg.integrations["notion"] = &mockIntegration{name: "notion"}
+	cfg.cfg.Integrations["notion"] = &mcp.IntegrationConfig{Enabled: true, Credentials: mcp.Credentials{"mcp_access_token": "hosted-token", "mcp_base_url": "https://proxy.test", mcp.CredKeyTokenSource: "oauth"}}
 	rr := httptest.NewRecorder()
-	ws.Handler().ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/integrations/notion-mcp", nil))
-	assert.Equal(t, http.StatusSeeOther, rr.Code)
-	assert.Equal(t, "/integrations/notion-mcp/setup", rr.Header().Get("Location"))
+	request := httptest.NewRequest(http.MethodPost, "/api/notion/save-token", strings.NewReader(url.Values{"token_v2": {"v03:cookie"}}.Encode()))
+	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	ws.Handler().ServeHTTP(rr, request)
+	require.Equal(t, http.StatusSeeOther, rr.Code)
+	saved, ok := cfg.GetIntegration("notion")
+	require.True(t, ok)
+	assert.Equal(t, "v03:cookie", saved.Credentials["token_v2"])
+	assert.Empty(t, saved.Credentials["mcp_access_token"], "the browser token only takes effect once the hosted sign-in is cleared")
+	assert.Empty(t, saved.Credentials[mcp.CredKeyTokenSource])
+	assert.Equal(t, "https://proxy.test", saved.Credentials["mcp_base_url"])
 }
 
-type notionMCPOAuthFixture struct {
+func TestNotionDetailRedirect(t *testing.T) {
+	for _, name := range []string{"notion-mcp", "notionmcp", "slackmcp"} {
+		t.Run(name, func(t *testing.T) {
+			ws, _, _ := setupTestWeb()
+			rr := httptest.NewRecorder()
+			ws.Handler().ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/integrations/"+name, nil))
+			assert.Equal(t, http.StatusNotFound, rr.Code)
+		})
+	}
+	ws, reg, _ := setupTestWeb()
+	reg.integrations["notion"] = notionInt.New()
+	rr := httptest.NewRecorder()
+	ws.Handler().ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/integrations/notion", nil))
+	assert.Equal(t, http.StatusSeeOther, rr.Code)
+	assert.Equal(t, "/integrations/notion/setup", rr.Header().Get("Location"))
+}
+
+type notionOAuthFixture struct {
 	server       *httptest.Server
 	mu           sync.Mutex
 	registration map[string]any
@@ -120,9 +109,9 @@ type notionMCPOAuthFixture struct {
 	toolArgs     json.RawMessage
 }
 
-func newNotionMCPOAuthFixture(t *testing.T, tokenStatus int) *notionMCPOAuthFixture {
+func newNotionOAuthFixture(t *testing.T, tokenStatus int) *notionOAuthFixture {
 	t.Helper()
-	f := &notionMCPOAuthFixture{tokenStatus: tokenStatus}
+	f := &notionOAuthFixture{tokenStatus: tokenStatus}
 	server := mcpsdk.NewServer(&mcpsdk.Implementation{Name: "notion-fixture", Version: "1"}, nil)
 	server.AddTool(&mcpsdk.Tool{Name: "notion-search", Description: "Search pages", InputSchema: map[string]any{
 		"type": "object", "properties": map[string]any{"query": map[string]any{"type": "string"}}, "required": []string{"query"},
@@ -186,10 +175,10 @@ func newNotionMCPOAuthFixture(t *testing.T, tokenStatus int) *notionMCPOAuthFixt
 	return f
 }
 
-func startNotionMCPOAuth(t *testing.T, ws *WebServer) url.Values {
+func startNotionOAuth(t *testing.T, ws *WebServer) url.Values {
 	t.Helper()
 	rr := httptest.NewRecorder()
-	ws.Handler().ServeHTTP(rr, httptest.NewRequest(http.MethodPost, "/api/remote/notion-mcp/oauth/start", nil))
+	ws.Handler().ServeHTTP(rr, httptest.NewRequest(http.MethodPost, "/api/remote/notion/oauth/start", nil))
 	require.Equal(t, http.StatusOK, rr.Code)
 	var response map[string]string
 	require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &response))
@@ -200,73 +189,68 @@ func startNotionMCPOAuth(t *testing.T, ws *WebServer) url.Values {
 	return authorizeURL.Query()
 }
 
-func notionMCPCallback(t *testing.T, ws *WebServer, query url.Values) *url.URL {
+func notionOAuthCallback(t *testing.T, ws *WebServer, query url.Values) *url.URL {
 	t.Helper()
 	rr := httptest.NewRecorder()
-	ws.Handler().ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/api/remote/notion-mcp/oauth/callback?"+query.Encode(), nil))
+	ws.Handler().ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/api/remote/notion/oauth/callback?"+query.Encode(), nil))
 	require.Equal(t, http.StatusSeeOther, rr.Code)
 	location, err := url.Parse(rr.Header().Get("Location"))
 	require.NoError(t, err)
-	assert.Equal(t, "/integrations/notion-mcp/setup", location.Path)
+	assert.Equal(t, "/integrations/notion/setup", location.Path)
 	return location
 }
 
-func TestNotionMCPOAuthFlow(t *testing.T) {
+func TestNotionOAuthFlow(t *testing.T) {
 	for _, enabled := range []bool{false, true} {
 		t.Run(map[bool]string{false: "disabled", true: "enabled"}[enabled], func(t *testing.T) {
-			f := newNotionMCPOAuthFixture(t, http.StatusOK)
+			f := newNotionOAuthFixture(t, http.StatusOK)
 			ws, reg, _ := setupTestWeb()
 			t.Setenv("HOME", t.TempDir())
 			store, err := config.NewManager()
 			require.NoError(t, err)
 			ws.services.Config = store
-			legacy := &mcp.IntegrationConfig{Enabled: true, Credentials: mcp.Credentials{"token_v2": "legacy-token", "space_id": "legacy-space"}, ToolGlobs: []string{"notion_*"}}
-			require.NoError(t, store.SetIntegration("notion", legacy))
-			initial := &mcp.IntegrationConfig{Enabled: enabled, Credentials: mcp.Credentials{"base_url": f.server.URL, "mcp_access_token": "previous-token"}, ToolGlobs: []string{"notion-mcp_*"}}
-			require.NoError(t, store.SetIntegration("notion-mcp", initial))
-			integration := notionmcp.New()
-			t.Cleanup(func() { assert.NoError(t, integration.(io.Closer).Close()) })
-			require.NoError(t, integration.Configure(t.Context(), initial.Credentials))
-			reg.integrations["notion-mcp"] = integration
-			ws.health.entries["notion-mcp"] = healthEntry{Enabled: true, Healthy: true, CheckedAt: time.Now()}
+			initial := &mcp.IntegrationConfig{Enabled: enabled, Credentials: mcp.Credentials{"token_v2": "legacy-token", "mcp_base_url": f.server.URL, "mcp_access_token": "previous-token"}, ToolGlobs: []string{"notion_*"}}
+			require.NoError(t, store.SetIntegration("notion", initial))
+			integration := notionHostedAt(t, f.server.URL)
+			reg.integrations["notion"] = integration
+			ws.health.entries["notion"] = healthEntry{Enabled: true, Healthy: true, CheckedAt: time.Now()}
 			hooks := 0
 			ws.onConfigChange = func() {
 				hooks++
 				durable, loadErr := config.NewManager()
 				require.NoError(t, loadErr)
-				saved, ok := durable.GetIntegration("notion-mcp")
+				saved, ok := durable.GetIntegration("notion")
 				require.True(t, ok)
 				assert.Equal(t, "notion-oauth-token", saved.Credentials["mcp_access_token"])
 				assert.True(t, saved.Enabled, "OAuth must durably enable the adapter before the search hook")
 				assert.True(t, integration.Healthy(t.Context()), "adapter must use the new token before the search hook")
 				tools := integration.Tools()
 				require.Len(t, tools, 1)
-				assert.Equal(t, mcp.ToolName("notion-mcp_notion-search"), tools[0].Name)
+				assert.Equal(t, mcp.ToolName("notion_notion-search"), tools[0].Name)
 			}
-			auth := startNotionMCPOAuth(t, ws)
+			auth := startNotionOAuth(t, ws)
 			assert.Equal(t, "default", auth.Get("scope"))
 			assert.Equal(t, f.server.URL+"/mcp", auth.Get("resource"))
-			assert.Equal(t, "http://localhost:3847/api/remote/notion-mcp/oauth/callback", auth.Get("redirect_uri"))
+			assert.Equal(t, "http://localhost:3847/api/remote/notion/oauth/callback", auth.Get("redirect_uri"))
 			assert.Equal(t, "notion-client", auth.Get("client_id"))
 			assert.Equal(t, "code", auth.Get("response_type"))
 			assert.Equal(t, "S256", auth.Get("code_challenge_method"))
 			require.NotEmpty(t, auth.Get("state"))
 			require.NotEmpty(t, auth.Get("code_challenge"))
-			location := notionMCPCallback(t, ws, url.Values{"code": {"notion-code"}, "state": {auth.Get("state")}})
+			location := notionOAuthCallback(t, ws, url.Values{"code": {"notion-code"}, "state": {auth.Get("state")}})
 			assert.Empty(t, location.Query().Get("error"))
 			assert.Equal(t, "Connected via MCP OAuth", location.Query().Get("result"))
 			assert.Equal(t, 1, hooks)
-			_, cached := ws.health.get("notion-mcp")
+			_, cached := ws.health.get("notion")
 			assert.False(t, cached, "previous health result must be invalidated")
 			require.NoError(t, store.Load())
-			saved, _ := store.GetIntegration("notion-mcp")
+			saved, _ := store.GetIntegration("notion")
 			assert.True(t, saved.Enabled)
 			assert.Equal(t, initial.ToolGlobs, saved.ToolGlobs)
-			assert.Equal(t, f.server.URL, saved.Credentials["base_url"])
+			assert.Equal(t, f.server.URL, saved.Credentials["mcp_base_url"])
+			assert.Equal(t, "legacy-token", saved.Credentials["token_v2"], "sign-in must keep the browser token so the user can switch back")
 			assert.Equal(t, "oauth", saved.Credentials[mcp.CredKeyTokenSource])
 			assert.Equal(t, "notion-oauth-token", saved.Credentials["mcp_access_token"])
-			unchanged, _ := store.GetIntegration("notion")
-			assert.Equal(t, legacy, unchanged)
 			f.mu.Lock()
 			defer f.mu.Unlock()
 			assert.GreaterOrEqual(t, f.discoveries, 1)
@@ -289,16 +273,16 @@ func TestNotionMCPOAuthFlow(t *testing.T) {
 	}
 }
 
-type notionMCPConfigureSpy struct {
+type notionConfigureSpy struct {
 	mockIntegration
 	configure func(mcp.Credentials) error
 }
 
-func (s *notionMCPConfigureSpy) Configure(_ context.Context, creds mcp.Credentials) error {
+func (s *notionConfigureSpy) Configure(_ context.Context, creds mcp.Credentials) error {
 	return s.configure(creds)
 }
 
-func TestNotionMCPOAuthPersistence(t *testing.T) {
+func TestNotionOAuthPersistence(t *testing.T) {
 	for _, tc := range []struct {
 		name         string
 		initial      *mcp.IntegrationConfig
@@ -308,34 +292,32 @@ func TestNotionMCPOAuthPersistence(t *testing.T) {
 	}{
 		{name: "missing config"},
 		{name: "nil credentials", initial: &mcp.IntegrationConfig{Enabled: true}},
-		{name: "save failure", initial: &mcp.IntegrationConfig{Credentials: mcp.Credentials{"mcp_access_token": "old-token", "base_url": "preserved"}}, saveErr: errors.New("disk full"), wantError: "save"},
-		{name: "configure failure", initial: &mcp.IntegrationConfig{Credentials: mcp.Credentials{"mcp_access_token": "old-token"}}, configureErr: errors.New("invalid configuration"), wantError: "configure"},
+		{name: "save failure", initial: &mcp.IntegrationConfig{Credentials: mcp.Credentials{"mcp_access_token": "old-token", "token_v2": "legacy-token"}}, saveErr: errors.New("disk full"), wantError: "save"},
+		{name: "configure failure", initial: &mcp.IntegrationConfig{Credentials: mcp.Credentials{"mcp_access_token": "old-token", "token_v2": "legacy-token"}}, configureErr: errors.New("invalid configuration"), wantError: "configure"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			f := newNotionMCPOAuthFixture(t, http.StatusOK)
+			f := newNotionOAuthFixture(t, http.StatusOK)
 			ws, reg, cfg := setupTestWeb()
-			legacy := &mcp.IntegrationConfig{Credentials: mcp.Credentials{"token_v2": "legacy-token"}}
-			cfg.cfg.Integrations["notion"] = legacy
 			if tc.initial != nil {
-				cfg.cfg.Integrations["notion-mcp"] = tc.initial
+				cfg.cfg.Integrations["notion"] = tc.initial
 			}
 			before, err := json.Marshal(cfg.Get())
 			require.NoError(t, err)
-			reg.integrations["notion-mcp"] = remotemcp.New("notion-mcp", f.server.URL)
-			auth := startNotionMCPOAuth(t, ws)
+			reg.integrations["notion"] = notionHostedAt(t, f.server.URL)
+			auth := startNotionOAuth(t, ws)
 			cfg.setErr = tc.saveErr
-			ws.health.entries["notion-mcp"] = healthEntry{Enabled: true, Healthy: true, CheckedAt: time.Now()}
+			ws.health.entries["notion"] = healthEntry{Enabled: true, Healthy: true, CheckedAt: time.Now()}
 			configured, hooks := 0, 0
-			reg.integrations["notion-mcp"] = &notionMCPConfigureSpy{mockIntegration: mockIntegration{name: "notion-mcp"}, configure: func(creds mcp.Credentials) error {
+			reg.integrations["notion"] = &notionConfigureSpy{mockIntegration: mockIntegration{name: "notion"}, configure: func(creds mcp.Credentials) error {
 				configured++
-				saved, exists := cfg.GetIntegration("notion-mcp")
+				saved, exists := cfg.GetIntegration("notion")
 				require.True(t, exists)
 				assert.Equal(t, "notion-oauth-token", saved.Credentials["mcp_access_token"], "save must finish before Configure")
 				assert.Equal(t, saved.Credentials, creds)
 				return tc.configureErr
 			}}
 			ws.onConfigChange = func() { hooks++; assert.Equal(t, 1, configured) }
-			location := notionMCPCallback(t, ws, url.Values{"code": {"code"}, "state": {auth.Get("state")}})
+			location := notionOAuthCallback(t, ws, url.Values{"code": {"code"}, "state": {auth.Get("state")}})
 			if tc.wantError != "" {
 				assert.Contains(t, location.Query().Get("error"), tc.wantError)
 				assert.Empty(t, location.Query().Get("result"))
@@ -352,20 +334,22 @@ func TestNotionMCPOAuthPersistence(t *testing.T) {
 				assert.JSONEq(t, string(before), string(after), "failed persistence must leave prior config untouched")
 			} else {
 				assert.Equal(t, 1, configured)
-				saved, exists := cfg.GetIntegration("notion-mcp")
+				saved, exists := cfg.GetIntegration("notion")
 				require.True(t, exists)
 				assert.Equal(t, "notion-oauth-token", saved.Credentials["mcp_access_token"])
 				assert.True(t, saved.Enabled)
 			}
-			_, cached := ws.health.get("notion-mcp")
+			_, cached := ws.health.get("notion")
 			assert.Equal(t, tc.saveErr != nil, cached, "invalidate stale health after durable saves, even if configuration fails")
-			assert.Same(t, legacy, cfg.cfg.Integrations["notion"])
-			assert.Equal(t, "legacy-token", legacy.Credentials["token_v2"])
+			if tc.initial != nil && tc.initial.Credentials["token_v2"] != "" {
+				saved, _ := cfg.GetIntegration("notion")
+				assert.Equal(t, "legacy-token", saved.Credentials["token_v2"])
+			}
 		})
 	}
 }
 
-func TestNotionMCPOAuthRejection(t *testing.T) {
+func TestNotionOAuthRejection(t *testing.T) {
 	for _, tc := range []struct {
 		name        string
 		query       url.Values
@@ -380,10 +364,10 @@ func TestNotionMCPOAuthRejection(t *testing.T) {
 		{name: "error with code", query: url.Values{"error": {"access_denied"}, "code": {"code"}}, tokenStatus: http.StatusOK, want: "access_denied"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			f := newNotionMCPOAuthFixture(t, tc.tokenStatus)
+			f := newNotionOAuthFixture(t, tc.tokenStatus)
 			ws, reg, cfg := setupTestWeb()
-			reg.integrations["notion-mcp"] = remotemcp.New("notion-mcp", f.server.URL)
-			auth := startNotionMCPOAuth(t, ws)
+			reg.integrations["notion"] = notionHostedAt(t, f.server.URL)
+			auth := startNotionOAuth(t, ws)
 			if tc.query.Get("state") == "" {
 				tc.query.Set("state", auth.Get("state"))
 			}
@@ -391,7 +375,7 @@ func TestNotionMCPOAuthRejection(t *testing.T) {
 			ws.onConfigChange = func() { hooks++ }
 			before, err := json.Marshal(cfg.Get())
 			require.NoError(t, err)
-			location := notionMCPCallback(t, ws, tc.query)
+			location := notionOAuthCallback(t, ws, tc.query)
 			assert.Contains(t, location.Query().Get("error"), tc.want)
 			assert.Empty(t, location.Query().Get("result"))
 			assert.Empty(t, location.Fragment)
@@ -406,4 +390,12 @@ func TestNotionMCPOAuthRejection(t *testing.T) {
 			}
 		})
 	}
+}
+
+func notionHostedAt(t *testing.T, baseURL string) mcp.Integration {
+	t.Helper()
+	integration := notionInt.New()
+	t.Cleanup(func() { assert.NoError(t, integration.(io.Closer).Close()) })
+	require.NoError(t, integration.Configure(t.Context(), mcp.Credentials{"mcp_access_token": "previous-token", "mcp_base_url": baseURL}))
+	return integration
 }

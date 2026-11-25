@@ -80,7 +80,6 @@ import (
 	"github.com/daltoniam/switchboard/integrations/nexus"
 	nomadInt "github.com/daltoniam/switchboard/integrations/nomad"
 	notionInt "github.com/daltoniam/switchboard/integrations/notion"
-	"github.com/daltoniam/switchboard/integrations/notionmcp"
 	"github.com/daltoniam/switchboard/integrations/ntfy"
 	"github.com/daltoniam/switchboard/integrations/obsidian"
 	"github.com/daltoniam/switchboard/integrations/okta"
@@ -103,7 +102,6 @@ import (
 	"github.com/daltoniam/switchboard/integrations/servicenow"
 	signozInt "github.com/daltoniam/switchboard/integrations/signoz"
 	slackInt "github.com/daltoniam/switchboard/integrations/slack"
-	"github.com/daltoniam/switchboard/integrations/slackmcp"
 	"github.com/daltoniam/switchboard/integrations/snipeit"
 	snowflakeInt "github.com/daltoniam/switchboard/integrations/snowflake"
 	"github.com/daltoniam/switchboard/integrations/sourcebot"
@@ -347,10 +345,8 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 		linear.New("https://mcp.linear.app"),
 		sentry.New(),
 		slackInt.New(),
-		slackmcp.New(),
 		likec4excalidraw.New(),
 		figma.New(),
-		notionmcp.New(),
 		mobbin.New(),
 		higgsfieldIntegration,
 		metabase.New(),
