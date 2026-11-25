@@ -64,11 +64,32 @@ func TestNewWithOptions_UsesEndpointPathAndStructuredContent(t *testing.T) {
 }
 
 func TestNewWithOptions_DefaultEndpointIsMCP(t *testing.T) {
-	srv := versionedServer(t)
+	server := mcpsdk.NewServer(&mcpsdk.Implementation{Name: "default", Version: "1"}, nil)
+	stream := mcpsdk.NewStreamableHTTPHandler(func(*http.Request) *mcpsdk.Server { return server }, &mcpsdk.StreamableHTTPOptions{JSONResponse: true, Stateless: true})
+	var mu sync.Mutex
+	var paths []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		paths = append(paths, r.URL.Path)
+		mu.Unlock()
+		if r.URL.Path != "/mcp" {
+			http.NotFound(w, r)
+			return
+		}
+		stream.ServeHTTP(w, r)
+	}))
+	t.Cleanup(srv.Close)
+
 	integration := NewWithOptions("test", srv.URL, Options{})
 	t.Cleanup(func() { _ = integration.(io.Closer).Close() })
 	require.NoError(t, integration.Configure(context.Background(), mcp.Credentials{"access_token": "t"}))
-	assert.False(t, integration.Healthy(context.Background()), "the server has nothing at /mcp")
+	assert.True(t, integration.Healthy(context.Background()), "an empty EndpointPath connects at /mcp")
+	mu.Lock()
+	defer mu.Unlock()
+	require.NotEmpty(t, paths)
+	for _, path := range paths {
+		assert.Equal(t, "/mcp", path)
+	}
 }
 
 func TestListTools_FetchesWithContextAndCaches(t *testing.T) {
