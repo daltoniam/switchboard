@@ -17,21 +17,54 @@ import (
 )
 
 const (
-	defaultTimeout = 30 * time.Second
+	defaultTimeout      = 30 * time.Second
+	defaultEndpointPath = "/mcp"
 )
 
-type remote struct {
-	name      string
-	serverURL string
+// ToolLister lists a remote server's tools under a caller's context, so a
+// fetch can be canceled. Results are cached like Tools.
+type ToolLister interface {
+	ListTools(ctx context.Context) ([]mcp.ToolDefinition, error)
+}
 
-	mu            sync.RWMutex
-	token         string
-	session       *liveSession
+// Options configures a remote MCP integration built with NewWithOptions.
+type Options struct {
+	// EndpointPath is the MCP endpoint path on the server; "" means /mcp.
+	EndpointPath string
+	// Structured returns structuredContent as JSON, like NewStructured.
+	Structured bool
+}
+
+type remote struct {
+	name         string
+	serverURL    string
+	endpointPath string
+
+	mu           sync.RWMutex
+	token        string
+	session      *liveSession
+	sessionToken string
+	// generation changes whenever a dial in flight must not be published:
+	// a new token or Close. closes counts Close calls alone, so a dial
+	// that Close invalidated is never retried.
+	generation    uint64
+	closes        uint64
 	client        *mcpsdk.Client
 	cachedTools   []mcp.ToolDefinition
 	toolsFetched  bool
 	optionalToken bool
 	structured    bool
+
+	// connecting admits one connection attempt at a time without holding mu
+	// over the network, so waiters can give up when their context ends.
+	connectingOnce sync.Once
+	connecting     chan struct{}
+	// afterDial, when set by tests, runs after a connection is opened and
+	// before it is published.
+	afterDial func()
+	// beforeGate, when set by tests, runs once a connect call has recorded
+	// the Close count and is about to wait for the connection gate.
+	beforeGate func()
 }
 
 // New creates a remote MCP integration that proxies to the given server URL.
@@ -61,7 +94,25 @@ func NewStructured(name, serverURL string) mcp.Integration {
 	}
 }
 
+// NewWithOptions creates a remote MCP integration for servers whose endpoint
+// is not /mcp or that need structured results.
+func NewWithOptions(name, serverURL string, opts Options) mcp.Integration {
+	return &remote{
+		name:         name,
+		serverURL:    serverURL,
+		endpointPath: opts.EndpointPath,
+		structured:   opts.Structured,
+	}
+}
+
 func (r *remote) Name() string { return r.name }
+
+func (r *remote) endpoint() string {
+	if r.endpointPath == "" {
+		return r.serverURL + defaultEndpointPath
+	}
+	return r.serverURL + r.endpointPath
+}
 
 func (r *remote) Configure(_ context.Context, creds mcp.Credentials) error {
 	r.mu.Lock()
@@ -73,6 +124,7 @@ func (r *remote) Configure(_ context.Context, creds mcp.Credentials) error {
 	}
 
 	if token != r.token {
+		r.generation++
 		if r.session != nil {
 			r.session.close()
 			r.session = nil
@@ -100,21 +152,63 @@ func (t *bearerTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return base.RoundTrip(r)
 }
 
+func (r *remote) connectGate() chan struct{} {
+	r.connectingOnce.Do(func() { r.connecting = make(chan struct{}, 1) })
+	return r.connecting
+}
+
 func (r *remote) connect(ctx context.Context) (*liveSession, error) {
+	gate := r.connectGate()
 	r.mu.RLock()
-	if r.session != nil {
-		sess := r.session
-		r.mu.RUnlock()
-		return sess, nil
-	}
+	closes := r.closes
 	r.mu.RUnlock()
+	for {
+		r.mu.RLock()
+		if r.closes != closes {
+			r.mu.RUnlock()
+			return nil, fmt.Errorf("%s: closed while connecting", r.name)
+		}
+		if r.session != nil {
+			sess := r.session
+			r.mu.RUnlock()
+			return sess, nil
+		}
+		r.mu.RUnlock()
 
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	if r.session != nil {
-		return r.session, nil
+		if r.beforeGate != nil {
+			r.beforeGate()
+		}
+		select {
+		case gate <- struct{}{}:
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+		sess, retry, err := r.dial(ctx, closes)
+		<-gate
+		if !retry {
+			return sess, err
+		}
 	}
+}
+
+// dial opens a session without holding mu. closes is the Close count when
+// the caller entered connect. If Close ran since then, any session is closed
+// and an error returned, so a closed adapter stays closed. Otherwise, if
+// Configure replaced the token meanwhile, retry is true whether the attempt
+// succeeded (its session is closed) or failed.
+func (r *remote) dial(ctx context.Context, closes uint64) (sess *liveSession, retry bool, err error) {
+	r.mu.RLock()
+	if r.closes != closes {
+		r.mu.RUnlock()
+		return nil, false, fmt.Errorf("%s: closed while connecting", r.name)
+	}
+	if r.session != nil {
+		sess = r.session
+		r.mu.RUnlock()
+		return sess, false, nil
+	}
+	token, generation := r.token, r.generation
+	r.mu.RUnlock()
 
 	client := mcpsdk.NewClient(&mcpsdk.Implementation{
 		Name:    "switchboard",
@@ -122,23 +216,46 @@ func (r *remote) connect(ctx context.Context) (*liveSession, error) {
 	}, nil)
 
 	httpClient := &http.Client{Timeout: defaultTimeout}
-	if r.token != "" {
-		httpClient.Transport = &bearerTransport{token: r.token}
+	if token != "" {
+		httpClient.Transport = &bearerTransport{token: token}
 	}
 	transport := &mcpsdk.StreamableClientTransport{
-		Endpoint:             r.serverURL + "/mcp",
+		Endpoint:             r.endpoint(),
 		HTTPClient:           httpClient,
 		DisableStandaloneSSE: true,
 	}
 
 	session, err := client.Connect(ctx, transport, nil)
 	if err != nil {
-		return nil, fmt.Errorf("connect to %s: %w", r.serverURL, err)
+		r.mu.RLock()
+		closed, replaced := r.closes != closes, r.generation != generation
+		r.mu.RUnlock()
+		if closed {
+			return nil, false, fmt.Errorf("%s: closed while connecting", r.name)
+		}
+		if replaced {
+			return nil, true, nil
+		}
+		return nil, false, fmt.Errorf("connect to %s: %w", r.serverURL, err)
+	}
+	if r.afterDial != nil {
+		r.afterDial()
 	}
 
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.closes != closes {
+		_ = session.Close()
+		return nil, false, fmt.Errorf("%s: closed while connecting", r.name)
+	}
+	if r.generation != generation {
+		_ = session.Close()
+		return nil, true, nil
+	}
 	r.client = client
 	r.session = &liveSession{ClientSession: session}
-	return r.session, nil
+	r.sessionToken = token
+	return r.session, false, nil
 }
 
 func (r *remote) disconnect() {
@@ -238,6 +355,8 @@ func (r *remote) callTool(ctx context.Context, session *liveSession, params *mcp
 func (r *remote) Close() error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	r.generation++
+	r.closes++
 	if r.session != nil {
 		r.session.close()
 		r.session = nil
@@ -263,25 +382,32 @@ func (r *remote) Healthy(ctx context.Context) bool {
 }
 
 func (r *remote) Tools() []mcp.ToolDefinition {
+	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
+	defer cancel()
+	tools, _ := r.ListTools(ctx)
+	return tools
+}
+
+// ListTools returns the cached tool list, fetching it under ctx when no
+// fetch has succeeded yet.
+func (r *remote) ListTools(ctx context.Context) ([]mcp.ToolDefinition, error) {
 	r.mu.RLock()
 	if r.toolsFetched {
 		tools := r.cachedTools
 		r.mu.RUnlock()
-		return tools
+		return tools, nil
 	}
 	r.mu.RUnlock()
 
-	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
-	defer cancel()
-
+	ctx = upstreamContext(ctx)
 	session, err := r.connect(ctx)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 
 	result, err := session.ListTools(ctx, &mcpsdk.ListToolsParams{})
 	if err != nil {
-		return nil
+		return nil, err
 	}
 
 	tools := convertTools(r.name, result.Tools)
@@ -291,7 +417,7 @@ func (r *remote) Tools() []mcp.ToolDefinition {
 	r.toolsFetched = true
 	r.mu.Unlock()
 
-	return tools
+	return tools, nil
 }
 
 func (r *remote) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {

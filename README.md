@@ -295,6 +295,12 @@ Connects to Higgsfield's hosted MCP server at `https://mcp.higgsfield.ai/mcp` fo
 
 Open `/integrations/higgsfield/setup` in the web UI and select **Sign in with Higgsfield**. OAuth uses dynamic client registration, PKCE, the `openid email offline_access` scopes, and resource binding to the MCP endpoint. Higgsfield's consent flow may show a plans upsell page first; choose **Skip & proceed to MCP** to finish sign-in. Start with `higgsfield_balance`. Generation tools spend credits: preflight with `params.get_cost=true` first. Access tokens last 24 hours. Sign-in also saves the refresh token, so Switchboard renews the login when a call finds less than an hour left. Higgsfield refresh tokens are single use, so renewal holds a lock on the config file shared by every Switchboard process, starts from the newest saved tokens, and saves the new ones before releasing it. If renewal fails, sign in again from setup. A token set only through `HIGGSFIELD_MCP_ACCESS_TOKEN` is not renewed.
 
+### Ashby (`ashby`)
+
+Connects to Ashby's official hosted MCP server at `https://mcp.ashbyhq.com/mcp/v1` for recruiting and hiring: candidates and applicants, applications, jobs and job openings, interviews, scorecard feedback, pipeline counts, and pending tasks. Switchboard exposes 16 reviewed tools: 12 reads (start with `ashby_search_records_by_name`) and four changes (`ashby_create_candidate`, `ashby_add_note_to_candidate`, `ashby_consider_candidate_for_job`, and the destructive `ashby_change_application_stage`, which can archive applications and cancel upcoming interviews). Other upstream tools, such as `submit_mcp_feedback`, are refused locally. Ashby does not publish input schemas, so parameters appear in search once Switchboard has connected and read the server's tool list.
+
+Ashby's hosted server takes no API key: each user signs in with OAuth and sees only what their Ashby account can see. An Ashby Organization Admin must first turn on **MCP Server** under **Admin → Organization Setup → Opt-In Features**, and the signing-in user needs **Elevated Access**. Then open `/integrations/ashby/setup` and select **Sign in with Ashby**. OAuth uses protected resource metadata, dynamic client registration, PKCE, the `openid mcp offline_access` scopes with `prompt=consent`, and resource binding to the `/mcp/v1` endpoint. Sign-in saves the refresh token, so Switchboard renews the login before it expires, under the same cross-process lock as Higgsfield. A token set only through `ASHBY_MCP_ACCESS_TOKEN` is not renewed.
+
 ### Environment Variables
 
 Switchboard automatically reads environment variables from your shell (fish, zsh, bash, etc.) and overlays them on top of the JSON config. If an env var is set, it takes precedence over the corresponding value in `config.json`. Env-sourced values are never written back to disk.
@@ -342,6 +348,8 @@ Environment variables override credential values but do not change the durable e
 | Notion MCP | `base_url` | `NOTION_MCP_BASE_URL` (optional, default `https://mcp.notion.com`; a trailing `/mcp` is accepted) |
 | Mobbin | `mcp_access_token` | `MOBBIN_MCP_ACCESS_TOKEN` |
 | Mobbin | `base_url` | `MOBBIN_MCP_BASE_URL` (optional, default `https://api.mobbin.com`; a trailing `/mcp` is accepted) |
+| Ashby | `mcp_access_token` | `ASHBY_MCP_ACCESS_TOKEN` |
+| Ashby | `base_url` | `ASHBY_MCP_BASE_URL` (optional, default `https://mcp.ashbyhq.com`; a trailing `/mcp/v1` is accepted) |
 | [Render](docs/render.md) | `api_key` | `RENDER_API_KEY` (from Render Dashboard → Account Settings → API Keys) |
 | Render | `workspace_id` | `RENDER_WORKSPACE_ID` (optional default workspace, `tea-...` or `usr-...`) |
 | Render | `base_url` | `RENDER_MCP_BASE_URL` (optional, default `https://mcp.render.com`; a trailing `/mcp` is accepted) |
@@ -481,6 +489,7 @@ Some integrations support OAuth flows through the web UI at `http://localhost:38
 | Notion | Hosted MCP OAuth (PKCE) or browser token | Web UI → Notion → Setup → Sign in with Notion, or set `NOTION_MCP_ACCESS_TOKEN` and enable explicitly |
 | Mobbin | Hosted MCP OAuth (PKCE) | Web UI → Mobbin → Setup, or set `MOBBIN_MCP_ACCESS_TOKEN` and enable explicitly |
 | Higgsfield | Hosted MCP OAuth (PKCE) | Web UI → higgsfield → Setup, or set `HIGGSFIELD_MCP_ACCESS_TOKEN` and enable explicitly |
+| Ashby | Hosted MCP OAuth (PKCE) | Web UI → ashby → Setup, or set `ASHBY_MCP_ACCESS_TOKEN` and enable explicitly |
 | Render | API Key (hosted MCP) | Create a key in Render Dashboard → Account Settings → API Keys, then set `RENDER_API_KEY` or enter it in the web UI; enable explicitly |
 | Sentry | OAuth Device Flow | Web UI → Sentry → Setup, or set `SENTRY_AUTH_TOKEN` |
 | Slack | Session Token | Web UI → Slack → Setup (auto-extracts from Chrome), or set `SLACK_TOKEN` |
