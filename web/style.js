@@ -9,6 +9,7 @@ const simpleIcons = cliRequire('@iconify-json/simple-icons/icons.json');
 const themeFile = new URL('./templates/layouts/themes.json', import.meta.url);
 const integrationDirectory = new URL('../integrations/', import.meta.url);
 const svglBase = 'https://cdn.jsdelivr.net/gh/pheralb/svgl@f9b726cee1d1f3c697a18c880185e89d9a55bb70/static/library/';
+const homarrIcons = 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons@519c5834ec021db50db5a0db16a510f5679ae887/svg/';
 const awsLogo = { light: 'aws_light', dark: 'aws_dark' };
 const githubLogo = { light: 'github_light', dark: 'github_dark' };
 const ollamaLogo = { light: 'ollama_light', dark: 'ollama_dark' };
@@ -29,11 +30,26 @@ const brandedLogos = {
   vercel: vercelLogo,
   x: xLogo,
 };
+// Full-color marks from pinned repositories when SVGL has none. Recoll and
+// Snipe-IT publish their official icons only as PNG.
+const pinnedBrandedLogos = {
+  gatus: `${homarrIcons}gatus.svg`,
+  gong: 'https://cdn.jsdelivr.net/gh/callback-io/allogo@95790d39b66a2bdb09661ea779fc15361d58f07f/public/logos/gongio/icon.svg',
+  gpeople: `${homarrIcons}google-contacts.svg`,
+  grist: `${homarrIcons}grist.svg`,
+  recoll: 'https://cdn.jsdelivr.net/gh/koniu/recoll-webui@c3151abc2b4416fb4a63b7833b8c99d17e3ace6e/static/recoll.png',
+  semaphoreui: `${homarrIcons}semaphore.svg`,
+  signoz: 'https://cdn.jsdelivr.net/gh/gilbarbara/logos@4a5b550414be64d5c007574cd395d910d50e8950/logos/signoz.svg',
+  snipeit: 'https://cdn.jsdelivr.net/gh/grokability/snipe-it@52605692e2e3a964fe0154de15642bfdc838ade8/public/img/snipe-logo-bug.png',
+  wazuh: `${homarrIcons}wazuh.svg`,
+  ynab: `${homarrIcons}ynab.svg`,
+};
 const integrationNames = { webfetch: 'web' };
 const simpleLogoAliases = {
   airflow: 'apacheairflow', gdocs: 'googledocs', gforms: 'googleforms',
   gtasks: 'googletasks', paperless: 'paperlessngx', likec4excalidraw: 'excalidraw',
   onepassword: '1password',
+  argoworkflows: 'argo', druid: 'apachedruid',
 };
 const logoSources = {
   growthbook: 'https://cdn.jsdelivr.net/gh/gilbarbara/logos@4a5b550414be64d5c007574cd395d910d50e8950/logos/growth-book-icon.svg',
@@ -41,6 +57,13 @@ const logoSources = {
   netsuite: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons@519c5834ec021db50db5a0db16a510f5679ae887/svg/netsuite.svg',
   servicenow: 'https://cdn.jsdelivr.net/gh/callback-io/allogo@95790d39b66a2bdb09661ea779fc15361d58f07f/public/logos/servicenow/icon.svg',
   ramp: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons@519c5834ec021db50db5a0db16a510f5679ae887/svg/ramp.svg',
+  higgsfield: `${homarrIcons}higgsfield-light.svg`,
+  nexus: `${homarrIcons}nexus-dark.svg`,
+};
+// Built-in integrations have no brand, so they use a descriptive Lucide icon.
+const lucideLogos = {
+  acp: 'bot-message-square', agents: 'bot', botidentity: 'id-card',
+  projectinterop: 'folder-git-2', switchboard: 'cable', webfetch: 'globe',
 };
 
 // Sourcebot publishes its "SB." mark only as PNG, so it is redrawn here as a
@@ -48,6 +71,21 @@ const logoSources = {
 const drawnLogos = {
   sourcebot: {
     body: '<g fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 7.6C8.3 6.6 7.2 6 5.6 6C3.6 6 2.3 7.1 2.3 8.7c0 3.6 6.9 2.3 6.9 6.2c0 1.8-1.4 3.1-3.6 3.1c-1.7 0-3-.7-3.7-1.9"/><path d="M12.5 6v12h3.9c2 0 3.3-1.2 3.3-3s-1.3-3-3.3-3h-3.9h3.5c1.7 0 2.8-1.1 2.8-3S17.7 6 16 6z"/></g><circle cx="22.2" cy="17.4" r="1.5" fill="currentColor"/>',
+  },
+  // Official marks with no usable pinned SVG: the pganalyze.com header and
+  // rwx.com favicon are unversioned, and the Composio CDN Mobbin mark has an
+  // opaque background that would mask as a solid square.
+  mobbin: {
+    width: 126, height: 58,
+    body: '<path fill="currentColor" transform="translate(-27 -61)" d="M103.26 118.98 A0.32 0.32 0 0 0 103.49 118.88 L116.34 105.28 A0.32 0.32 0 0 1 116.89 105.50 L116.89 118.66 A0.32 0.32 0 0 0 117.21 118.98 L152.68 118.98 A0.32 0.32 0 0 0 153.00 118.66 L153.00 84.99 A0.32 0.32 0 0 0 152.68 84.67 L133.06 84.67 A0.32 0.32 0 0 1 132.74 84.35 L132.74 61.34 A0.32 0.32 0 0 0 132.42 61.02 L101.95 61.02 A0.32 0.32 0 0 0 101.72 61.12 L88.67 74.93 A0.32 0.32 0 0 1 88.12 74.71 L88.12 61.34 A0.32 0.32 0 0 0 87.80 61.02 L52.73 61.02 A0.32 0.32 0 0 0 52.50 61.12 L27.09 88.02 A0.32 0.32 0 0 0 27.00 88.24 L27.00 118.66 A0.32 0.32 0 0 0 27.32 118.98 L56.29 118.98 A0.32 0.32 0 0 0 56.52 118.88 L70.12 104.49 A0.32 0.32 0 0 1 70.67 104.70 L70.67 118.66 A0.32 0.32 0 0 0 70.99 118.98 L103.26 118.98Z"/>',
+  },
+  pganalyze: {
+    width: 66, height: 59,
+    body: '<g fill="currentColor"><path d="M61,2.5a.17.17,0,0,1,.34,0c.15.83.6,2.93.6,2.93A3.51,3.51,0,0,0,63.5,8l2.27,1.14a.17.17,0,0,1,0,.31l-2.28,1.11a3.48,3.48,0,0,0-1.59,2.56s-.48,2.09-.64,2.92a.17.17,0,0,1-.34,0c-.15-.83-.6-2.93-.6-2.93a3.51,3.51,0,0,0-1.55-2.58L56.5,9.4a.17.17,0,0,1,0-.31L58.78,8a3.48,3.48,0,0,0,1.59-2.56s.48-2.09.64-2.92"/><path d="M46.65,52.18a16.12,16.12,0,0,1-1.19-3.88.39.39,0,0,0-.53-.25,23.21,23.21,0,0,1-6.43,1.67c-.84.09-1.69.19-2.54.27s-1.67.12-2.51.13a8.16,8.16,0,0,1-1.1-.09c-.21,0-.3-.37-.35-.55l0-.15c2.51-.3,5-.62,7.49-1.17,1.1-.25,2.21-.52,3.29-.87.54-.17,1.08-.36,1.6-.57l.79-.34.31-.15a.39.39,0,0,0,.22-.36c0-.47,0-1.45,0-1.73a.2.2,0,0,0-.25-.22c-12.3,3.54-24.06,3.21-29,2.11-1.74-.39-3.14-1.05-3.54-1.78a19.61,19.61,0,0,1-1.27-3.73c-.08-.27-.75-.79-1.06-1a.1.1,0,0,0-.18.06,12.73,12.73,0,0,0,.16,5c.13.55.29,1.1.45,1.59a.19.19,0,0,1-.17.24,24.31,24.31,0,0,0-4.1.7c.4.51.82,1,1.26,1.5a18.11,18.11,0,0,1,7.67.09C21,50.15,24.55,55,26.27,57.87a29.83,29.83,0,0,0,3,.15,28.68,28.68,0,0,0,17.38-5.84"/><path d="M7.57,29.14c-.24-2.45.51-4.36,1.93-4.49a1.47,1.47,0,0,1,.47,0A4.42,4.42,0,0,0,9.59,27c.17,1.69,1.09,3,2.06,2.89a1.32,1.32,0,0,0,.87-.52c.05,2.2-.86,4-2.17,4.11S7.8,31.59,7.57,29.14M13.29,39c.65.42,1.2,2.47,1.44,3.16a3.44,3.44,0,0,0,2.53,1.74,45.38,45.38,0,0,0,6.58.74c11,.21,17.59-1.59,21.23-2.82.33-.11.88-.3.89-.83l-.1-1.51c0-.47-.14-.9-.7-.66-.25.11-.38.43-.59.6a2.82,2.82,0,0,1-.94.45c-4.21,1.36-13.21,1.8-17.6,1.88a3.71,3.71,0,0,1-3.14-1.33c-1.25-1.33-2.5-3.56-3.42-3.69-5.47-.78-5.55-3.5-5.55-3.5s.21-4.3,0-6.12c-.37-3.87-2.21-5.75-4.12-5.57-1.6.16-3.1,2.87-3.25,5.91,0,0-1,6.59,6.71,11.55"/><path d="M22.76,26.3a.43.43,0,0,0,.07.62,8.16,8.16,0,0,0,1.26.78,5.7,5.7,0,0,1,1.73,2,9.38,9.38,0,0,0,1.32,1.83.22.22,0,0,0,.36-.24,19.75,19.75,0,0,1-.75-2.11,3.77,3.77,0,0,1,0-2.53c.22-.41.42-.82.6-1.21a.46.46,0,0,0-.27-.63c-.34-.11-.7-.25-1.06-.39s-.69-.16-1.07-1.17c-.27-.75-.45-1.22-.63-1.63a.15.15,0,0,0-.29.05,14.6,14.6,0,0,0,0,1.92c.06,1.08-.12,1.23-.45,1.66a10.79,10.79,0,0,1-.8,1"/><path d="M33.9,39.77a27.92,27.92,0,0,0,8-1,3.41,3.41,0,0,0,2.71-3,43.56,43.56,0,0,0-.17-5.07,38.17,38.17,0,0,0-1.32-6.53,27.66,27.66,0,0,0-2.85-6.44c-.28-.45-.77-1.77-5.25-.81a.43.43,0,0,0-.33.62c6.63,10.74,1.35,19.07-1.08,21.78a.3.3,0,0,0,.25.5"/><path d="M31.77,9.77a.23.23,0,0,0,.06-.46A40.35,40.35,0,0,0,23,8.05a26.2,26.2,0,0,0-6,.65c-.71.26-.87,1.57-.87,1.57s5.2,1.4,6.52,3.36a.26.26,0,0,1-.05.34L14,22.08a.08.08,0,0,0,0,.1,9.3,9.3,0,0,1,1.25,4c0,.12,0,.38,0,.38a.12.12,0,0,0,.12.1.19.19,0,0,0,.1-.05s9.45-8.47,9.45-8.47a5.38,5.38,0,0,1,1.47-.93c8.24-3.52,12.34-1.92,12.93-1.66a.08.08,0,0,0,.12,0l.25-.2s-.05-.11-.05-.11L35.94,12a.54.54,0,0,0-.16-.1c-3.91-1.74-10,.44-11,.82a.22.22,0,0,1-.23-.05l-.72-.72a.21.21,0,0,1,0-.33,14.69,14.69,0,0,1,8-1.84"/><path d="M29.27,1A28.25,28.25,0,1,0,57.51,29.27,28.28,28.28,0,0,0,29.27,1m0,57.52A29.27,29.27,0,1,1,58.54,29.27,29.3,29.3,0,0,1,29.27,58.54"/></g>',
+  },
+  rwx: {
+    width: 387.228, height: 245,
+    body: '<g fill="currentColor" transform="translate(-156.386 -227.5)"><path d="M303.427 350L219.148 472.5H156.388L240.667 350L156.386 227.5H219.148L303.427 350Z"/><path d="M543.614 420.5L543.614 472.5L387.706 472.5L351.899 420.5L543.614 420.5Z"/></g>',
   },
 };
 
@@ -258,7 +296,7 @@ function integrationCSS() {
   const names = [...directories, 'google'].toSorted();
   const rules = names.map(integrationLogo).filter(Boolean);
   const themes = integrationLogoThemes();
-  const css = ['/* Integration logos: SVGL, Simple Icons, Iconify Logos, Dashboard Icons, Allogo. Sources in web/style.js. */', ...rules, themes].join('\n');
+  const css = ['/* Integration logos: SVGL, Simple Icons, Lucide, Iconify Logos, Dashboard Icons, Allogo and pinned project repositories. Sources in web/style.js. */', ...rules, themes].join('\n');
   process.stdout.write(`Styled logos for ${rules.length}/${names.length} integration entries.\n`);
   return css;
 }
@@ -266,22 +304,22 @@ function integrationCSS() {
 function integrationLogo(directory) {
   const name = integrationNames[directory] ?? directory;
   if (!/^[a-z0-9-]+$/.test(name)) throw new Error(`Invalid integration name: ${name}`);
-  const icon = brandedLogos[directory];
+  const icon = brandedLogos[directory] ?? pinnedBrandedLogos[directory];
   if (!icon) {
     const fallback = fallbackIntegrationLogo(directory, name);
     return fallback;
   }
   const variants = logoVariants(icon);
-  const light = `url("${svglBase}${variants.light}.svg")`;
+  const light = `url("${logoURL(variants.light)}")`;
   let dark = 'var(--integration-light)';
-  if (variants.dark !== variants.light) dark = `url("${svglBase}${variants.dark}.svg")`;
+  if (variants.dark !== variants.light) dark = `url("${logoURL(variants.dark)}")`;
   const rule = `.integration-icon[data-integration="${name}"]{--integration-light:${light};--integration-dark:${dark};mask:none;background:transparent var(--integration-light) center/contain no-repeat}`;
   return rule;
 }
 
 function fallbackIntegrationLogo(directory, name) {
   const slug = simpleLogoAliases[directory] ?? directory;
-  const icon = simpleIcons.icons[slug] ?? drawnLogos[directory];
+  const icon = simpleIcons.icons[slug] ?? drawnLogos[directory] ?? lucideLogo(directory);
   if (icon) {
     const image = simpleLogoImage(icon);
     const rule = `.integration-icon[data-integration="${name}"]{--un-icon:${image};color:inherit}`;
@@ -292,6 +330,21 @@ function fallbackIntegrationLogo(directory, name) {
   const image = `url("${source}")`;
   const rule = `.integration-icon[data-integration="${name}"]{--un-icon:${image};color:inherit}`;
   return rule;
+}
+
+function lucideLogo(directory) {
+  const name = lucideLogos[directory];
+  if (!name) return undefined;
+  const icon = lucide.icons[name];
+  if (!icon) throw new Error(`Unknown Lucide icon ${name} for ${directory}`);
+  const logo = { ...icon, width: lucide.width, height: lucide.height };
+  return logo;
+}
+
+function logoURL(route) {
+  if (route.startsWith('https://')) return route;
+  const url = `${svglBase}${route}.svg`;
+  return url;
 }
 
 function simpleLogoImage(icon) {

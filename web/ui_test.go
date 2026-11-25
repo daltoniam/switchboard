@@ -157,7 +157,7 @@ func uiLogoFixtures(t *testing.T) map[string]bool {
 	t.Helper()
 	css, err := uiAssets.ReadFile("static/style.css")
 	require.NoError(t, err)
-	pattern := regexp.MustCompile(`https://cdn\.jsdelivr\.net/gh/[\w-]+/[\w-]+@[a-f0-9]{40}/[\w/.-]+\.svg`)
+	pattern := regexp.MustCompile(`https://cdn\.jsdelivr\.net/gh/[\w-]+/[\w-]+@[a-f0-9]{40}/[\w/.-]+\.(?:svg|png)`)
 	sources := pattern.FindAllString(string(css), -1)
 	require.NotEmpty(t, sources)
 	fixtures := make(map[string]bool, len(sources))
