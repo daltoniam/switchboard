@@ -777,23 +777,49 @@ func TestOversizeDecompressedBodyRejected(t *testing.T) {
 }
 
 func TestRedirectDenied(t *testing.T) {
-	var targetCalls atomic.Int32
-	target := httptest.NewTLSServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { targetCalls.Add(1) }))
-	defer target.Close()
-	for _, code := range []int{301, 302, 303, 307, 308} {
-		t.Run(strconv.Itoa(code), func(t *testing.T) {
-			integration, _ := fixture(t, func(w http.ResponseWriter, r *http.Request) {
-				http.Redirect(w, r, target.URL+"/PRIVATE", code)
-			})
-			result := execute(t, integration, "openproject_list_work_packages", nil)
-			if !result.IsError || !strings.Contains(strings.ToLower(result.Data), "redirect") {
-				t.Fatal("redirect must be rejected explicitly")
+	for _, origin := range []string{"same origin", "cross origin"} {
+		t.Run(origin, func(t *testing.T) {
+			for _, code := range []int{301, 302, 303, 307, 308} {
+				t.Run(strconv.Itoa(code), func(t *testing.T) {
+					var targetCalls, targetConnections, sourceCalls, redirectedCalls atomic.Int32
+					target := httptest.NewUnstartedServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+						targetCalls.Add(1)
+					}))
+					target.Config.ConnState = func(_ net.Conn, state http.ConnState) {
+						if state == http.StateNew {
+							targetConnections.Add(1)
+						}
+					}
+					target.StartTLS()
+					t.Cleanup(target.Close)
+					integration, _ := fixture(t, func(w http.ResponseWriter, r *http.Request) {
+						sourceCalls.Add(1)
+						if r.URL.Path == "/PRIVATE" {
+							redirectedCalls.Add(1)
+							w.Header().Set("Content-Type", "application/hal+json")
+							_, _ = io.WriteString(w, collectionFixture(0, 0, 1, 20))
+							return
+						}
+						location := target.URL + "/PRIVATE"
+						if origin == "same origin" {
+							location = "/PRIVATE"
+						}
+						http.Redirect(w, r, location, code)
+					})
+					result := execute(t, integration, "openproject_list_work_packages", nil)
+					if !result.IsError || !strings.Contains(strings.ToLower(result.Data), "redirect") {
+						t.Error("redirect must be rejected explicitly")
+					}
+					assertSafe(t, result.Data)
+					if sourceCalls.Load() != 1 || redirectedCalls.Load() != 0 {
+						t.Errorf("source received %d requests, including %d redirected requests", sourceCalls.Load(), redirectedCalls.Load())
+					}
+					if received, connected := targetCalls.Load(), targetConnections.Load(); received != 0 || connected != 0 {
+						t.Errorf("redirect target received %d requests and %d connections", received, connected)
+					}
+				})
 			}
-			assertSafe(t, result.Data)
 		})
-	}
-	if targetCalls.Load() != 0 {
-		t.Fatal("redirect target received credentials or a request")
 	}
 }
 
