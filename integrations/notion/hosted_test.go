@@ -343,6 +343,11 @@ func TestHostedExecutePassesArgumentsAndResults(t *testing.T) {
 			require.Len(t, calls, 1)
 			assert.Equal(t, "notion-fetch", calls[0].name)
 			assert.Equal(t, "Bearer token", calls[0].auth)
+			if tt.args == nil {
+				assert.Equal(t, map[string]any{}, calls[0].args)
+			} else {
+				assert.Equal(t, tt.args, calls[0].args)
+			}
 		})
 	}
 }

@@ -205,18 +205,23 @@ func TestLoad_MigratesRetiredIntegrations(t *testing.T) {
 	assert.Empty(t, logged, "a migrated file must not warn again")
 }
 
-func TestLoad_RetiredIntegrationWhenFileUnwritable(t *testing.T) {
+func TestLoad_RetiredIntegrationWhenSaveFails(t *testing.T) {
 	m, path := newTestManager(t)
+	var logged []string
 	previous := logRetired
-	logRetired = func(string, ...any) {}
+	logRetired = func(format string, args ...any) { logged = append(logged, fmt.Sprintf(format, args...)) }
 	t.Cleanup(func() { logRetired = previous })
-	writeConfigFile(t, path, &mcp.Config{Integrations: map[string]*mcp.IntegrationConfig{
+	target := filepath.Join(t.TempDir(), "real-config.json")
+	writeConfigFile(t, target, &mcp.Config{Integrations: map[string]*mcp.IntegrationConfig{
 		"notion-mcp": {Enabled: true, Credentials: mcp.Credentials{"mcp_access_token": "ntn-mcp"}},
 	}})
-	require.NoError(t, os.Chmod(filepath.Dir(path), 0500))
-	t.Cleanup(func() { _ = os.Chmod(filepath.Dir(path), 0700) })
+	// Saves refuse a non-regular target, so a symlinked config fails to save even as root.
+	require.NoError(t, os.Symlink(target, path))
 
 	require.NoError(t, m.Load())
 	assert.NotContains(t, m.cfg.Integrations, "notion-mcp")
 	assert.Equal(t, "ntn-mcp", m.cfg.Integrations["notion"].Credentials["mcp_access_token"])
+	require.Len(t, logged, 2)
+	assert.Contains(t, logged[1], "could not save migrated config")
+	assert.Contains(t, readConfigFile(t, path).Integrations, "notion-mcp", "the file is left untouched when the save fails")
 }

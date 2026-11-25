@@ -317,6 +317,10 @@ func TestNotionOAuthPersistence(t *testing.T) {
 				return tc.configureErr
 			}}
 			ws.onConfigChange = func() { hooks++; assert.Equal(t, 1, configured) }
+			browserToken := ""
+			if tc.initial != nil {
+				browserToken = tc.initial.Credentials["token_v2"]
+			}
 			location := notionOAuthCallback(t, ws, url.Values{"code": {"code"}, "state": {auth.Get("state")}})
 			if tc.wantError != "" {
 				assert.Contains(t, location.Query().Get("error"), tc.wantError)
@@ -341,9 +345,9 @@ func TestNotionOAuthPersistence(t *testing.T) {
 			}
 			_, cached := ws.health.get("notion")
 			assert.Equal(t, tc.saveErr != nil, cached, "invalidate stale health after durable saves, even if configuration fails")
-			if tc.initial != nil && tc.initial.Credentials["token_v2"] != "" {
+			if browserToken != "" {
 				saved, _ := cfg.GetIntegration("notion")
-				assert.Equal(t, "legacy-token", saved.Credentials["token_v2"])
+				assert.Equal(t, browserToken, saved.Credentials["token_v2"], "sign-in must keep the browser token")
 			}
 		})
 	}
