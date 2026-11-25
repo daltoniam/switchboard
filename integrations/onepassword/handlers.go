@@ -89,6 +89,7 @@ func listItems(ctx context.Context, s store, args map[string]any) (*mcp.ToolResu
 	vaultRef := r.Str("vault")
 	query := strings.ToLower(strings.TrimSpace(r.Str("query")))
 	categoryRef := r.Str("category")
+	archived := r.Bool("archived")
 	limit := defaultItemLimit
 	if _, ok := args["limit"]; ok {
 		limit = r.Int("limit")
@@ -118,7 +119,7 @@ func listItems(ctx context.Context, s store, args map[string]any) (*mcp.ToolResu
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
-	items, err := s.ListItems(ctx, vault.ID)
+	items, err := s.ListItems(ctx, vault.ID, stateFilter(!archived, archived))
 	if err != nil {
 		return mcp.ErrResult(sdkErr(err))
 	}
@@ -345,6 +346,63 @@ func resolveSecret(ctx context.Context, s store, args map[string]any) (*mcp.Tool
 	return mcp.JSONResult(map[string]string{"reference": reference, "value": value})
 }
 
+// itemChange confirms an archive or delete without any field values.
+type itemChange struct {
+	ID       string `json:"id"`
+	Title    string `json:"title"`
+	Category string `json:"category"`
+	VaultID  string `json:"vault_id"`
+	Vault    string `json:"vault"`
+	Archived bool   `json:"archived,omitempty"`
+	Deleted  bool   `json:"deleted,omitempty"`
+}
+
+func archiveItem(ctx context.Context, s store, args map[string]any) (*mcp.ToolResult, error) {
+	vault, item, err := itemArgs(ctx, s, args)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	if item.State == op.ItemStateArchived {
+		return mcp.ErrResult(fmt.Errorf("onepassword: item %q is already archived", item.Title))
+	}
+	if err := s.ArchiveItem(ctx, vault.ID, item.ID); err != nil {
+		return mcp.ErrResult(sdkErr(err))
+	}
+	return mcp.JSONResult(itemChange{ID: item.ID, Title: item.Title, Category: string(item.Category), VaultID: vault.ID, Vault: vault.Title, Archived: true})
+}
+
+func deleteItem(ctx context.Context, s store, args map[string]any) (*mcp.ToolResult, error) {
+	vault, item, err := itemArgs(ctx, s, args)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	if err := s.DeleteItem(ctx, vault.ID, item.ID); err != nil {
+		return mcp.ErrResult(sdkErr(err))
+	}
+	return mcp.JSONResult(itemChange{ID: item.ID, Title: item.Title, Category: string(item.Category), VaultID: vault.ID, Vault: vault.Title, Deleted: true})
+}
+
+// itemArgs resolves the vault and item arguments to an item overview, which
+// carries the archive state that a full item read does not.
+func itemArgs(ctx context.Context, s store, args map[string]any) (op.VaultOverview, op.ItemOverview, error) {
+	r := mcp.NewArgs(args)
+	vaultRef := r.Str("vault")
+	itemRef := r.Str("item")
+	if err := r.Err(); err != nil {
+		return op.VaultOverview{}, op.ItemOverview{}, err
+	}
+	vault, err := findVault(ctx, s, vaultRef)
+	if err != nil {
+		return op.VaultOverview{}, op.ItemOverview{}, err
+	}
+	item, err := findItemOverview(ctx, s, vault, itemRef)
+	return vault, item, err
+}
+
+func stateFilter(active, archived bool) op.ItemListFilter {
+	return op.NewItemListFilterTypeVariantByState(&op.ItemListFilterByStateInner{Active: active, Archived: archived})
+}
+
 // findVault matches a vault by id, then by title in any case.
 func findVault(ctx context.Context, s store, ref string) (op.VaultOverview, error) {
 	ref = strings.TrimSpace(ref)
@@ -382,39 +440,47 @@ func findVault(ctx context.Context, s store, ref string) (op.VaultOverview, erro
 	}
 }
 
-// findItem matches an item in the vault by id, then by title in any case,
-// and reads it in full.
-func findItem(ctx context.Context, s store, vault op.VaultOverview, ref string) (op.Item, error) {
+// findItemOverview matches an active or archived item in the vault by id,
+// then by title in any case.
+func findItemOverview(ctx context.Context, s store, vault op.VaultOverview, ref string) (op.ItemOverview, error) {
 	ref = strings.TrimSpace(ref)
 	if ref == "" {
-		return op.Item{}, fmt.Errorf("onepassword: item is required")
+		return op.ItemOverview{}, fmt.Errorf("onepassword: item is required")
 	}
-	items, err := s.ListItems(ctx, vault.ID)
+	items, err := s.ListItems(ctx, vault.ID, stateFilter(true, true))
 	if err != nil {
-		return op.Item{}, sdkErr(err)
+		return op.ItemOverview{}, sdkErr(err)
 	}
 	var matches []op.ItemOverview
 	for _, it := range items {
 		if it.ID == ref {
-			matches = []op.ItemOverview{it}
-			break
+			return it, nil
 		}
 		if strings.EqualFold(it.Title, ref) {
 			matches = append(matches, it)
 		}
 	}
 	switch len(matches) {
-	case 0:
-		return op.Item{}, fmt.Errorf("onepassword: item %q not found in vault %s; use onepassword_list_items to find it", ref, vault.Title)
 	case 1:
+		return matches[0], nil
+	case 0:
+		return op.ItemOverview{}, fmt.Errorf("onepassword: item %q not found in vault %s; use onepassword_list_items to find it", ref, vault.Title)
 	default:
 		ids := make([]string, 0, len(matches))
 		for _, it := range matches {
 			ids = append(ids, it.ID)
 		}
-		return op.Item{}, fmt.Errorf("onepassword: item %q matches %d items in vault %s; pass one of these ids: %s", ref, len(matches), vault.Title, strings.Join(ids, ", "))
+		return op.ItemOverview{}, fmt.Errorf("onepassword: item %q matches %d items in vault %s; pass one of these ids: %s", ref, len(matches), vault.Title, strings.Join(ids, ", "))
 	}
-	item, err := s.GetItem(ctx, vault.ID, matches[0].ID)
+}
+
+// findItem matches an item like findItemOverview and reads it in full.
+func findItem(ctx context.Context, s store, vault op.VaultOverview, ref string) (op.Item, error) {
+	overview, err := findItemOverview(ctx, s, vault, ref)
+	if err != nil {
+		return op.Item{}, err
+	}
+	item, err := s.GetItem(ctx, vault.ID, overview.ID)
 	if err != nil {
 		return op.Item{}, sdkErr(err)
 	}

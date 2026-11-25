@@ -316,6 +316,7 @@ var envMapping = map[string]map[string]string{
 		"base_url":     "GROUPME_BASE_URL",
 	},
 	"onepassword": {
+		"account_name":          "OP_ACCOUNT_NAME",
 		"service_account_token": "OP_SERVICE_ACCOUNT_TOKEN",
 	},
 	"discord": {
@@ -699,7 +700,7 @@ func defaultConfig() *mcp.Config {
 			},
 			"onepassword": {
 				Enabled:     false,
-				Credentials: mcp.Credentials{"service_account_token": ""},
+				Credentials: mcp.Credentials{"account_name": "", "service_account_token": ""},
 			},
 			"discord": {
 				Enabled:     false,

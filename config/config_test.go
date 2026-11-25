@@ -410,7 +410,7 @@ func TestDefaultConfig(t *testing.T) {
 		"intercom":         {"access_token", "base_url"},
 		"front":            {"access_token", "base_url"},
 		"groupme":          {"access_token", "base_url"},
-		"onepassword":      {"service_account_token"},
+		"onepassword":      {"account_name", "service_account_token"},
 		"discord":          {"bot_token", "base_url"},
 		"grist":            {"api_key", "base_url"},
 		"ramp":             {"access_token", "base_url"},

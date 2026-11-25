@@ -10,7 +10,8 @@ import (
 
 // 1Password is a hosted service with no container image, so this spec signs
 // in to a real account through stored sandbox credentials and runs read tools
-// only:
+// only. It uses a service account, because desktop app sign-in needs a person
+// to approve a prompt:
 //
 //	OP_LIVE_SERVICE_ACCOUNT_TOKEN  service account token (ops_...)
 //	OP_LIVE_VAULT                  title of a vault the service account can read
@@ -39,8 +40,10 @@ func init() {
 			{Tool: "onepassword_resolve_secret", Args: map[string]any{"reference": "op://${vault}/${item}/password"}, Expect: []string{"${password}"}},
 		},
 		Skips: map[mcp.ToolName]string{
-			"onepassword_create_item": writes,
-			"onepassword_update_item": writes,
+			"onepassword_create_item":  writes,
+			"onepassword_update_item":  writes,
+			"onepassword_archive_item": "archives a real item in a shared vault; request shapes are covered by fixture tests in integrations/onepassword",
+			"onepassword_delete_item":  "deletes a real item in a shared vault; request shapes are covered by fixture tests in integrations/onepassword",
 		},
 	})
 }

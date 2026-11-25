@@ -33,14 +33,43 @@ type fakeStore struct {
 	created   *op.ItemCreateParams
 	put       *op.Item
 	generated int
+	archived  []string
+	deleted   []string
+	removeErr error
+	filters   []op.ItemListFilter
 }
 
 func (f *fakeStore) ListVaults(context.Context) ([]op.VaultOverview, error) {
 	return f.vaults, f.err
 }
 
-func (f *fakeStore) ListItems(_ context.Context, vault string) ([]op.ItemOverview, error) {
-	return f.items[vault], f.err
+func (f *fakeStore) ListItems(_ context.Context, vault string, filter op.ItemListFilter) ([]op.ItemOverview, error) {
+	f.filters = append(f.filters, filter)
+	state := filter.ByState()
+	var out []op.ItemOverview
+	for _, it := range f.items[vault] {
+		archived := it.State == op.ItemStateArchived
+		if (archived && state.Archived) || (!archived && state.Active) {
+			out = append(out, it)
+		}
+	}
+	return out, f.err
+}
+
+func (f *fakeStore) ArchiveItem(_ context.Context, vault, id string) error {
+	if f.removeErr != nil {
+		return f.removeErr
+	}
+	f.archived = append(f.archived, vault+"/"+id)
+	return nil
+}
+
+func (f *fakeStore) DeleteItem(_ context.Context, vault, id string) error {
+	if f.removeErr != nil {
+		return f.removeErr
+	}
+	f.deleted = append(f.deleted, vault+"/"+id)
+	return nil
 }
 
 func (f *fakeStore) GetItem(_ context.Context, vault, id string) (op.Item, error) {
@@ -133,7 +162,7 @@ func otpDetails(code string) *op.ItemFieldDetails {
 func newTestAdapter(t *testing.T, s *fakeStore) *onepassword {
 	t.Helper()
 	a := New().(*onepassword)
-	a.connect = func(context.Context, string) (store, error) { return s, nil }
+	a.connect = func(context.Context, auth) (store, error) { return s, nil }
 	require.NoError(t, a.Configure(context.Background(), mcp.Credentials{"service_account_token": "ops_test-token"}))
 	return a
 }
@@ -160,50 +189,125 @@ func TestNew(t *testing.T) {
 }
 
 func TestConfigure(t *testing.T) {
-	a := New().(*onepassword)
-	require.NoError(t, a.Configure(context.Background(), mcp.Credentials{"service_account_token": "  ops_abc \n"}))
-	assert.Equal(t, "ops_abc", a.token)
-}
-
-func TestConfigure_Rejects(t *testing.T) {
 	tests := []struct {
-		name, token, want string
+		name  string
+		creds mcp.Credentials
+		want  auth
 	}{
-		{"missing", "", "service_account_token is required"},
-		{"not a service account token", "dop_v1_abc", "service account token (ops_...)"},
-		{"line break", "ops_a\nb", "service account token (ops_...)"},
+		{"service account token", mcp.Credentials{"service_account_token": "  ops_abc \n"}, auth{token: "ops_abc"}},
+		{"desktop app account", mcp.Credentials{"account_name": "  My Team \n"}, auth{account: "My Team"}},
+		{"desktop app account with empty token key", mcp.Credentials{"account_name": "my.1password.com", "service_account_token": " "}, auth{account: "my.1password.com"}},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			err := New().Configure(context.Background(), mcp.Credentials{"service_account_token": tc.token})
-			require.Error(t, err)
-			assert.Contains(t, err.Error(), tc.want)
-			if tc.token != "" {
-				assert.NotContains(t, err.Error(), tc.token, "errors must not echo the token")
-				assert.NotContains(t, err.Error(), strconv.Quote(tc.token), "errors must not echo the token, quoted or not")
-			}
+			a := New().(*onepassword)
+			a.desktopAvailable = true
+			require.NoError(t, a.Configure(context.Background(), tc.creds))
+			assert.Equal(t, tc.want, a.auth)
 		})
 	}
 }
 
-func TestConfigure_DropsConnectedClient(t *testing.T) {
-	calls := 0
+func TestConfigure_Rejects(t *testing.T) {
+	tests := []struct {
+		name    string
+		creds   mcp.Credentials
+		desktop bool
+		want    string
+	}{
+		{"nothing set", mcp.Credentials{}, true, "set account_name"},
+		{"both set", mcp.Credentials{"account_name": "My Team", "service_account_token": "ops_abc"}, true, "not both"},
+		{"not a service account token", mcp.Credentials{"service_account_token": "dop_v1_abc"}, true, "service account token (ops_...)"},
+		{"token with a line break", mcp.Credentials{"service_account_token": "ops_a\nb"}, true, "service account token (ops_...)"},
+		{"account with a line break", mcp.Credentials{"account_name": "My\nTeam"}, true, "account_name"},
+		{"account too long", mcp.Credentials{"account_name": strings.Repeat("a", 300)}, true, "account_name"},
+		{"desktop app unavailable in this build", mcp.Credentials{"account_name": "My Team"}, false, "CGO"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			a := New().(*onepassword)
+			a.desktopAvailable = tc.desktop
+			err := a.Configure(context.Background(), tc.creds)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tc.want)
+			if token := tc.creds["service_account_token"]; token != "" {
+				assert.NotContains(t, err.Error(), token, "errors must not echo the token")
+				assert.NotContains(t, err.Error(), strconv.Quote(token), "errors must not echo the token, quoted or not")
+			}
+			assert.Equal(t, auth{}, a.auth, "a rejected configuration clears the previous one")
+		})
+	}
+}
+
+func TestConfigure_ReusesClientUntilCredentialsChange(t *testing.T) {
+	var signIns []auth
 	a := New().(*onepassword)
-	a.connect = func(context.Context, string) (store, error) { calls++; return newFake(), nil }
-	require.NoError(t, a.Configure(context.Background(), mcp.Credentials{"service_account_token": "ops_one"}))
+	a.desktopAvailable = true
+	a.connect = func(_ context.Context, au auth) (store, error) { signIns = append(signIns, au); return newFake(), nil }
+	ctx := context.Background()
+	require.NoError(t, a.Configure(ctx, mcp.Credentials{"service_account_token": "ops_one"}))
+	assert.True(t, a.Healthy(ctx))
+	assert.True(t, a.Healthy(ctx))
+	require.NoError(t, a.Configure(ctx, mcp.Credentials{"service_account_token": " ops_one "}))
+	assert.True(t, a.Healthy(ctx))
+	assert.Len(t, signIns, 1, "the same credentials keep the signed-in client, so the desktop app does not prompt again")
+	require.NoError(t, a.Configure(ctx, mcp.Credentials{"service_account_token": "ops_two"}))
+	assert.True(t, a.Healthy(ctx))
+	require.NoError(t, a.Configure(ctx, mcp.Credentials{"account_name": "My Team"}))
+	assert.True(t, a.Healthy(ctx))
+	assert.Equal(t, []auth{{token: "ops_one"}, {token: "ops_two"}, {account: "My Team"}}, signIns)
+}
+
+func TestSignInFailure_DesktopAppExplainsSetup(t *testing.T) {
+	a := New().(*onepassword)
+	a.desktopAvailable = true
+	a.connect = func(context.Context, auth) (store, error) {
+		return nil, errors.New("1Password desktop application not found")
+	}
+	require.NoError(t, a.Configure(context.Background(), mcp.Credentials{"account_name": "My Team"}))
+	assert.False(t, a.Healthy(context.Background()))
+	res := run(t, a, "onepassword_list_vaults", nil)
+	require.True(t, res.IsError)
+	for _, want := range []string{"cannot sign in through the 1Password desktop app", "desktop application not found", "Integrate with 1Password SDKs", "Docker"} {
+		assert.Contains(t, res.Data, want)
+	}
+	assert.Contains(t, a.SignInError(), "Integrate with 1Password SDKs")
+}
+
+func TestSignInError(t *testing.T) {
+	failing := true
+	a := New().(*onepassword)
+	a.connect = func(context.Context, auth) (store, error) {
+		if failing {
+			return nil, errors.New("invalid token")
+		}
+		return newFake(), nil
+	}
+	assert.Empty(t, a.SignInError(), "unconfigured")
+	require.NoError(t, a.Configure(context.Background(), mcp.Credentials{"service_account_token": "ops_x"}))
+	assert.False(t, a.Healthy(context.Background()))
+	assert.Contains(t, a.SignInError(), "cannot sign in with the service account token")
+	assert.NotContains(t, a.SignInError(), "ops_x")
+	failing = false
 	assert.True(t, a.Healthy(context.Background()))
-	assert.True(t, a.Healthy(context.Background()))
-	assert.Equal(t, 1, calls, "the signed-in client is reused")
-	require.NoError(t, a.Configure(context.Background(), mcp.Credentials{"service_account_token": "ops_two"}))
-	assert.True(t, a.Healthy(context.Background()))
-	assert.Equal(t, 2, calls, "a new token signs in again")
+	assert.Empty(t, a.SignInError(), "a later success clears the error")
+}
+
+func TestCredentialHints(t *testing.T) {
+	a := New()
+	plain, ok := a.(mcp.PlainTextCredentials)
+	require.True(t, ok)
+	assert.Equal(t, []string{"account_name"}, plain.PlainTextKeys(), "the account name is not a secret; the token is")
+	hints := a.(mcp.PlaceholderHints).Placeholders()
+	assert.Contains(t, hints["service_account_token"], "ops_")
+	assert.Contains(t, hints["account_name"], "desktop app")
 }
 
 func TestHealthy(t *testing.T) {
 	assert.False(t, New().Healthy(context.Background()), "unconfigured")
 
 	a := New().(*onepassword)
-	a.connect = func(context.Context, string) (store, error) { return nil, errors.New("invalid token") }
+	a.connect = func(context.Context, auth) (store, error) { return nil, errors.New("invalid token") }
 	require.NoError(t, a.Configure(context.Background(), mcp.Credentials{"service_account_token": "ops_x"}))
 	assert.False(t, a.Healthy(context.Background()), "sign-in fails")
 
@@ -229,17 +333,23 @@ func TestTools_Metadata(t *testing.T) {
 		assert.True(t, strings.HasPrefix(string(tool.Name), "onepassword_"), "tool %s missing prefix", tool.Name)
 		assert.False(t, seen[tool.Name], "duplicate tool name: %s", tool.Name)
 		assert.True(t, tool.Access.Declared(), "tool %s has no access class", tool.Name)
-		assert.NotContains(t, string(tool.Name), "delete", "no delete tool")
+		assert.NotContains(t, tool.Description, "service account can", "descriptions cover both sign-in methods")
 		seen[tool.Name] = true
 	}
 	assert.Contains(t, tools[0].Description, "Start here")
 }
 
-func TestTools_OnlyCreateAndUpdateWrite(t *testing.T) {
+func TestTools_Access(t *testing.T) {
+	changes := map[mcp.ToolName]mcp.ToolAccess{
+		"onepassword_create_item":  mcp.AccessWrite,
+		"onepassword_update_item":  mcp.AccessWrite,
+		"onepassword_archive_item": mcp.AccessWrite,
+		"onepassword_delete_item":  mcp.AccessDestructive,
+	}
 	for _, tool := range tools {
-		want := mcp.AccessRead
-		if tool.Name == "onepassword_create_item" || tool.Name == "onepassword_update_item" {
-			want = mcp.AccessWrite
+		want, ok := changes[tool.Name]
+		if !ok {
+			want = mcp.AccessRead
 		}
 		assert.Equal(t, want, tool.Access, tool.Name)
 	}
@@ -277,7 +387,7 @@ func TestExecute_NotConfigured(t *testing.T) {
 
 func TestExecute_SignInFailure(t *testing.T) {
 	a := New().(*onepassword)
-	a.connect = func(context.Context, string) (store, error) {
+	a.connect = func(context.Context, auth) (store, error) {
 		return nil, errors.New("service account token had invalid format")
 	}
 	require.NoError(t, a.Configure(context.Background(), mcp.Credentials{"service_account_token": "ops_x"}))
@@ -795,4 +905,112 @@ func TestUpdateItem_ExplicitEmptyValueClears(t *testing.T) {
 		}
 	}
 	t.Fatal("pin field missing")
+}
+
+func archivedFake() *fakeStore {
+	f := newFake()
+	f.items[vaultID] = append(f.items[vaultID], op.ItemOverview{ID: "oldoldoldoldoldoldoldoldol", Title: "Old VPN", Category: op.ItemCategoryLogin, VaultID: vaultID, State: op.ItemStateArchived})
+	f.full["oldoldoldoldoldoldoldoldol"] = op.Item{ID: "oldoldoldoldoldoldoldoldol", Title: "Old VPN", Category: op.ItemCategoryLogin, VaultID: vaultID}
+	return f
+}
+
+func TestListItems_ArchivedFilter(t *testing.T) {
+	tests := []struct {
+		name string
+		args map[string]any
+		want []string
+	}{
+		{"active by default", map[string]any{"vault": "Claude", "query": "vpn"}, nil},
+		{"archived only", map[string]any{"vault": "Claude", "archived": true}, []string{"Old VPN"}},
+		{"archived false", map[string]any{"vault": "Claude", "archived": false, "query": "github"}, []string{"GitHub"}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			out := decode(t, run(t, newTestAdapter(t, archivedFake()), "onepassword_list_items", tc.args))
+			var titles []string
+			for _, it := range out["items"].([]any) {
+				titles = append(titles, it.(map[string]any)["title"].(string))
+			}
+			assert.Equal(t, tc.want, titles)
+		})
+	}
+}
+
+func TestGetItem_FindsArchivedItem(t *testing.T) {
+	out := decode(t, run(t, newTestAdapter(t, archivedFake()), "onepassword_get_item", map[string]any{"vault": "Claude", "item": "old vpn"}))
+	assert.Equal(t, "Old VPN", out["title"])
+}
+
+func TestArchiveAndDeleteItem(t *testing.T) {
+	tests := []struct {
+		tool  mcp.ToolName
+		item  string
+		key   string
+		wantI string
+	}{
+		{"onepassword_archive_item", "GitHub", "archived", "loginloginloginloginloginl"},
+		{"onepassword_archive_item", itemID, "archived", itemID},
+		{"onepassword_delete_item", "github", "deleted", "loginloginloginloginloginl"},
+		{"onepassword_delete_item", "Old VPN", "deleted", "oldoldoldoldoldoldoldoldol"},
+	}
+	for _, tc := range tests {
+		t.Run(string(tc.tool)+" "+tc.item, func(t *testing.T) {
+			f := archivedFake()
+			out := decode(t, run(t, newTestAdapter(t, f), tc.tool, map[string]any{"vault": "claude", "item": tc.item}))
+			assert.Equal(t, true, out[tc.key])
+			assert.Equal(t, tc.wantI, out["id"])
+			assert.Equal(t, vaultID, out["vault_id"])
+			assert.Equal(t, "Claude", out["vault"])
+			assert.NotEmpty(t, out["title"])
+			assert.NotContains(t, fmt.Sprint(out), secret, "confirmations never carry secret values")
+			done := f.archived
+			if tc.key == "deleted" {
+				done = f.deleted
+			}
+			assert.Equal(t, []string{vaultID + "/" + tc.wantI}, done)
+		})
+	}
+}
+
+func TestArchiveAndDeleteItem_Rejects(t *testing.T) {
+	tests := []struct {
+		name string
+		tool mcp.ToolName
+		args map[string]any
+		want string
+	}{
+		{"archive needs item", "onepassword_archive_item", map[string]any{"vault": "Claude"}, "item is required"},
+		{"delete needs vault", "onepassword_delete_item", map[string]any{"item": "GitHub"}, "vault is required"},
+		{"ambiguous title", "onepassword_delete_item", map[string]any{"vault": "Claude", "item": "twin"}, "matches 2 items"},
+		{"unknown item", "onepassword_archive_item", map[string]any{"vault": "Claude", "item": "nope"}, "not found"},
+		{"already archived", "onepassword_archive_item", map[string]any{"vault": "Claude", "item": "Old VPN"}, "already archived"},
+		{"wrong arg type", "onepassword_delete_item", map[string]any{"vault": "Claude", "item": 5}, "item"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			f := archivedFake()
+			res := run(t, newTestAdapter(t, f), tc.tool, tc.args)
+			require.True(t, res.IsError, res.Data)
+			assert.Contains(t, res.Data, tc.want)
+			assert.Empty(t, f.archived)
+			assert.Empty(t, f.deleted)
+		})
+	}
+}
+
+func TestArchiveAndDeleteItem_StoreFailure(t *testing.T) {
+	for _, tool := range []mcp.ToolName{"onepassword_archive_item", "onepassword_delete_item"} {
+		t.Run(string(tool), func(t *testing.T) {
+			f := newFake()
+			f.removeErr = &op.RateLimitExceededError{}
+			_, err := newTestAdapter(t, f).Execute(context.Background(), tool, map[string]any{"vault": vaultID, "item": itemID})
+			var retry *mcp.RetryableError
+			require.ErrorAs(t, err, &retry)
+
+			f.removeErr = errors.New("permission denied")
+			res := run(t, newTestAdapter(t, f), tool, map[string]any{"vault": vaultID, "item": itemID})
+			require.True(t, res.IsError)
+			assert.Contains(t, res.Data, "onepassword: permission denied")
+		})
+	}
 }
