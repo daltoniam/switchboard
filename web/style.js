@@ -23,10 +23,10 @@ const brandedLogos = {
   github: githubLogo,
   gmail: 'gmail', gmeet: 'google-meet', google: 'google',
   gsheets: 'google-sheets', gslides: 'google-slides', kubernetes: 'kubernetes',
-  linear: 'linear', microsoft365: 'microsoft-office', notion: 'notion', notionmcp: 'notion',
+  linear: 'linear', microsoft365: 'microsoft-office', notion: 'notion',
   ollama: ollamaLogo,
   postgres: 'postgresql', posthog: 'posthog', salesforce: 'salesforce', sentry: 'sentry',
-  slack: 'slack', slackmcp: 'slack', stripe: 'stripe', suno: 'suno',
+  slack: 'slack', stripe: 'stripe', suno: 'suno',
   vercel: vercelLogo,
   x: xLogo,
 };
@@ -44,7 +44,7 @@ const pinnedBrandedLogos = {
   wazuh: `${homarrIcons}wazuh.svg`,
   ynab: `${homarrIcons}ynab.svg`,
 };
-const integrationNames = { notionmcp: 'notion-mcp', webfetch: 'web' };
+const integrationNames = { webfetch: 'web' };
 const simpleLogoAliases = {
   airflow: 'apacheairflow', gdocs: 'googledocs', gforms: 'googleforms',
   gtasks: 'googletasks', paperless: 'paperlessngx', likec4excalidraw: 'excalidraw',
