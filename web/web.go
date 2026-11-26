@@ -145,6 +145,7 @@ func (w *WebServer) Handler() http.Handler {
 	mux.HandleFunc("GET /integrations/mobbin/setup", w.handleMobbinSetup)
 	mux.HandleFunc("GET /integrations/higgsfield/setup", w.handleHiggsfieldSetup)
 	mux.HandleFunc("GET /integrations/ashby/setup", w.handleAshbySetup)
+	mux.HandleFunc("POST /integrations/ashby/api-key", w.handleAshbyAPIKeySave)
 
 	mux.HandleFunc("POST /api/remote/{name}/oauth/start", w.handleRemoteMCPOAuthStart)
 	mux.HandleFunc("GET /api/remote/{name}/oauth/callback", w.handleRemoteMCPOAuthCallback)
@@ -1888,13 +1889,15 @@ var remoteOAuthProfiles = map[string]remoteOAuthProfile{
 		Renewable:     true,
 	},
 	// Ashby's MCP endpoint is /mcp/v1 and its OpenID provider issues a
-	// refresh token for offline_access only with prompt=consent.
+	// refresh token for offline_access only with prompt=consent. Signing in
+	// clears a saved API key, which would otherwise select API key mode.
 	"ashby": {
-		CallbackPath:  "/api/remote/ashby/oauth/callback",
-		ResourcePath:  "/mcp/v1",
-		Options:       remotemcp.OAuthOptions{Scope: "openid mcp offline_access", Prompt: "consent"},
-		CredentialKey: "mcp_access_token",
-		Renewable:     true,
+		CallbackPath:       "/api/remote/ashby/oauth/callback",
+		ResourcePath:       "/mcp/v1",
+		Options:            remotemcp.OAuthOptions{Scope: "openid mcp offline_access", Prompt: "consent"},
+		CredentialKey:      "mcp_access_token",
+		ClearCredentialKey: "api_key",
+		Renewable:          true,
 	},
 }
 

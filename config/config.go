@@ -408,6 +408,8 @@ var envMapping = map[string]map[string]string{
 	"ashby": {
 		"mcp_access_token": "ASHBY_MCP_ACCESS_TOKEN",
 		"base_url":         "ASHBY_MCP_BASE_URL",
+		"api_key":          "ASHBY_API_KEY",
+		"api_base_url":     "ASHBY_API_BASE_URL",
 	},
 	"render": {
 		"api_key":      "RENDER_API_KEY",
@@ -560,7 +562,7 @@ func defaultConfig() *mcp.Config {
 			},
 			"ashby": {
 				Enabled:     false,
-				Credentials: mcp.Credentials{"mcp_access_token": "", "base_url": "", mcp.CredKeyTokenSource: ""},
+				Credentials: mcp.Credentials{"mcp_access_token": "", "base_url": "", "api_key": "", "api_base_url": "", mcp.CredKeyTokenSource: ""},
 			},
 			"render": {
 				Enabled:     false,

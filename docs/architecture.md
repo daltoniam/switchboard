@@ -119,8 +119,11 @@ integrations/
   higgsfield/
     higgsfield.go            Higgsfield hosted MCP proxy (curated static allowlist, remotemcp OAuth)
   ashby/
-    ashby.go                 Ashby hosted recruiting MCP proxy (/mcp/v1, OAuth renewal, upstream schema merge)
-    tools.go                 Reviewed Ashby tool allowlist with access classes
+    ashby.go                 Ashby adapter: hosted MCP proxy (/mcp/v1, OAuth renewal, upstream schema merge) or API key mode
+    tools.go                 Reviewed hosted MCP tool allowlist with access classes
+    native.go                API key mode: REST client (Basic auth, envelope errors), declarative endpoint/argument mapping
+    native_*.go              Native tools by domain (jobs, candidates, applications, interviews, hiring, org, offers)
+    compact.yaml             Compaction specs for native read tools (API key mode only)
     tools.go                 Tool definitions and dispatch map (exposed name → upstream tool)
     compact.yaml             Compaction specs for verified response shapes
   notion/

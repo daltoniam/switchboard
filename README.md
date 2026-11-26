@@ -299,7 +299,13 @@ Open `/integrations/higgsfield/setup` in the web UI and select **Sign in with Hi
 
 Connects to Ashby's official hosted MCP server at `https://mcp.ashbyhq.com/mcp/v1` for recruiting and hiring: candidates and applicants, applications, jobs and job openings, interviews, scorecard feedback, pipeline counts, and pending tasks. Switchboard exposes 16 reviewed tools: 12 reads (start with `ashby_search_records_by_name`) and four changes (`ashby_create_candidate`, `ashby_add_note_to_candidate`, `ashby_consider_candidate_for_job`, and the destructive `ashby_change_application_stage`, which can archive applications and cancel upcoming interviews). Other upstream tools, such as `submit_mcp_feedback`, are refused locally. Ashby does not publish input schemas, so parameters appear in search once Switchboard has connected and read the server's tool list.
 
+Ashby has two setup options on one setup page, and only one is active at a time. **Sign in with Ashby** (hosted MCP) is described here. **API key** mode, described below, calls Ashby's REST API instead.
+
 Ashby's hosted server takes no API key: each user signs in with OAuth and sees only what their Ashby account can see. An Ashby Organization Admin must first turn on **MCP Server** under **Admin → Organization Setup → Opt-In Features**, and the signing-in user needs **Elevated Access**. Then open `/integrations/ashby/setup` and select **Sign in with Ashby**. OAuth uses protected resource metadata, dynamic client registration, PKCE, the `openid mcp offline_access` scopes with `prompt=consent`, and resource binding to the `/mcp/v1` endpoint. Sign-in saves the refresh token, so Switchboard renews the login before it expires, under the same cross-process lock as Higgsfield. A token set only through `ASHBY_MCP_ACCESS_TOKEN` is not renewed.
+
+**API key mode** suits headless or shared servers: no MCP Server opt-in or Elevated Access is needed, and tools see whatever the key's permissions allow rather than one user's view. An Ashby admin creates a key under **Admin → API Keys** (`https://app.ashbyhq.com/admin/api/credentials`). For the read-only tools, grant **read** on Candidates, Jobs, Interviews, Hiring Process, Organization, and API Keys (the connection check calls `apiKey.info`), and add read on Offers, Projects, Approvals, Reports, Audit Logs, Notetaker, Sourcing, and Emails for those tools. Grant **write** only on modules whose write tools you want. Confidential jobs and projects and non-offer private fields stay hidden unless the key also has those opt-ins. Paste the key in the **API key** card on `/integrations/ashby/setup`, or set `ASHBY_API_KEY`. Saving a key clears a saved sign-in, signing in clears a saved key, and a key set through `ASHBY_API_KEY` wins over a saved sign-in.
+
+API key mode exposes 124 native tools (80 read, 37 write, 7 destructive) over jobs, job postings, openings, candidates, notes, tags, projects, applications, feedback, interviews and schedules, hiring process settings, custom fields, referrals, surveys, users, departments, locations, approvals, reports, audit logs, sequences, and offers. Start with `ashby_search_candidates`, `ashby_list_jobs`, `ashby_list_applications`, `ashby_list_interview_schedules`, or `ashby_list_offers`. Destructive tools are `ashby_set_job_status`, `ashby_set_opening_archived`, `ashby_change_application_stage`, `ashby_delete_application`, `ashby_update_interview_schedule`, `ashby_cancel_interview_schedule`, and `ashby_archive_candidate_tag`. Lists use `cursor` and `limit` (default 25) and return `nextCursor` and `syncToken`; read responses are compacted to drop phone numbers, social links, files, and custom fields.
 
 ### Environment Variables
 
@@ -350,6 +356,8 @@ Environment variables override credential values but do not change the durable e
 | Mobbin | `base_url` | `MOBBIN_MCP_BASE_URL` (optional, default `https://api.mobbin.com`; a trailing `/mcp` is accepted) |
 | Ashby | `mcp_access_token` | `ASHBY_MCP_ACCESS_TOKEN` |
 | Ashby | `base_url` | `ASHBY_MCP_BASE_URL` (optional, default `https://mcp.ashbyhq.com`; a trailing `/mcp/v1` is accepted) |
+| Ashby | `api_key` | `ASHBY_API_KEY` (selects API key mode; from Ashby Admin → API Keys) |
+| Ashby | `api_base_url` | `ASHBY_API_BASE_URL` (optional, default `https://api.ashbyhq.com`) |
 | [Render](docs/render.md) | `api_key` | `RENDER_API_KEY` (from Render Dashboard → Account Settings → API Keys) |
 | Render | `workspace_id` | `RENDER_WORKSPACE_ID` (optional default workspace, `tea-...` or `usr-...`) |
 | Render | `base_url` | `RENDER_MCP_BASE_URL` (optional, default `https://mcp.render.com`; a trailing `/mcp` is accepted) |
@@ -489,7 +497,7 @@ Some integrations support OAuth flows through the web UI at `http://localhost:38
 | Notion | Hosted MCP OAuth (PKCE) or browser token | Web UI → Notion → Setup → Sign in with Notion, or set `NOTION_MCP_ACCESS_TOKEN` and enable explicitly |
 | Mobbin | Hosted MCP OAuth (PKCE) | Web UI → Mobbin → Setup, or set `MOBBIN_MCP_ACCESS_TOKEN` and enable explicitly |
 | Higgsfield | Hosted MCP OAuth (PKCE) | Web UI → higgsfield → Setup, or set `HIGGSFIELD_MCP_ACCESS_TOKEN` and enable explicitly |
-| Ashby | Hosted MCP OAuth (PKCE) | Web UI → ashby → Setup, or set `ASHBY_MCP_ACCESS_TOKEN` and enable explicitly |
+| Ashby | Hosted MCP OAuth (PKCE) or API key | Web UI → ashby → Setup (Sign in with Ashby, or the API key card), or set `ASHBY_MCP_ACCESS_TOKEN` or `ASHBY_API_KEY` and enable explicitly |
 | Render | API Key (hosted MCP) | Create a key in Render Dashboard → Account Settings → API Keys, then set `RENDER_API_KEY` or enter it in the web UI; enable explicitly |
 | Sentry | OAuth Device Flow | Web UI → Sentry → Setup, or set `SENTRY_AUTH_TOKEN` |
 | Slack | Session Token | Web UI → Slack → Setup (auto-extracts from Chrome), or set `SLACK_TOKEN` |

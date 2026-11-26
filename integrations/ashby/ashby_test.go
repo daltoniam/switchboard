@@ -155,10 +155,10 @@ func TestCredentialKeys(t *testing.T) {
 	integration := New()
 	plain, ok := integration.(mcp.PlainTextCredentials)
 	require.True(t, ok)
-	assert.Equal(t, []string{"base_url"}, plain.PlainTextKeys())
+	assert.Equal(t, []string{"base_url", "api_base_url"}, plain.PlainTextKeys())
 	optional, ok := integration.(mcp.OptionalCredentials)
 	require.True(t, ok)
-	assert.Equal(t, []string{"base_url"}, optional.OptionalKeys())
+	assert.Equal(t, []string{"base_url", "api_base_url"}, optional.OptionalKeys())
 }
 
 func TestConfigure(t *testing.T) {
@@ -168,8 +168,8 @@ func TestConfigure(t *testing.T) {
 		wantErr string
 		wantURL string
 	}{
-		{name: "missing token", creds: mcp.Credentials{}, wantErr: "mcp_access_token is required"},
-		{name: "blank token", creds: mcp.Credentials{"mcp_access_token": "  "}, wantErr: "mcp_access_token is required"},
+		{name: "missing token", creds: mcp.Credentials{}, wantErr: "api_key (API key) or mcp_access_token (sign in with Ashby) is required"},
+		{name: "blank token", creds: mcp.Credentials{"mcp_access_token": "  "}, wantErr: "api_key (API key) or mcp_access_token (sign in with Ashby) is required"},
 		{name: "bad scheme", creds: mcp.Credentials{"mcp_access_token": "t", "base_url": "ftp://mcp.ashbyhq.com"}, wantErr: "invalid base_url"},
 		{name: "no host", creds: mcp.Credentials{"mcp_access_token": "t", "base_url": "https://"}, wantErr: "invalid base_url"},
 		{name: "default url", creds: mcp.Credentials{"mcp_access_token": "t"}, wantURL: defaultBaseURL},
