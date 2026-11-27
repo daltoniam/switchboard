@@ -48,6 +48,14 @@ func newV1Backend(accessToken string) *notionV1 {
 	}
 }
 
+// closeIdleConnections releases the backend's pooled connections. Safe on a
+// nil backend.
+func (n *notionV1) closeIdleConnections() {
+	if n != nil && n.client != nil {
+		n.client.CloseIdleConnections()
+	}
+}
+
 // configure runs any one-time setup against the API. For v1 there is no
 // space-resolution step (every request is scoped by the OAuth token), so
 // configure just confirms the token works by hitting /users/me.
