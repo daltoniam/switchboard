@@ -139,9 +139,14 @@ func (n *notion) PlainTextKeys() []string { return []string{"mcp_base_url"} }
 
 func (n *notion) OptionalKeys() []string { return []string{"mcp_base_url"} }
 
-// Close ends the hosted MCP session, if one is open. It is safe to call more
-// than once; a later Configure starts a new session.
+// Close ends the hosted MCP session, if one is open, and closes the idle
+// connections of the cookie and OAuth clients, whose transports have no idle
+// timeout, so a host that builds one instance per request leaves nothing
+// open behind it. It is safe to call more than once; a later Configure
+// starts a new session and the clients reconnect on their next request.
 func (n *notion) Close() error {
+	n.client.CloseIdleConnections()
+	n.v1.closeIdleConnections()
 	return n.hosted.close()
 }
 
@@ -162,8 +167,10 @@ func (n *notion) Configure(ctx context.Context, creds mcp.Credentials) error {
 			v1.apiVersion = v
 		}
 		if err := v1.configure(ctx); err != nil {
+			v1.closeIdleConnections()
 			return err
 		}
+		n.v1.closeIdleConnections()
 		n.v1 = v1
 		return nil
 	}
