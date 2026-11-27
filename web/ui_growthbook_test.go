@@ -123,7 +123,7 @@ func TestUIGrowthBook(t *testing.T) {
 	}
 	uiText(t, form.Locator(`label[for="cred_base_url"]`), "optional")
 	uiText(t, form.Locator(`label[for="cred_ca_cert"]`), "optional")
-	uiText(t, page.Locator("body"), "Available Tools (28)")
+	uiText(t, page.Locator("body"), "Available Tools (37)")
 
 	require.NoError(t, form.Locator("#cred_base_url").Fill(provider.URL+"/gb"))
 	require.NoError(t, form.Locator("#cred_ca_cert").Fill(strings.ReplaceAll(string(cert), "\n", `\n`)))

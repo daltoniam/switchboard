@@ -202,6 +202,15 @@ func TestTools_AccessClassification(t *testing.T) {
 		"growthbook_toggle_feature":             true,
 		"growthbook_create_feature":             true,
 		"growthbook_refresh_experiment_results": true,
+		"growthbook_add_feature_rule":           true,
+		"growthbook_update_feature_rule":        true,
+		"growthbook_delete_feature_rule":        true,
+		"growthbook_publish_feature_revision":   true,
+		"growthbook_discard_feature_revision":   true,
+		"growthbook_create_experiment":          true,
+		"growthbook_update_experiment":          true,
+		"growthbook_start_experiment":           true,
+		"growthbook_stop_experiment":            true,
 	}
 	for _, tool := range New().Tools() {
 		if writes[tool.Name] {
