@@ -49,14 +49,20 @@ func TestClose_ReleasesV1Connections(t *testing.T) {
 	require.NoError(t, n.Close(), "Close is safe to call twice")
 }
 
-// Reconfiguring replaces the v1 backend; the old one's connections go too.
+// Reconfiguring replaces the v1 backend; the old one's connections go too,
+// and the new one's stay open. Each backend talks to its own server so the
+// closed connections can be told apart.
 func TestConfigure_ReleasesReplacedV1Connections(t *testing.T) {
-	ts, opened, closed := idleTrackingServer(t)
+	oldServer, oldOpened, oldClosed := idleTrackingServer(t)
+	newServer, newOpened, newClosed := idleTrackingServer(t)
 	n := New().(*notion)
 	t.Cleanup(func() { _ = n.Close() })
-	require.NoError(t, n.Configure(context.Background(), mcp.Credentials{"access_token": "old", "base_url": ts.URL}))
-	first := opened.Load()
-	require.NoError(t, n.Configure(context.Background(), mcp.Credentials{"access_token": "new", "base_url": ts.URL}))
-	require.Eventually(t, func() bool { return closed.Load() >= first }, 2*time.Second, 10*time.Millisecond,
+	require.NoError(t, n.Configure(context.Background(), mcp.Credentials{"access_token": "old", "base_url": oldServer.URL}))
+	require.Positive(t, oldOpened.Load())
+	require.NoError(t, n.Configure(context.Background(), mcp.Credentials{"access_token": "new", "base_url": newServer.URL}))
+	require.Eventually(t, func() bool { return oldClosed.Load() == oldOpened.Load() }, 2*time.Second, 10*time.Millisecond,
 		"the replaced backend's idle connections must be closed")
+	require.Positive(t, newOpened.Load())
+	require.Never(t, func() bool { return newClosed.Load() > 0 }, 200*time.Millisecond, 10*time.Millisecond,
+		"the new backend's connections must stay open")
 }
