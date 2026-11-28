@@ -10,6 +10,7 @@ import templruntime "github.com/a-h/templ/runtime"
 
 import (
 	"fmt"
+	"net/url"
 
 	"github.com/daltoniam/switchboard/web/templates/components"
 	"github.com/daltoniam/switchboard/web/templates/layouts"
@@ -22,18 +23,47 @@ type OnePasswordSetupData struct {
 	ServiceAccountToken string
 	DesktopAvailable    bool
 	SignInError         string
-	Tools               []ToolInfo
+	Identities          []OnePasswordIdentity
+	// DesktopIdentity is the identity that signs in through the desktop app,
+	// "default" for the account above, or "" when none does.
+	DesktopIdentity string
+	Tools           []ToolInfo
+}
+
+// OnePasswordIdentity is one named identity. Tokens are never passed to the
+// page; Account is the desktop app account name, empty for service accounts.
+type OnePasswordIdentity struct {
+	ID      string
+	Label   string
+	Account string
 }
 
 func (d OnePasswordSetupData) configured() bool {
-	return d.AccountName != "" || d.ServiceAccountToken != ""
+	return d.AccountName != "" || d.ServiceAccountToken != "" || len(d.Identities) > 0
 }
 
 func (d OnePasswordSetupData) methodLabel() string {
-	if d.AccountName != "" {
+	switch {
+	case d.AccountName != "":
 		return "Signing in through the 1Password desktop app as " + d.AccountName + "."
+	case d.ServiceAccountToken != "":
+		return "Signing in with a service account token."
 	}
-	return "Signing in with a service account token."
+	return "No account is set above, so the " + d.Identities[0].ID + " identity is the default."
+}
+
+func (i OnePasswordIdentity) title() string {
+	if i.Label != "" {
+		return i.Label
+	}
+	return i.ID
+}
+
+func (i OnePasswordIdentity) method() string {
+	if i.Account != "" {
+		return "Desktop app as " + i.Account
+	}
+	return "Service account token"
 }
 
 func OnePasswordSetup(page layouts.PageData, data OnePasswordSetupData) templ.Component {
@@ -112,7 +142,7 @@ func OnePasswordSetup(page layouts.PageData, data OnePasswordSetupData) templ.Co
 				var templ_7745c5c3_Var3 string
 				templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(data.methodLabel())
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/onepassword_setup.templ`, Line: 53, Col: 71}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/onepassword_setup.templ`, Line: 83, Col: 71}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 				if templ_7745c5c3_Err != nil {
@@ -130,7 +160,7 @@ func OnePasswordSetup(page layouts.PageData, data OnePasswordSetupData) templ.Co
 					var templ_7745c5c3_Var4 string
 					templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(data.SignInError)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/onepassword_setup.templ`, Line: 55, Col: 132}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/onepassword_setup.templ`, Line: 85, Col: 132}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 					if templ_7745c5c3_Err != nil {
@@ -168,25 +198,161 @@ func OnePasswordSetup(page layouts.PageData, data OnePasswordSetupData) templ.Co
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "</div><div class=\"identity-form-actions\" style=\"margin-bottom: 1.5rem;\"><button type=\"submit\" class=\"btn\">Save Configuration</button></div></form>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "</div><div class=\"identity-form-actions\" style=\"margin-bottom: 1.5rem;\"><button type=\"submit\" class=\"btn\">Save Configuration</button></div></form><div class=\"card\" id=\"onepassword-identities\"><div class=\"card-header identity-editor-header\"><div class=\"card-title\">Additional 1Password Accounts</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			if len(data.Tools) > 0 {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "<div class=\"card\"><div class=\"card-title\" style=\"margin-bottom: 0.5rem;\">Available Tools (")
+			templ_7745c5c3_Err = components.Badge(fmt.Sprintf("%d configured", len(data.Identities)), "muted").Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "</div><p class=\"slack-desc\" style=\"margin-bottom: 0.5rem;\">Add more 1Password accounts as named identities, each with a desktop app account name or a service account token. The account above is the <code>default</code> identity. Tools take an optional <code>identity_id</code> argument to use another one, and <code>onepassword_list_identities</code> lists them.</p><p id=\"onepassword-desktop-limit\" class=\"slack-desc\">Only one identity can sign in through the 1Password desktop app, because the 1Password SDK keeps using the first desktop app account it signs in to until Switchboard restarts. Add other accounts with a service account token. ")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			if data.DesktopIdentity != "" {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "The <code>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var5 string
-				templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprint(len(data.Tools)))
+				templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(data.DesktopIdentity)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/onepassword_setup.templ`, Line: 137, Col: 105}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/onepassword_setup.templ`, Line: 176, Col: 37}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, ")</div><div class=\"tools-hint\">Operations this integration exposes through the MCP server.</div><div class=\"tools-rows\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "</code> identity uses the desktop app.")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "</p>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			if len(data.Identities) > 0 {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "<div class=\"identity-list\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				for _, identity := range data.Identities {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "<div class=\"identity-item\" data-onepassword-identity=\"")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var6 string
+					templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(identity.ID)
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/onepassword_setup.templ`, Line: 182, Col: 72}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "\"><div class=\"identity-item-heading\" style=\"margin-bottom: 0;\"><div><div class=\"identity-name\">")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var7 string
+					templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(identity.title())
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/onepassword_setup.templ`, Line: 185, Col: 54}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "</div><code class=\"identity-id\">")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var8 string
+					templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(identity.ID)
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/onepassword_setup.templ`, Line: 186, Col: 48}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "</code><div class=\"onepassword-identity-method identity-hint\">")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var9 string
+					templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(identity.method())
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/onepassword_setup.templ`, Line: 187, Col: 83}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "</div></div><form method=\"POST\" action=\"")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var10 templ.SafeURL
+					templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/integrations/onepassword/identities/" + url.PathEscape(identity.ID) + "/delete"))
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/onepassword_setup.templ`, Line: 189, Col: 133}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "\" onsubmit=\"return confirm('Remove this 1Password identity?');\"><button type=\"submit\" class=\"btn btn-sm btn-outline identity-delete\">Remove</button></form></div></div>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "</div>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "<form id=\"onepassword-identity-add\" method=\"POST\" action=\"/integrations/onepassword/identities\" style=\"margin-top: 1rem;\"><div class=\"identity-fields\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = components.FormGroup("Identity ID", "identity_id", "text", "", "work").Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = components.FormGroup("Label (optional)", "identity_meta_label", "text", "", "Work vaults").Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = components.FormGroup("Account name", "identity_cred_account_name", "text", "", "Desktop app account; leave empty for a service account").Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = components.FormGroup("Service account token", "identity_cred_service_account_token", "password", "", "ops_...; leave empty for a desktop app account").Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "</div><p class=\"identity-hint\" style=\"margin-bottom: 0.75rem;\">Fill in the account name or the token, not both. Saving an existing ID updates it; a blank token keeps the saved one.</p><div class=\"identity-form-actions\"><button type=\"submit\" class=\"btn\">Save identity</button></div></form></div>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			if len(data.Tools) > 0 {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "<div class=\"card\"><div class=\"card-title\" style=\"margin-bottom: 0.5rem;\">Available Tools (")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var11 string
+				templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprint(len(data.Tools)))
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/onepassword_setup.templ`, Line: 212, Col: 105}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, ")</div><div class=\"tools-hint\">Operations this integration exposes through the MCP server.</div><div class=\"tools-rows\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -196,7 +362,7 @@ func OnePasswordSetup(page layouts.PageData, data OnePasswordSetupData) templ.Co
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "</div></div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "</div></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
