@@ -18,7 +18,7 @@ concurrency:
 jobs:
   release:
     runs-on: ubuntu-latest
-    timeout-minutes: 50
+    timeout-minutes: 65
     steps:
       - uses: actions/checkout@v4
         with:
@@ -37,9 +37,14 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: goreleaser/goreleaser-action@v6
-        with:
-          version: "~> v2"
-          args: release --clean --timeout 40m --parallelism 2
+      # goreleaser runs inside goreleaser-cross so the macOS binaries can be
+      # built with cgo against a real macOS SDK (1Password desktop sign-in).
+      # It reuses this runner's Docker daemon, ghcr.io login and buildx
+      # builder. release-dry-run.yml runs the same command on pull requests.
+      - name: Run goreleaser
+        run: |
+          GORELEASER_DOCKER_CONFIG="$HOME/.docker" \
+            bash scripts/goreleaser-cross.sh release --clean --timeout 50m --parallelism 2
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          GORELEASER_GO_CACHE: "1"

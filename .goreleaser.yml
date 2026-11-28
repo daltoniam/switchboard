@@ -7,22 +7,56 @@ before:
     - go mod tidy
 
 builds:
-  - main: ./cmd/server
+  # Linux and Windows stay pure Go (CGO_ENABLED=0): the binaries are static,
+  # so the FROM scratch Docker image and the apk/deb/rpm packages run anywhere.
+  - id: switchboard
+    main: ./cmd/server
     binary: switchboard
     env:
       - CGO_ENABLED=0
     goos:
       - linux
-      - darwin
       - windows
     goarch:
       - amd64
       - arm64
-    ldflags:
+    ldflags: &ldflags
       - -s -w
       - -X github.com/daltoniam/switchboard/version.Version={{.Version}}
       - -X github.com/daltoniam/switchboard/version.Commit={{.ShortCommit}}
       - -X github.com/daltoniam/switchboard/version.Date={{.Date}}
+
+  # macOS builds use cgo so 1Password desktop app sign-in works: the 1Password
+  # SDK loads the app's library with dlopen, which needs cgo on macOS. The
+  # release runs inside ghcr.io/goreleaser/goreleaser-cross, whose osxcross
+  # clang wrappers link against a real macOS SDK. TestGoreleaserCgoTargets
+  # keeps this split in place.
+  - id: switchboard-darwin
+    main: ./cmd/server
+    binary: switchboard
+    env:
+      - CGO_ENABLED=1
+      # Same minimum macOS version as the earlier pure Go builds.
+      - MACOSX_DEPLOYMENT_TARGET=13.0
+    goos:
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    overrides:
+      - goos: darwin
+        goarch: amd64
+        goamd64: v1
+        env:
+          - CC=o64-clang
+          - CXX=o64-clang++
+      - goos: darwin
+        goarch: arm64
+        goarm64: v8.0
+        env:
+          - CC=oa64-clang
+          - CXX=oa64-clang++
+    ldflags: *ldflags
 
 archives:
   - formats:

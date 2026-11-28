@@ -51,6 +51,15 @@ func TestOnePasswordSetup_States(t *testing.T) {
 	}
 }
 
+// Prebuilt macOS downloads are built with cgo and support the desktop app;
+// only the static Linux downloads and Docker images lack it.
+func TestOnePasswordSetup_UnavailableNoteNamesLinuxBuilds(t *testing.T) {
+	note := strings.Join(strings.Fields(renderOnePasswordSetup(t, OnePasswordSetupData{}).Find("#onepassword-desktop-unavailable").Text()), " ")
+	assert.Contains(t, note, "prebuilt Linux downloads and Docker images")
+	assert.Contains(t, note, "Prebuilt macOS and Windows downloads support the desktop app")
+	assert.NotContains(t, note, "macOS and Linux downloads are")
+}
+
 func TestOnePasswordSetup_FormPostsBothCredentials(t *testing.T) {
 	doc := renderOnePasswordSetup(t, OnePasswordSetupData{AccountName: "My Team", DesktopAvailable: true, Tools: []ToolInfo{{Name: "onepassword_list_vaults"}}})
 	form := doc.Find("form#integration-configuration")

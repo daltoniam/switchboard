@@ -147,7 +147,7 @@ func OnePasswordSetup(page layouts.PageData, data OnePasswordSetupData) templ.Co
 				return templ_7745c5c3_Err
 			}
 			if !data.DesktopAvailable {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "<div id=\"onepassword-desktop-unavailable\" class=\"flash flash-error\" role=\"note\">This Switchboard build cannot use the 1Password desktop app because it was built without CGO, as prebuilt macOS and Linux downloads are. Build it on this computer with <code>go install</code> or <code>make build</code>, or use a service account.</div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "<div id=\"onepassword-desktop-unavailable\" class=\"flash flash-error\" role=\"note\">This Switchboard build cannot use the 1Password desktop app because it was built without CGO, as the prebuilt Linux downloads and Docker images are. Build it on this computer with <code>go install</code> or <code>make build</code>, or use a service account. Prebuilt macOS and Windows downloads support the desktop app.</div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
