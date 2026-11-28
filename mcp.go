@@ -552,6 +552,13 @@ type PlaceholderHints interface {
 	Placeholders() map[string]string
 }
 
+// SetupGuide is an optional interface for integrations whose credentials are
+// created in the provider's own settings. The web UI shows the steps, in
+// order, above the credential form.
+type SetupGuide interface {
+	SetupSteps() []string
+}
+
 // OptionalCredentials is an optional interface that integrations can implement
 // to declare which credential keys are not required, so the web UI can label them.
 type OptionalCredentials interface {

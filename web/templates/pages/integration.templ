@@ -41,6 +41,7 @@ type IntegrationDetailData struct {
 	Credentials            []CredentialField
 	PlainTextKeys          map[string]bool
 	Placeholders           map[string]string
+	SetupSteps             []string
 	OptionalKeys           map[string]bool
 	ConnectOAuth           bool
 	SupportsIdentities     bool
@@ -138,6 +139,16 @@ templ IntegrationDetail(page layouts.PageData, data IntegrationDetailData) {
 					}
 				}
 			</script>
+		}
+		if len(data.SetupSteps) > 0 {
+			<div class="card" id="integration-setup-steps">
+				<div class="card-title" style="margin-bottom: 0.75rem;">Setup</div>
+				<ol style="margin: 0; padding-left: 1.25rem; overflow-wrap: anywhere;">
+					for _, step := range data.SetupSteps {
+						<li style="margin-bottom: 0.5rem;">{ step }</li>
+					}
+				</ol>
+			</div>
 		}
 		<form id="integration-configuration" method="POST" action={ templ.SafeURL("/integrations/" + data.Name) }>
 			<div class="card">

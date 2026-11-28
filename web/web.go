@@ -527,6 +527,11 @@ func (w *WebServer) handleIntegrationDetail(rw http.ResponseWriter, r *http.Requ
 		placeholders = ph.Placeholders()
 	}
 
+	var setupSteps []string
+	if guide, ok := integration.(mcp.SetupGuide); ok {
+		setupSteps = guide.SetupSteps()
+	}
+
 	optionalKeys := map[string]bool{}
 	if oc, ok := integration.(mcp.OptionalCredentials); ok {
 		for _, k := range oc.OptionalKeys() {
@@ -579,6 +584,7 @@ func (w *WebServer) handleIntegrationDetail(rw http.ResponseWriter, r *http.Requ
 		Credentials:            pages.SortedCredentials(creds),
 		PlainTextKeys:          plainTextKeys,
 		Placeholders:           placeholders,
+		SetupSteps:             setupSteps,
 		OptionalKeys:           optionalKeys,
 		SupportsIdentities:     supportsIdentities,
 		ConnectOAuth:           connectOAuth,
