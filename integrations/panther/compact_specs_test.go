@@ -139,41 +139,39 @@ func TestFieldCompactionSpecs_MatchHandlerOutputs(t *testing.T) {
 	}
 }
 
+// fieldPresent reports whether a spec's path names a key that exists in raw,
+// whatever its value; inside arrays one element having it is enough.
 func fieldPresent(raw any, field mcp.CompactField) bool {
 	source, _, _ := strings.Cut(field.Spec(), ":")
-	if !strings.ContainsAny(source, ".[*") {
-		object, ok := raw.(map[string]any)
-		if !ok {
-			return false
-		}
-		_, found := object[source]
-		return found
-	}
-	return !emptyValue(mcp.CompactAny(raw, []mcp.CompactField{field}))
+	return pathExists(raw, strings.Split(source, "."))
 }
 
-// emptyValue reports whether compaction kept no values, only empty
-// containers.
-func emptyValue(value any) bool {
-	switch typed := value.(type) {
-	case nil:
-		return true
-	case map[string]any:
-		for _, item := range typed {
-			if !emptyValue(item) {
-				return false
-			}
-		}
-		return true
-	case []any:
-		for _, item := range typed {
-			if !emptyValue(item) {
-				return false
-			}
-		}
+func pathExists(value any, path []string) bool {
+	if len(path) == 0 {
 		return true
 	}
-	return false
+	key, isArray := strings.CutSuffix(path[0], "[]")
+	object, ok := value.(map[string]any)
+	if !ok {
+		return false
+	}
+	child, found := object[key]
+	if !found {
+		return false
+	}
+	if !isArray {
+		return pathExists(child, path[1:])
+	}
+	items, ok := child.([]any)
+	if !ok {
+		return false
+	}
+	for _, item := range items {
+		if pathExists(item, path[1:]) {
+			return true
+		}
+	}
+	return len(path) == 1
 }
 
 func TestCompaction_Shape(t *testing.T) {

@@ -426,29 +426,43 @@ func TestClose_IsIdempotentAndEndsSession(t *testing.T) {
 	assert.True(t, result.IsError)
 }
 
+// blockingLister is a Remote MCP client whose ListTools ignores
+// cancellation and returns only when release is closed, so a test controls
+// exactly when a background fetch finishes.
+type blockingLister struct {
+	mcp.Integration
+	started chan struct{}
+	release chan struct{}
+}
+
+func (b *blockingLister) Configure(context.Context, mcp.Credentials) error { return nil }
+
+func (b *blockingLister) ListTools(context.Context) ([]mcp.ToolDefinition, error) {
+	close(b.started)
+	<-b.release
+	return nil, assert.AnError
+}
+
 func TestClose_WaitsForBackgroundFetch(t *testing.T) {
-	f := newRemoteFixture(t)
-	gate := make(chan struct{})
-	f.mu.Lock()
-	f.listGate = gate
-	f.mu.Unlock()
-	t.Cleanup(func() { close(gate) })
-	p := signedIn(t, f)
-	fetched := p.hosted.startFetch()
-	require.NotNil(t, fetched)
-	require.Eventually(t, func() bool { _, lists := f.snapshot(); return lists > 0 }, 5*time.Second, 10*time.Millisecond)
+	lister := &blockingLister{started: make(chan struct{}), release: make(chan struct{})}
+	p := New().(*panther)
+	p.newRemote = func(string) mcp.Integration { return lister }
+	require.NoError(t, p.Configure(context.Background(), mcp.Credentials{"instance_url": "https://acme.runpanther.net", "mcp_access_token": "t"}))
+	require.NotNil(t, p.hosted.startFetch())
+	<-lister.started
 
 	closed := make(chan error, 1)
 	go func() { closed <- p.Close() }()
 	select {
 	case <-closed:
-	case <-time.After(10 * time.Second):
-		t.Fatal("Close did not cancel the background tool fetch")
+		t.Fatal("Close returned while its background fetch was still running")
+	case <-time.After(200 * time.Millisecond):
 	}
+	close(lister.release)
 	select {
-	case <-fetched:
-	default:
-		t.Fatal("Close returned before the background fetch it cancelled had finished")
+	case <-closed:
+	case <-time.After(10 * time.Second):
+		t.Fatal("Close did not return after the fetch finished")
 	}
 }
 
