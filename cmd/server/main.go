@@ -88,6 +88,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/onepassword"
 	"github.com/daltoniam/switchboard/integrations/openbao"
 	"github.com/daltoniam/switchboard/integrations/pagerduty"
+	"github.com/daltoniam/switchboard/integrations/panther"
 	"github.com/daltoniam/switchboard/integrations/paperless"
 	"github.com/daltoniam/switchboard/integrations/pganalyze"
 	"github.com/daltoniam/switchboard/integrations/postgres"
@@ -326,6 +327,7 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 	microsoft365Integration := microsoft365.New()
 	higgsfieldIntegration := higgsfield.New()
 	ashbyIntegration := ashby.New()
+	pantherIntegration := panther.New()
 	amazonIntegration := amazon.New()
 
 	// One process-wide filesystem catalog. ProjectInterop and the
@@ -353,6 +355,7 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 		mobbin.New(),
 		higgsfieldIntegration,
 		ashbyIntegration,
+		pantherIntegration,
 		render.New(),
 		metabase.New(),
 		paperless.New(),
@@ -522,6 +525,7 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 	microsoft365.SetConfigService(microsoft365Integration, cfgMgr)
 	higgsfield.SetConfigService(higgsfieldIntegration, cfgMgr)
 	ashby.SetConfigService(ashbyIntegration, cfgMgr)
+	panther.SetConfigService(pantherIntegration, cfgMgr)
 	amazon.SetBrowserService(amazonIntegration, browserSvc)
 
 	var serverOpts []server.Option
@@ -558,6 +562,7 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 		log.Printf("Project Catalog on /mcp (writes_enabled=%v)", catalogWrites)
 	}
 	srv := server.New(services, serverOpts...)
+	panther.SetToolsChangedHook(pantherIntegration, srv.RefreshSearchIndex)
 
 	if stdioMode {
 		if err := srv.RunStdio(ctx); err != nil {

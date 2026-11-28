@@ -48,6 +48,11 @@ type OAuthOptions struct {
 	// providers grant offline_access (a refresh token) only with
 	// prompt=consent.
 	Prompt string
+	// AdvertisedScope requests the scopes the server advertises instead of
+	// Scope: protected resource metadata first, then authorization server
+	// metadata, and no scope parameter when neither lists any, as the MCP
+	// authorization spec recommends for servers with undocumented scopes.
+	AdvertisedScope bool
 }
 
 type oauthServerMeta struct {
@@ -56,6 +61,20 @@ type oauthServerMeta struct {
 	TokenEndpoint         string   `json:"token_endpoint"`
 	RegistrationEndpoint  string   `json:"registration_endpoint"`
 	CodeChallengeMethods  []string `json:"code_challenge_methods_supported"`
+	ScopesSupported       []string `json:"scopes_supported"`
+	// resourceScopes are the scopes_supported of the protected resource
+	// metadata that named this server, if any.
+	resourceScopes []string
+}
+
+// advertisedScope is the space-separated scope to request when a caller
+// defers to the server: the protected resource's scopes, else the
+// authorization server's, else "".
+func (m *oauthServerMeta) advertisedScope() string {
+	if len(m.resourceScopes) > 0 {
+		return strings.Join(m.resourceScopes, " ")
+	}
+	return strings.Join(m.ScopesSupported, " ")
 }
 
 var activeRemoteOAuth struct {
@@ -101,12 +120,19 @@ func discoverOAuth(serverURL string, expectedResource ...string) (*oauthServerMe
 	if len(expectedResource) > 0 {
 		expected = expectedResource[0]
 	}
+	var resourceScopes []string
 	if resource, ok := fetch.protectedResource(serverURL, expected); ok {
+		resourceScopes = resource.ScopesSupported
 		if resource.Resource != "" && resource.Resource != serverURL+"/mcp" && resource.Resource != serverURL && (expected == "" || resource.Resource != expected) {
 			return nil, fmt.Errorf("protected resource metadata is for %q, not %q", resource.Resource, serverURL+"/mcp")
 		}
 		if len(resource.AuthorizationServers) > 0 {
-			return fetch.authorizationServer(resource.AuthorizationServers[0])
+			meta, err := fetch.authorizationServer(resource.AuthorizationServers[0])
+			if err != nil {
+				return nil, err
+			}
+			meta.resourceScopes = resource.ScopesSupported
+			return meta, nil
 		}
 	}
 
@@ -117,6 +143,7 @@ func discoverOAuth(serverURL string, expectedResource ...string) (*oauthServerMe
 	if !origin.hasEndpoints() {
 		return nil, errMissingEndpoints
 	}
+	origin.resourceScopes = resourceScopes
 	return &origin, nil
 }
 
@@ -145,6 +172,7 @@ func (f discoveryFetcher) authorizationServer(issuer string) (*oauthServerMeta, 
 type protectedResourceMeta struct {
 	Resource             string   `json:"resource"`
 	AuthorizationServers []string `json:"authorization_servers"`
+	ScopesSupported      []string `json:"scopes_supported"`
 }
 
 // protectedResource reads RFC 9728 metadata for the expected resource's path
@@ -375,6 +403,9 @@ func StartOAuth(name, serverURL, redirectURI string, options ...OAuthOptions) (s
 		}
 		config.Resource = resource
 		config.Prompt = strings.TrimSpace(options[0].Prompt)
+		if options[0].AdvertisedScope {
+			config.Scope = meta.advertisedScope()
+		}
 	}
 	clientID, clientSecret, err := registerClient(meta.RegistrationEndpoint, redirectURI, config.ClientName)
 	if err != nil {
@@ -389,10 +420,12 @@ func StartOAuth(name, serverURL, redirectURI string, options ...OAuthOptions) (s
 		"client_id":             {clientID},
 		"redirect_uri":          {redirectURI},
 		"response_type":         {"code"},
-		"scope":                 {config.Scope},
 		"state":                 {state},
 		"code_challenge":        {challenge},
 		"code_challenge_method": {"S256"},
+	}
+	if config.Scope != "" {
+		params.Set("scope", config.Scope)
 	}
 	if config.Resource != "" {
 		params.Set("resource", config.Resource)
