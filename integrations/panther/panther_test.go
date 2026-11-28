@@ -304,6 +304,8 @@ func TestSignIn_ToolsWaitIsBounded(t *testing.T) {
 	f.listGate = gate
 	f.mu.Unlock()
 	p := signedIn(t, f)
+	reindexed := make(chan struct{}, 1)
+	SetToolsChangedHook(p, func() { reindexed <- struct{}{} })
 
 	done := make(chan []mcp.ToolDefinition, 1)
 	go func() { done <- p.Tools() }()
@@ -317,7 +319,30 @@ func TestSignIn_ToolsWaitIsBounded(t *testing.T) {
 	f.listGate = nil
 	f.mu.Unlock()
 	close(gate)
-	require.Eventually(t, func() bool { return len(p.Tools()) == 4 }, 10*time.Second, 20*time.Millisecond)
+	select {
+	case <-reindexed:
+	case <-time.After(10 * time.Second):
+		t.Fatal("a list that arrived after Tools returned without it must ask search to reindex")
+	}
+	assert.Len(t, p.Tools(), 4)
+	select {
+	case <-reindexed:
+		t.Fatal("reindexing is requested once, not on every later call")
+	default:
+	}
+}
+
+func TestSignIn_ListOnTimeDoesNotReindex(t *testing.T) {
+	f := newRemoteFixture(t)
+	p := signedIn(t, f)
+	calls := make(chan struct{}, 1)
+	SetToolsChangedHook(p, func() { calls <- struct{}{} })
+	require.Len(t, p.Tools(), 4)
+	select {
+	case <-calls:
+		t.Fatal("Tools already returned the list, so no reindex is needed")
+	case <-time.After(100 * time.Millisecond):
+	}
 }
 
 func TestSignIn_CompactionNeverApplies(t *testing.T) {
@@ -404,8 +429,10 @@ func TestClose_WaitsForBackgroundFetch(t *testing.T) {
 	f.mu.Lock()
 	f.listGate = gate
 	f.mu.Unlock()
+	t.Cleanup(func() { close(gate) })
 	p := signedIn(t, f)
-	p.hosted.startFetch()
+	fetched := p.hosted.startFetch()
+	require.NotNil(t, fetched)
 	require.Eventually(t, func() bool { _, lists := f.snapshot(); return lists > 0 }, 5*time.Second, 10*time.Millisecond)
 
 	closed := make(chan error, 1)
@@ -413,10 +440,13 @@ func TestClose_WaitsForBackgroundFetch(t *testing.T) {
 	select {
 	case <-closed:
 	case <-time.After(10 * time.Second):
-		close(gate)
 		t.Fatal("Close did not cancel the background tool fetch")
 	}
-	close(gate)
+	select {
+	case <-fetched:
+	default:
+		t.Fatal("Close returned before the background fetch it cancelled had finished")
+	}
 }
 
 // sharedStore is a config service that only supports shared updates, which

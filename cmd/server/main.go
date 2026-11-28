@@ -666,6 +666,7 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 		}
 		srv.RefreshSearchIndex()
 	}
+	panther.SetToolsChangedHook(pantherIntegration, srv.RefreshSearchIndex)
 	ws := web.New(services, port, mp, wasmLoader,
 		web.WithConfigChangeHook(onConfigChange),
 		web.WithProjectCatalog(projectStore),

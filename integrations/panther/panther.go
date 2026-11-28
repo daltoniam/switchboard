@@ -80,6 +80,31 @@ type panther struct {
 	configGen uint64
 	// newRemote builds the Remote MCP client; tests replace it.
 	newRemote func(origin string) mcp.Integration
+	// toolsChanged is told when a tool list arrives after Tools already
+	// returned without it, so search can reindex.
+	toolsChanged func()
+}
+
+// SetToolsChangedHook registers fn to run when a signed-in tool list
+// arrives after Tools returned without it (the first fetch outlasted
+// firstListWait or failed and later succeeded). Search indexes tools only
+// when the configuration changes, so without it a slow first listing would
+// leave Panther unsearchable until the next change.
+func SetToolsChangedHook(i mcp.Integration, fn func()) {
+	if p, ok := i.(*panther); ok {
+		p.mu.Lock()
+		p.toolsChanged = fn
+		p.mu.Unlock()
+	}
+}
+
+func (p *panther) notifyToolsChanged() {
+	p.mu.RLock()
+	fn := p.toolsChanged
+	p.mu.RUnlock()
+	if fn != nil {
+		fn()
+	}
 }
 
 // SetConfigService lets the integration renew its OAuth login before the
@@ -156,7 +181,7 @@ func (p *panther) configureHostedLocked(ctx context.Context, creds mcp.Credentia
 		return nil, fmt.Errorf("panther: configure Remote MCP: %w", errors.Join(err, closeRemote(remote)))
 	}
 	previous := p.hosted
-	p.hosted = newHostedSession(remote, origin)
+	p.hosted = newHostedSession(remote, origin, p.notifyToolsChanged)
 	p.creds = maps.Clone(creds)
 	return previous, nil
 }
@@ -248,7 +273,10 @@ func (p *panther) Tools() []mcp.ToolDefinition {
 			return cloneTools(nativeTools)
 		}
 		_ = hosted.awaitTools(ctx)
-		tools, _ = hosted.cachedTools()
+		tools, known = hosted.cachedTools()
+		if !known {
+			hosted.markServedWithout()
+		}
 	}
 	return decorateHosted(tools)
 }
@@ -344,13 +372,23 @@ type hostedSession struct {
 	// toolsGen changes when the list is reset, so a fetch that started for
 	// an older login does not store its result.
 	toolsGen uint64
+	// servedWithout records that Tools returned before the list was known;
+	// the next stored list then calls onListed.
+	servedWithout bool
+	onListed      func()
 }
 
-func newHostedSession(remote mcp.Integration, origin string) *hostedSession {
+func newHostedSession(remote mcp.Integration, origin string, onListed func()) *hostedSession {
 	// #nosec G118 -- stop is called by end when the session is replaced or
 	// the adapter closes.
 	lifetime, stop := context.WithCancel(context.Background())
-	return &hostedSession{remote: remote, origin: origin, lifetime: lifetime, stop: stop}
+	return &hostedSession{remote: remote, origin: origin, lifetime: lifetime, stop: stop, onListed: onListed}
+}
+
+func (h *hostedSession) markServedWithout() {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.servedWithout = true
 }
 
 func (h *hostedSession) cachedTools() ([]mcp.ToolDefinition, bool) {
@@ -415,6 +453,11 @@ func (h *hostedSession) fetchTools(ctx context.Context) error {
 		return err
 	}
 	h.tools, h.known, h.fetchErr = slices.Clone(listed), true, nil
+	if h.servedWithout && h.onListed != nil {
+		h.servedWithout = false
+		// Asynchronous, because reindexing calls Tools.
+		go h.onListed()
+	}
 	return nil
 }
 
