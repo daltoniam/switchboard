@@ -1,1 +1,0 @@
-[{"id":7,"domain":"sample-domain","kind":"front_end","is_auth_configured":true,"scan_frequency":"daily","last_scanned_at":"sample-last_scanned_at","linked_resource":{"type":"code_repo","id":7}}]

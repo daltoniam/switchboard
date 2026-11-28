@@ -1,0 +1,1010 @@
+{
+ "aikido_get_autofix_task": {
+  "autofix_target": {
+   "code_repo_id": 7,
+   "location": "sample-location",
+   "title": "sample-title"
+  },
+  "finished_at": 7,
+  "id": 7,
+  "pull_request": "sample-pull_request",
+  "status": "creating",
+  "triggered_at": 7,
+  "triggered_by": {
+   "type": "automatic",
+   "user_id": 7
+  },
+  "type": "dependency"
+ },
+ "aikido_get_code_repo": {
+  "active": true,
+  "branch": "sample-branch",
+  "connectivity": "connected",
+  "excluded_paths": [
+   {
+    "id": 7,
+    "path": "sample-path"
+   }
+  ],
+  "external_repo_id": "sample-external_repo_id",
+  "external_repo_numeric_id": 7,
+  "id": 7,
+  "labels": [
+   {
+    "id": 7,
+    "is_imported": true,
+    "name": "sample-name"
+   }
+  ],
+  "last_scanned_at": 7,
+  "linked_teams": [
+   {
+    "id": 7,
+    "name": "sample-name"
+   }
+  ],
+  "name": "sample-name",
+  "provider": "github",
+  "sensitivity": "extreme",
+  "url": "sample-url"
+ },
+ "aikido_get_container": {
+  "cloud_id": 7,
+  "distro": "sample-distro",
+  "distro_version": "sample-distro_version",
+  "id": 7,
+  "is_active": true,
+  "labels": [
+   {
+    "id": 7,
+    "is_imported": true,
+    "name": "sample-name"
+   }
+  ],
+  "last_scanned_at": 7,
+  "last_scanned_digest": "sample-last_scanned_digest",
+  "last_scanned_tag": "sample-last_scanned_tag",
+  "linked_code_repo_id": "sample-linked_code_repo_id",
+  "linked_teams": [
+   {
+    "id": 7,
+    "name": "sample-name"
+   }
+  ],
+  "name": "sample-name",
+  "provider": "aws",
+  "registry_id": 7,
+  "registry_name": "sample-registry_name",
+  "tag": "sample-tag"
+ },
+ "aikido_get_cve": {
+  "cve": "sample-cve",
+  "does_this_affect_me": "sample-does_this_affect_me",
+  "language": "sample-language",
+  "package_name": "sample-package_name",
+  "patch_versions": [
+   "sample-patch_versions"
+  ],
+  "published": "sample-published",
+  "related_cve_id": "sample-related_cve_id",
+  "severity": "Critical",
+  "severity_score": 7,
+  "short_description": "sample-short_description",
+  "tldr": "sample-tldr"
+ },
+ "aikido_get_issue": {
+  "affected_file": "sample-affected_file",
+  "affected_package": "sample-affected_package",
+  "attack_surface": "frontend",
+  "closed_at": 7,
+  "cloud_id": 7,
+  "cloud_name": "sample-cloud_name",
+  "code_repo_id": 7,
+  "code_repo_name": "sample-code_repo_name",
+  "container_repo_id": 7,
+  "container_repo_name": "sample-container_repo_name",
+  "cve_id": "sample-cve_id",
+  "cve_id_alias": "sample-cve_id_alias",
+  "cwe_classes": [
+   "sample-cwe_classes"
+  ],
+  "domain_id": 7,
+  "domain_name": "sample-domain_name",
+  "epss": "sample-epss",
+  "first_detected_at": 7,
+  "group_id": 7,
+  "how_to_fix": "sample-how_to_fix",
+  "id": 7,
+  "ignore_reasons": [
+   {
+    "kind": "manual_ignore",
+    "reason": "sample-reason"
+   }
+  ],
+  "ignored_at": 7,
+  "issue_type_metadata": {
+   "key": "value"
+  },
+  "programming_language": "sample-programming_language",
+  "reachability_status": "unknown",
+  "rule": "sample-rule",
+  "severity": "critical",
+  "severity_score": 7,
+  "sla_remediate_by": 7,
+  "snooze_reason": "sample-snooze_reason",
+  "snooze_until": 7,
+  "status": "open",
+  "type": "open_source",
+  "virtual_machine_id": 7,
+  "virtual_machine_name": "sample-virtual_machine_name"
+ },
+ "aikido_get_issue_cve_exploitability": {
+  "cve_exploitability_results": [
+   {
+    "action_executed": true,
+    "created_at": 7,
+    "cve_id": "sample-cve_id",
+    "from_severity": "sample-from_severity",
+    "issue_id": 7,
+    "proposed_action": "ignore",
+    "reasoning": "sample-reasoning",
+    "target_severity": "sample-target_severity"
+   }
+  ]
+ },
+ "aikido_get_issue_group": {
+  "description": "sample-description",
+  "group_status": "new",
+  "how_to_fix": "sample-how_to_fix",
+  "id": 7,
+  "locations": [
+   {
+    "id": 7,
+    "name": "sample-name",
+    "type": "cloud"
+   }
+  ],
+  "related_cve_ids": [
+   "sample-related_cve_ids"
+  ],
+  "severity": "critical",
+  "severity_score": 7,
+  "time_to_fix_minutes": 7,
+  "title": "sample-title",
+  "type": "open_source"
+ },
+ "aikido_get_pr_check": {
+  "branch_name": "sample-branch_name",
+  "changed_files": [
+   {
+    "file_path": "sample-file_path",
+    "previous_file_path": "sample-previous_file_path",
+    "renamed_without_changes": 7,
+    "status": "added"
+   }
+  ],
+  "code_repo_id": 7,
+  "completed_scans": [
+   "dependency_scan"
+  ],
+  "container_repo_id": 7,
+  "end_commit_id": "sample-end_commit_id",
+  "issues_added": [
+   {
+    "cve_id": "sample-cve_id",
+    "cwe_classes": [
+     "sample-cwe_classes"
+    ],
+    "end_line": 7,
+    "file": "sample-file",
+    "installed_version": "sample-installed_version",
+    "package_name": "sample-package_name",
+    "patched_versions": [
+     "sample-patched_versions"
+    ],
+    "programming_language": "sample-programming_language",
+    "severity": 7,
+    "start_line": 7,
+    "status": "open",
+    "title": "sample-title"
+   }
+  ],
+  "issues_removed": [
+   {
+    "cve_id": "sample-cve_id",
+    "cwe_classes": [
+     "sample-cwe_classes"
+    ],
+    "end_line": 7,
+    "file": "sample-file",
+    "grouped_issue_id": 7,
+    "id": 7,
+    "installed_version": "sample-installed_version",
+    "package_name": "sample-package_name",
+    "patched_versions": [
+     "sample-patched_versions"
+    ],
+    "programming_language": "sample-programming_language",
+    "severity": 7,
+    "start_line": 7,
+    "title": "sample-title"
+   }
+  ],
+  "pull_request_title": "sample-pull_request_title",
+  "pull_request_url": "sample-pull_request_url",
+  "start_commit_id": "sample-start_commit_id",
+  "timestamp": 7
+ },
+ "aikido_get_user": {
+  "active": 7,
+  "auth_type": "sample-auth_type",
+  "email": "sample-email",
+  "full_name": "sample-full_name",
+  "id": 7,
+  "last_login_timestamp": 7,
+  "permissions": {
+   "can_change_issue_severity": 7,
+   "can_export_data": 7,
+   "can_ignore_issues": 7,
+   "can_manage_clouds": 7,
+   "can_manage_code_quality": 7,
+   "can_manage_containers": 7,
+   "can_manage_domains": 7,
+   "can_manage_endpoint_protection": 7,
+   "can_manage_pentests": 7,
+   "can_manage_repos": 7,
+   "can_manage_teams": 7,
+   "can_snooze_issues": 7
+  },
+  "read_only": 7,
+  "role": "sample-role"
+ },
+ "aikido_get_workspace_config_errors": [
+  {
+   "detected_at": 7,
+   "id": 7,
+   "kind": "lockfile_missing",
+   "location_id": 7,
+   "location_name": "sample-location_name",
+   "location_type": "repo",
+   "severity": "critical",
+   "title": "sample-title"
+  }
+ ],
+ "aikido_get_zen_app": {
+  "amount_instances": 7,
+  "code_repo_id": 7,
+  "code_repo_name": "sample-code_repo_name",
+  "created_at": 7,
+  "environment": "production",
+  "has_token": true,
+  "id": "sample-id",
+  "name": "sample-name",
+  "token_hint": "sample-token_hint"
+ },
+ "aikido_get_zen_event": {
+  "attack": {
+   "blocked": true,
+   "kind": "sample-kind",
+   "metadata": {
+    "key": "value"
+   },
+   "module": "sample-module",
+   "operation": "sample-operation",
+   "path": "sample-path",
+   "payload": "sample-payload",
+   "source": "sample-source",
+   "stack": "sample-stack"
+  },
+  "eventId": 7,
+  "instance": {
+   "hostname": "sample-hostname",
+   "id": 7,
+   "ip_address": "sample-ip_address"
+  },
+  "received_at": 7,
+  "request": {
+   "ip_address": "sample-ip_address",
+   "method": "sample-method",
+   "route": "sample-route",
+   "url": "sample-url",
+   "user_agent": "sample-user_agent"
+  },
+  "service": {
+   "environment": "production",
+   "id": 7,
+   "linked_repo_id": 7,
+   "name": "sample-name"
+  },
+  "type": "started",
+  "url": "sample-url",
+  "user": {
+   "blocked_at": 7,
+   "id": "sample-id",
+   "name": "sample-name"
+  }
+ },
+ "aikido_list_activity_log": [
+  {
+   "action": "sample-action",
+   "comment": "sample-comment",
+   "grouped_issue_id": 7,
+   "id": 7,
+   "issue_id": 7,
+   "metadata": {
+    "key": "value"
+   },
+   "source": "sample-source",
+   "timestamp": 7,
+   "user_id": 7,
+   "user_name": 7
+  }
+ ],
+ "aikido_list_autofix_history": [
+  {
+   "autofix_target": {
+    "code_repo_id": 7,
+    "location": "sample-location",
+    "title": "sample-title"
+   },
+   "finished_at": 7,
+   "id": 7,
+   "pull_request": "sample-pull_request",
+   "status": "creating",
+   "triggered_at": 7,
+   "triggered_by": {
+    "type": "automatic",
+    "user_id": 7
+   },
+   "type": "dependency"
+  }
+ ],
+ "aikido_list_cloud_assets": {
+  "assets": [
+   {
+    "asset_name": "sample-asset_name",
+    "asset_type": "sample-asset_type",
+    "cloud_id": 7,
+    "id": 7,
+    "metadata": {
+     "key": "value"
+    },
+    "provider": "sample-provider",
+    "region": "sample-region",
+    "selected_metadata": {
+     "key": "value"
+    },
+    "source_id": "sample-source_id"
+   }
+  ],
+  "hasMore": true,
+  "promptId": 7,
+  "totalCount": 7
+ },
+ "aikido_list_cloud_rules": [
+  {
+   "cloud_type": "aws",
+   "description": "sample-description",
+   "how_to_fix": "sample-how_to_fix",
+   "id": "sample-id",
+   "open_issues_count": 7,
+   "title": "sample-title"
+  }
+ ],
+ "aikido_list_clouds": [
+  {
+   "environment": "production",
+   "external_id": "sample-external_id",
+   "id": 7,
+   "last_scanned_at": 7,
+   "name": "sample-name",
+   "provider": "aws"
+  }
+ ],
+ "aikido_list_code_audits": [
+  {
+   "created_at": 7,
+   "id": "sample-id",
+   "name": "sample-name",
+   "status": "pending"
+  }
+ ],
+ "aikido_list_code_coverage": {
+  "code_coverage_repositories": [
+   {
+    "branch": "sample-branch",
+    "code_repo_id": 7,
+    "code_repo_name": "sample-code_repo_name",
+    "coverage_percentage": 7,
+    "covered_lines": 7,
+    "missed_lines": 7,
+    "partial_lines": 7,
+    "total_lines": 7,
+    "updated_at": 7
+   }
+  ]
+ },
+ "aikido_list_code_quality_findings": {
+  "findings": [
+   {
+    "description": "sample-description",
+    "end_column": 7,
+    "end_line": 7,
+    "file": "sample-file",
+    "id": 7,
+    "language": "sample-language",
+    "rule_id": "sample-rule_id",
+    "severity": "critical",
+    "severity_score": 7,
+    "start_column": 7,
+    "start_line": 7,
+    "state": "open",
+    "timestamp": 7
+   }
+  ]
+ },
+ "aikido_list_code_repos": [
+  {
+   "branch": "sample-branch",
+   "connectivity": "connected",
+   "external_repo_id": "sample-external_repo_id",
+   "external_repo_numeric_id": 7,
+   "has_faulty_lockfile": true,
+   "has_missing_lockfile": true,
+   "id": 7,
+   "labels": [
+    {
+     "id": 7,
+     "is_imported": true,
+     "name": "sample-name"
+    }
+   ],
+   "last_scanned_at": 7,
+   "name": "sample-name",
+   "project": "sample-project",
+   "provider": "github",
+   "scan_error": "sample-scan_error",
+   "sensitivity": "extreme",
+   "url": "sample-url"
+  }
+ ],
+ "aikido_list_container_runners": [
+  {
+   "digest": "sample-digest",
+   "id": 7,
+   "image": "sample-image",
+   "name": "sample-name",
+   "region": "sample-region",
+   "runner_id": "sample-runner_id",
+   "tag": "sample-tag",
+   "type": "sample-type"
+  }
+ ],
+ "aikido_list_containers": [
+  {
+   "cloud_id": 7,
+   "connectivity": "connected",
+   "created_at": 7,
+   "distro": "sample-distro",
+   "distro_version": "sample-distro_version",
+   "exposed_via": "unknown",
+   "id": 7,
+   "is_active": true,
+   "is_empty": true,
+   "is_running": true,
+   "labels": [
+    {
+     "id": 7,
+     "is_imported": true,
+     "name": "sample-name"
+    }
+   ],
+   "last_pushed_at": 7,
+   "last_scanned_at": 7,
+   "last_scanned_digest": "sample-last_scanned_digest",
+   "last_scanned_tag": "sample-last_scanned_tag",
+   "linked_code_repo_id": "sample-linked_code_repo_id",
+   "name": "sample-name",
+   "provider": "aws",
+   "registry_id": 7,
+   "registry_name": "sample-registry_name",
+   "sensitivity": "extreme",
+   "tag": "sample-tag"
+  }
+ ],
+ "aikido_list_custom_rules": {
+  "custom_rules": [
+   {
+    "has_error": true,
+    "how_to_fix": "sample-how_to_fix",
+    "issue_title": "sample-issue_title",
+    "language": "JS",
+    "priority": 7,
+    "semgrep_rule": "sample-semgrep_rule",
+    "tldr": "sample-tldr"
+   }
+  ]
+ },
+ "aikido_list_domain_data_leaks": {
+  "dataleaks": [
+   {
+    "email": "sample-email",
+    "id": "sample-id",
+    "last_breach_date": 7,
+    "password": "sample-password",
+    "status": "sample-status"
+   }
+  ]
+ },
+ "aikido_list_domains": [
+  {
+   "domain": "sample-domain",
+   "id": 7,
+   "is_auth_configured": true,
+   "kind": "front_end",
+   "last_scanned_at": "sample-last_scanned_at",
+   "linked_resource": {
+    "id": 7,
+    "type": "code_repo"
+   },
+   "scan_frequency": "daily"
+  }
+ ],
+ "aikido_list_endpoint_activity": [
+  {
+   "action": "sample-action",
+   "device_id": 7,
+   "device_name": "sample-device_name",
+   "domain": "sample-domain",
+   "ecosystem": "sample-ecosystem",
+   "package_id": "sample-package_id",
+   "package_version": "sample-package_version",
+   "timestamp": 7
+  }
+ ],
+ "aikido_list_endpoint_devices": [
+  {
+   "id": 7,
+   "last_heartbeat_at": 7,
+   "mac_address": "sample-mac_address",
+   "name": "sample-name",
+   "os": "sample-os",
+   "permission_group_id": 7,
+   "permission_group_name": "sample-permission_group_name",
+   "serial_number": "sample-serial_number",
+   "status": "offline",
+   "user": "sample-user",
+   "version": "sample-version"
+  }
+ ],
+ "aikido_list_endpoint_exceptions": [
+  {
+   "bypass_default_minimum_allowed_age": true,
+   "ecosystem": "sample-ecosystem",
+   "id": 7,
+   "package_name": "sample-package_name",
+   "permission_group_id": 7,
+   "permission_group_name": "sample-permission_group_name",
+   "status": "allowed"
+  }
+ ],
+ "aikido_list_endpoint_installed_packages": [
+  {
+   "devices": [
+    {
+     "id": 7,
+     "installed_at": "sample-installed_at",
+     "name": "sample-name"
+    }
+   ],
+   "ecosystem": "sample-ecosystem",
+   "package_name": "sample-package_name"
+  }
+ ],
+ "aikido_list_eol_runtimes": [
+  {
+   "eol_date": "sample-eol_date",
+   "is_eol": true,
+   "package_name": "sample-package_name",
+   "package_version": "sample-package_version",
+   "runtime_name": "sample-runtime_name"
+  }
+ ],
+ "aikido_list_ide_adoption": [
+  {
+   "full_name": "sample-full_name",
+   "has_enabled_pre_commit": true,
+   "has_enabled_safe_chain": true,
+   "id": 7,
+   "installed_plugins": [
+    "sample-installed_plugins"
+   ],
+   "token_last_used_at": 7
+  }
+ ],
+ "aikido_list_issue_group_notes": {
+  "created_at": 7,
+  "created_by_id": 7,
+  "created_by_name": "sample-created_by_name",
+  "cve_id": "sample-cve_id",
+  "id": 7,
+  "note": "sample-note"
+ },
+ "aikido_list_issue_group_tasks": [
+  {
+   "assignee": {
+    "avatar_url": "sample-avatar_url",
+    "name": "sample-name"
+   },
+   "id": 7,
+   "scope": {
+    "id": 7,
+    "type": "group"
+   },
+   "status": "sample-status",
+   "title": "sample-title",
+   "url": "sample-url"
+  }
+ ],
+ "aikido_list_issue_groups": [
+  {
+   "description": "sample-description",
+   "first_detected_at": 7,
+   "group_status": "new",
+   "how_to_fix": "sample-how_to_fix",
+   "id": 7,
+   "locations": [
+    {
+     "id": 7,
+     "name": "sample-name",
+     "type": "cloud"
+    }
+   ],
+   "related_cve_ids": [
+    "sample-related_cve_ids"
+   ],
+   "severity": "critical",
+   "severity_score": 7,
+   "time_to_fix_minutes": 7,
+   "title": "sample-title",
+   "type": "open_source"
+  }
+ ],
+ "aikido_list_issues": [
+  {
+   "actionable_at": 7,
+   "affected_file": "sample-affected_file",
+   "affected_package": "sample-affected_package",
+   "assessment_id": "sample-assessment_id",
+   "attack_surface": "frontend",
+   "closed_at": 7,
+   "cloud_id": 7,
+   "cloud_name": "sample-cloud_name",
+   "code_repo_branch_name": "sample-code_repo_branch_name",
+   "code_repo_id": 7,
+   "code_repo_name": "sample-code_repo_name",
+   "container_repo_id": 7,
+   "container_repo_name": "sample-container_repo_name",
+   "cve_id": "sample-cve_id",
+   "cwe_classes": [
+    "sample-cwe_classes"
+   ],
+   "domain_id": 7,
+   "domain_name": "sample-domain_name",
+   "end_line": 7,
+   "exploitability": "actively_exploited",
+   "first_detected_at": 7,
+   "group_id": 7,
+   "id": 7,
+   "ignored_at": 7,
+   "ignored_by": "sample-ignored_by",
+   "installed_version": "sample-installed_version",
+   "license_type": "sample-license_type",
+   "original_cvss_severity_score": 7,
+   "patched_versions": [
+    "sample-patched_versions"
+   ],
+   "pentest_project_id": 7,
+   "programming_language": "sample-programming_language",
+   "rule": "sample-rule",
+   "rule_id": "sample-rule_id",
+   "severity": "critical",
+   "severity_score": 7,
+   "sla_days": 7,
+   "sla_remediate_by": 7,
+   "snooze_until": 7,
+   "start_line": 7,
+   "status": "open",
+   "type": "open_source",
+   "virtual_machine_id": 7,
+   "virtual_machine_name": "sample-virtual_machine_name"
+  }
+ ],
+ "aikido_list_licenses": [
+  {
+   "code_repo_id": 7,
+   "container_repo_id": 7,
+   "language": "sample-language",
+   "license_type": "sample-license_type",
+   "location": "sample-location",
+   "package_name": "sample-package_name",
+   "purl": "sample-purl"
+  }
+ ],
+ "aikido_list_malware_packages": [
+  {
+   "detected_on": 7,
+   "ecosystem": "sample-ecosystem",
+   "id": 7,
+   "last_updated": 7,
+   "package_name": "sample-package_name",
+   "reasons": [
+    "sample-reasons"
+   ],
+   "release_date": 7,
+   "status": "sample-status",
+   "version": "sample-version"
+  }
+ ],
+ "aikido_list_pending_invites": [
+  {
+   "email": "sample-email",
+   "expires_at": 7,
+   "id": 7,
+   "invited_at": 7,
+   "role": "sample-role",
+   "type": "sample-type"
+  }
+ ],
+ "aikido_list_pentest_assessments": [
+  {
+   "created_at": 7,
+   "id": "sample-id",
+   "name": "sample-name",
+   "status": "pending"
+  }
+ ],
+ "aikido_list_pr_check_actions": [
+  {
+   "id": 7,
+   "issue_metadata": {
+    "cloud_id": 7,
+    "cve_id": "sample-cve_id",
+    "end_line": 7,
+    "file": "sample-file",
+    "package_name": "sample-package_name",
+    "package_version": "sample-package_version",
+    "redacted_secret": "sample-redacted_secret",
+    "related_type": "open_source",
+    "rule_id": "sample-rule_id",
+    "scanner": "sample-scanner",
+    "start_line": 7,
+    "target_path": "sample-target_path",
+    "target_url": "sample-target_url"
+   },
+   "reason": "sample-reason",
+   "snooze_until_timestamp": 7,
+   "timestamp": 7,
+   "type": "ignored",
+   "user_id": 7,
+   "user_name": "sample-user_name"
+  }
+ ],
+ "aikido_list_pr_check_configs": [
+  {
+   "code_repo_id": 7,
+   "enable_code_quality_scan": true,
+   "fail_on_code_quality_scan": true,
+   "fail_on_dependency_scan": true,
+   "fail_on_iac_scan": true,
+   "fail_on_malware_scan": true,
+   "fail_on_sast_scan": true,
+   "fail_on_secrets_scan": true,
+   "id": 7,
+   "minimum_license_severity": "none",
+   "minimum_severity": "low",
+   "post_code_quality_inline_comments_min_severity": "low",
+   "post_inline_comments_min_severity": "none",
+   "run_deep_audit_pr_scan": true
+  }
+ ],
+ "aikido_list_pr_checks": [
+  {
+   "branch_name": "sample-branch_name",
+   "code_repo_id": 7,
+   "code_repo_name": 7,
+   "gate_status": 7,
+   "is_release_gating": true,
+   "new_issues_count": 7,
+   "pull_request_title": "sample-pull_request_title",
+   "pull_request_url": "sample-pull_request_url",
+   "related_commit_sha": "sample-related_commit_sha",
+   "scan_id": 7,
+   "solved_issues_count": 7,
+   "started_at": 7
+  }
+ ],
+ "aikido_list_pr_code_quality_findings": {
+  "findings": [
+   {
+    "description": "sample-description",
+    "end_line": 7,
+    "external_comment_id": "sample-external_comment_id",
+    "file": "sample-file",
+    "id": 7,
+    "language": "sample-language",
+    "reasoning": "sample-reasoning",
+    "rule_id": "sample-rule_id",
+    "scan_id": 7,
+    "start_line": 7,
+    "timestamp": 7
+   }
+  ]
+ },
+ "aikido_list_scanner_rules": [
+  {
+   "base_score": 7,
+   "description": "sample-description",
+   "how_to_fix": "sample-how_to_fix",
+   "id": "sample-id",
+   "language": "JS",
+   "open_issues_count": 7,
+   "title": "sample-title"
+  }
+ ],
+ "aikido_list_subdomains": [
+  {
+   "dns_last_resolved_at": 7,
+   "id": "sample-id",
+   "ip_addresses": [
+    "sample-ip_addresses"
+   ],
+   "is_excluded": true,
+   "is_responsive": true,
+   "name": "sample-name",
+   "open_ports": [
+    {
+     "port": 7,
+     "protocol": "sample-protocol",
+     "service": "sample-service"
+    }
+   ]
+  }
+ ],
+ "aikido_list_task_tracking_projects": [
+  {
+   "code_repository_ids": [
+    "sample-code_repository_ids"
+   ],
+   "id": "sample-id",
+   "name": "sample-name"
+  }
+ ],
+ "aikido_list_task_tracking_tasks": [
+  {
+   "assignees": [
+    "sample-assignees"
+   ],
+   "id": "sample-id",
+   "key": "sample-key",
+   "subject": "sample-subject"
+  }
+ ],
+ "aikido_list_teams": [
+  {
+   "active": true,
+   "external_source": "github",
+   "external_source_id": "sample-external_source_id",
+   "id": 7,
+   "name": "sample-name",
+   "responsibilities": [
+    {
+     "excluded_paths": [
+      "sample-excluded_paths"
+     ],
+     "id": 7,
+     "included_paths": [
+      "sample-included_paths"
+     ],
+     "type": "code_repository"
+    }
+   ]
+  }
+ ],
+ "aikido_list_user_login_history": [
+  {
+   "login_timestamp": 7,
+   "user_id": 7,
+   "user_name": "sample-user_name"
+  }
+ ],
+ "aikido_list_user_requests": [
+  {
+   "action": "ignored",
+   "id": 7,
+   "metadata": {
+    "key": "value"
+   },
+   "reason": "sample-reason",
+   "related_grouped_issue_id": 7,
+   "related_issue_id": 7,
+   "requested_by_id": 7,
+   "reviewed_at": 7,
+   "reviewed_by_id": 7,
+   "reviewed_via": "user",
+   "status": "pending",
+   "timestamp": 7
+  }
+ ],
+ "aikido_list_users": [
+  {
+   "active": 7,
+   "auth_type": "sample-auth_type",
+   "email": "sample-email",
+   "full_name": "sample-full_name",
+   "id": 7,
+   "last_login_timestamp": 7,
+   "role": "sample-role"
+  }
+ ],
+ "aikido_list_virtual_machines": [
+  {
+   "active": 7,
+   "cloud_id": 7,
+   "cloud_kind": "sample-cloud_kind",
+   "count_ignored_issues": 7,
+   "count_open_issues": 7,
+   "created_at": 7,
+   "environment": "sample-environment",
+   "external_id": "sample-external_id",
+   "id": 7,
+   "instance_count": 7,
+   "last_scanned_at": 7,
+   "latest_snapshot_id": "sample-latest_snapshot_id",
+   "name": "sample-name",
+   "os": "sample-os",
+   "os_version": "sample-os_version",
+   "purpose": "sample-purpose",
+   "region": "sample-region"
+  }
+ ],
+ "aikido_list_webhooks": [
+  {
+   "event_type": "issue.open.created",
+   "health_status": "unknown",
+   "id": "sample-id",
+   "latest_http_status_code": 7,
+   "target_url": "sample-target_url"
+  }
+ ],
+ "aikido_list_zen_apps": [
+  {
+   "blocking": true,
+   "code_repo_id": 7,
+   "code_repo_name": "sample-code_repo_name",
+   "created_at": 7,
+   "environment": "production",
+   "has_token": true,
+   "id": "sample-id",
+   "name": "sample-name",
+   "token_hint": "sample-token_hint"
+  }
+ ],
+ "aikido_list_zen_users": {
+  "users": [
+   {
+    "blocked": true,
+    "first_seen_at": 7,
+    "id": "sample-id",
+    "last_ip_address": "sample-last_ip_address",
+    "last_seen_at": 7,
+    "location": {
+     "country": "sample-country",
+     "iso_code": "sample-iso_code"
+    },
+    "rate_limiting_disabled": true,
+    "user_name": "sample-user_name"
+   }
+  ]
+ }
+}

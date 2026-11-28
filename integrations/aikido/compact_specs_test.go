@@ -149,10 +149,21 @@ func fixtureArgs(ep endpoint) map[string]any {
 	return args
 }
 
+// documentedResponses reads testdata/responses.json, one response body per
+// tool built from the schemas in Aikido's API reference.
+func documentedResponses(t *testing.T) map[mcp.ToolName]json.RawMessage {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join("testdata", "responses.json"))
+	require.NoError(t, err)
+	var out map[mcp.ToolName]json.RawMessage
+	require.NoError(t, json.Unmarshal(data, &out))
+	return out
+}
+
 func fixtureOutput(t *testing.T, tool mcp.ToolName) any {
 	t.Helper()
-	body, err := os.ReadFile(filepath.Join("testdata", string(tool)+".json"))
-	require.NoError(t, err)
+	body, ok := documentedResponses(t)[tool]
+	require.True(t, ok, "testdata/responses.json has no response for %s", tool)
 	f := newFake(t, func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write(body) })
 	result, err := configured(t, f).Execute(t.Context(), tool, fixtureArgs(dispatch[tool]))
 	require.NoError(t, err)
@@ -206,7 +217,7 @@ func emptyValue(value any) bool {
 	return false
 }
 
-// The fixtures in testdata are built from the response schemas in Aikido's
+// The responses in testdata/responses.json are built from the response schemas in Aikido's
 // API reference, so every spec field must name a documented field; a typo
 // would silently strip that field from every response.
 func TestFieldCompactionSpecs_MatchDocumentedResponses(t *testing.T) {
@@ -214,7 +225,7 @@ func TestFieldCompactionSpecs_MatchDocumentedResponses(t *testing.T) {
 		t.Run(string(name), func(t *testing.T) {
 			raw := fixtureOutput(t, name)
 			for _, field := range fields {
-				assert.True(t, fieldPresent(raw, field), "field %q matches nothing in testdata/%s.json", field.Spec(), name)
+				assert.True(t, fieldPresent(raw, field), "field %q matches nothing in the documented %s response", field.Spec(), name)
 			}
 			compacted, err := json.Marshal(mcp.CompactAny(raw, fields))
 			require.NoError(t, err)

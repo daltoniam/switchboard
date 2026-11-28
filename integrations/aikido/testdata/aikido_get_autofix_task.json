@@ -1,1 +1,0 @@
-{"id":7,"type":"dependency","status":"creating","triggered_by":{"type":"automatic","user_id":7},"autofix_target":{"code_repo_id":7,"location":"sample-location","title":"sample-title"},"triggered_at":7,"finished_at":7,"pull_request":"sample-pull_request"}

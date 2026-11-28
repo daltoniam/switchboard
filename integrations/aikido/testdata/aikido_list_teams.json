@@ -1,1 +1,0 @@
-[{"id":7,"name":"sample-name","external_source":"github","external_source_id":"sample-external_source_id","responsibilities":[{"id":7,"type":"code_repository","included_paths":["sample-included_paths"],"excluded_paths":["sample-excluded_paths"]}],"active":true}]
