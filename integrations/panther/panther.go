@@ -273,10 +273,7 @@ func (p *panther) Tools() []mcp.ToolDefinition {
 			return cloneTools(nativeTools)
 		}
 		_ = hosted.awaitTools(ctx)
-		tools, known = hosted.cachedTools()
-		if !known {
-			hosted.markServedWithout()
-		}
+		tools = hosted.toolsOrMarkMissing()
 	}
 	return decorateHosted(tools)
 }
@@ -385,10 +382,16 @@ func newHostedSession(remote mcp.Integration, origin string, onListed func()) *h
 	return &hostedSession{remote: remote, origin: origin, lifetime: lifetime, stop: stop, onListed: onListed}
 }
 
-func (h *hostedSession) markServedWithout() {
+// toolsOrMarkMissing returns the known list, or records under the same lock
+// that Tools is returning without it, so a list stored at any later moment
+// still asks search to reindex.
+func (h *hostedSession) toolsOrMarkMissing() []mcp.ToolDefinition {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	h.servedWithout = true
+	if !h.known {
+		h.servedWithout = true
+	}
+	return h.tools
 }
 
 func (h *hostedSession) cachedTools() ([]mcp.ToolDefinition, bool) {

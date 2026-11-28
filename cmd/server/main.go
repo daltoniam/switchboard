@@ -562,6 +562,7 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 		log.Printf("Project Catalog on /mcp (writes_enabled=%v)", catalogWrites)
 	}
 	srv := server.New(services, serverOpts...)
+	panther.SetToolsChangedHook(pantherIntegration, srv.RefreshSearchIndex)
 
 	if stdioMode {
 		if err := srv.RunStdio(ctx); err != nil {
@@ -666,7 +667,6 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 		}
 		srv.RefreshSearchIndex()
 	}
-	panther.SetToolsChangedHook(pantherIntegration, srv.RefreshSearchIndex)
 	ws := web.New(services, port, mp, wasmLoader,
 		web.WithConfigChangeHook(onConfigChange),
 		web.WithProjectCatalog(projectStore),

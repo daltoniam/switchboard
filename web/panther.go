@@ -83,19 +83,22 @@ func (w *WebServer) handlePantherInstanceSave(rw http.ResponseWriter, r *http.Re
 		}
 		next.Credentials[mcp.CredKeyTokenSource] = ""
 	}
-	err = w.services.Config.SetIntegration("panther", next)
-	w.configMu.Unlock()
-	if err != nil {
+	if err := w.services.Config.SetIntegration("panther", next); err != nil {
+		w.configMu.Unlock()
 		pantherRedirect(rw, r, "error", "Failed to save: "+err.Error())
 		return
 	}
 	if changed {
-		// The adapter still holds the old instance's session or token.
+		// The adapter still holds the old instance's session or token; it
+		// is released under the lock so a concurrent save cannot interleave.
 		if integration, ok := w.services.Registry.Get("panther"); ok {
 			if closer, ok := integration.(io.Closer); ok {
 				_ = closer.Close()
 			}
 		}
+	}
+	w.configMu.Unlock()
+	if changed {
 		w.health.mu.Lock()
 		delete(w.health.entries, "panther")
 		w.health.mu.Unlock()
@@ -162,21 +165,31 @@ func (w *WebServer) handlePantherAPITokenSave(rw http.ResponseWriter, r *http.Re
 		next.Credentials[key] = ""
 	}
 	next.Credentials[mcp.CredKeyTokenSource] = "api_token"
-	err := w.services.Config.SetIntegration("panther", next)
-	w.configMu.Unlock()
-	if err != nil {
+	if err := w.services.Config.SetIntegration("panther", next); err != nil {
+		w.configMu.Unlock()
 		pantherRedirect(rw, r, "error", "Failed to save: "+err.Error())
 		return
 	}
-
+	// The adapter is configured before the lock is released, so concurrent
+	// saves reach it in the order they were persisted. API token mode does
+	// no network I/O here; the health check runs after unlocking.
 	result := "Configuration saved"
-	if integration, ok := w.services.Registry.Get("panther"); ok {
+	integration, registered := w.services.Registry.Get("panther")
+	configured := false
+	if registered && enabled {
+		if err := mcp.ConfigureIntegration(r.Context(), integration, next); err != nil {
+			result = "Configuration saved, but the API token was rejected: " + err.Error()
+		} else {
+			configured = true
+		}
+	}
+	w.configMu.Unlock()
+
+	if registered {
 		entry := healthEntry{Enabled: enabled, CheckedAt: time.Now()}
-		if enabled {
+		if configured {
 			ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
-			if err := mcp.ConfigureIntegration(ctx, integration, next); err != nil {
-				result = "Configuration saved, but the API token was rejected: " + err.Error()
-			} else if entry.Healthy = integration.Healthy(ctx); !entry.Healthy {
+			if entry.Healthy = integration.Healthy(ctx); !entry.Healthy {
 				result = "Configuration saved, but Panther did not accept the API token. Check the instance URL and the token under Settings → Developer Tools → API Tokens."
 			}
 			cancel()

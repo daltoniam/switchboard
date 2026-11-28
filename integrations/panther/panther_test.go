@@ -588,3 +588,25 @@ func TestSignIn_ToolsRenewExpiredLoginBeforeListing(t *testing.T) {
 
 	assert.Len(t, p.Tools(), 4, "search lists tools with the renewed login")
 }
+
+func TestHostedSession_MarkedMissingListReindexesWhenStored(t *testing.T) {
+	f := newRemoteFixture(t)
+	p := signedIn(t, f)
+	reindexed := make(chan struct{}, 2)
+	SetToolsChangedHook(p, func() { reindexed <- struct{}{} })
+	hosted := p.hosted
+
+	assert.Empty(t, hosted.toolsOrMarkMissing(), "nothing is known yet")
+	require.NoError(t, hosted.awaitTools(context.Background()))
+	select {
+	case <-reindexed:
+	case <-time.After(5 * time.Second):
+		t.Fatal("a list stored after Tools returned without it must ask search to reindex")
+	}
+	assert.Len(t, hosted.toolsOrMarkMissing(), 4)
+	select {
+	case <-reindexed:
+		t.Fatal("a known list is not marked missing")
+	case <-time.After(100 * time.Millisecond):
+	}
+}
