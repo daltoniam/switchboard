@@ -200,7 +200,7 @@ func (e endpoint) request(args map[string]any) (string, url.Values, map[string]a
 			v = raw
 		}
 		if len(p.enum) > 0 {
-			if bad := outsideEnum(v, p.enum); bad != "" {
+			if bad, ok := outsideEnum(v, p.enum); !ok {
 				problems = append(problems, fmt.Sprintf("%s must be one of %s (got %q)", p.name, strings.Join(p.enum, ", "), bad))
 				continue
 			}
@@ -287,20 +287,22 @@ func intList(raw any) ([]int, error) {
 	return out, nil
 }
 
-func outsideEnum(v any, allowed []string) string {
-	values := []string{}
+// outsideEnum reports the first value not in allowed, including empty
+// list entries, and false when one is found.
+func outsideEnum(v any, allowed []string) (string, bool) {
+	var values []string
 	switch t := v.(type) {
 	case string:
-		values = append(values, t)
+		values = []string{t}
 	case []string:
 		values = t
 	}
 	for _, item := range values {
 		if !slices.Contains(allowed, item) {
-			return item
+			return item, false
 		}
 	}
-	return ""
+	return "", true
 }
 
 func scalarText(v any, intBool bool) string {
