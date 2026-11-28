@@ -128,7 +128,8 @@ func TestReleaseWorkflowsShareCrossImage(t *testing.T) {
 		t.Run(tc.workflow, func(t *testing.T) {
 			var releaseArgs [][]string
 			for _, cmd := range workflowCommands(t, tc.workflow) {
-				if loc := releaseCmd.FindStringSubmatchIndex(cmd); loc != nil {
+				// Every invocation on the line counts, including chained ones.
+				for _, loc := range releaseCmd.FindAllStringSubmatchIndex(cmd, -1) {
 					// Arguments start right after the "release" subcommand.
 					releaseArgs = append(releaseArgs, shellArgs(cmd[loc[3]:]))
 				}
@@ -170,6 +171,31 @@ func shellArgs(line string) []string {
 	return args
 }
 
+// stripShellComment drops an unquoted # comment: a # that starts a word.
+func stripShellComment(line string) string {
+	for i, r := range line {
+		if r == '#' && (i == 0 || line[i-1] == ' ' || line[i-1] == '\t') {
+			line = line[:i]
+			break
+		}
+	}
+	return strings.TrimSpace(line)
+}
+
+func TestStripShellComment(t *testing.T) {
+	tests := []struct{ line, want string }{
+		{"# scripts/goreleaser-cross.sh release", ""},
+		{"echo hi # scripts/goreleaser-cross.sh release --snapshot", "echo hi"},
+		{"  bash run.sh --tag=v1#2  ", "bash run.sh --tag=v1#2"},
+		{"bash run.sh", "bash run.sh"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.line, func(t *testing.T) {
+			assert.Equal(t, tc.want, stripShellComment(tc.line))
+		})
+	}
+}
+
 func TestShellArgs(t *testing.T) {
 	tests := []struct {
 		line string
@@ -192,7 +218,7 @@ func TestShellArgs(t *testing.T) {
 
 // workflowCommands returns each step's `uses` value and each logical shell
 // command line of its `run` script, with backslash continuations joined and
-// comment lines removed, so commented-out commands don't count.
+// shell comments removed, so commented-out commands don't count.
 func workflowCommands(t *testing.T, path string) []string {
 	t.Helper()
 	data, err := os.ReadFile(path)
@@ -214,8 +240,7 @@ func workflowCommands(t *testing.T, path string) []string {
 			}
 			script := strings.ReplaceAll(step.Run, "\\\n", " ")
 			for line := range strings.SplitSeq(script, "\n") {
-				line = strings.TrimSpace(line)
-				if line != "" && !strings.HasPrefix(line, "#") {
+				if line = stripShellComment(line); line != "" {
 					out = append(out, line)
 				}
 			}
