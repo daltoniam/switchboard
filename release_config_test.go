@@ -126,28 +126,37 @@ func TestReleaseWorkflowsShareCrossImage(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.workflow, func(t *testing.T) {
-			var releases []string
+			var releaseArgs [][]string
 			for _, cmd := range workflowCommands(t, tc.workflow) {
-				if releaseCmd.MatchString(cmd) {
-					releases = append(releases, cmd)
+				if loc := releaseCmd.FindStringIndex(cmd); loc != nil {
+					// Only the script's own arguments count, not other words on
+					// the line or a command chained after it.
+					rest := cmd[loc[0]:]
+					if i := strings.IndexAny(rest, ";&|"); i >= 0 {
+						rest = rest[:i]
+					}
+					releaseArgs = append(releaseArgs, strings.Fields(rest)[1:])
 				}
 				assert.NotRegexp(t, hostGoreleaser, cmd, "%s must not run goreleaser with the host toolchain, which has no macOS SDK", tc.workflow)
 				assert.NotContains(t, cmd, "goreleaser/goreleaser-action", "%s must not build with the host toolchain, which has no macOS SDK", tc.workflow)
 			}
-			require.Len(t, releases, 1, "%s must run `scripts/goreleaser-cross.sh release` exactly once", tc.workflow)
+			require.Len(t, releaseArgs, 1, "%s must run `scripts/goreleaser-cross.sh release` exactly once", tc.workflow)
+			args := releaseArgs[0]
 			if tc.snapshot {
-				assert.Contains(t, releases[0], "--snapshot", "the dry run must not publish")
-				assert.Contains(t, releases[0], "--skip=publish", "the dry run must not publish")
+				assert.Contains(t, args, "--snapshot", "the dry run must not publish")
+				assert.Contains(t, args, "--skip=publish", "the dry run must not publish")
 			} else {
-				assert.NotContains(t, releases[0], "--snapshot", "the release must publish")
-				assert.NotContains(t, releases[0], "--skip", "the release must publish every artifact")
+				for _, a := range args {
+					assert.False(t, a == "--snapshot" || strings.HasPrefix(a, "--skip"), "the release must publish every artifact, got %q", a)
+				}
 			}
 		})
 	}
 }
 
-// workflowCommands returns each step's `uses` value and its `run` script
-// with shell comment lines removed, so commented-out commands don't count.
+// workflowCommands returns each step's `uses` value and each logical shell
+// command line of its `run` script, with backslash continuations joined and
+// comment lines removed, so commented-out commands don't count.
 func workflowCommands(t *testing.T, path string) []string {
 	t.Helper()
 	data, err := os.ReadFile(path)
@@ -167,14 +176,12 @@ func workflowCommands(t *testing.T, path string) []string {
 			if step.Uses != "" {
 				out = append(out, step.Uses)
 			}
-			var lines []string
-			for line := range strings.SplitSeq(step.Run, "\n") {
-				if !strings.HasPrefix(strings.TrimSpace(line), "#") {
-					lines = append(lines, line)
+			script := strings.ReplaceAll(step.Run, "\\\n", " ")
+			for line := range strings.SplitSeq(script, "\n") {
+				line = strings.TrimSpace(line)
+				if line != "" && !strings.HasPrefix(line, "#") {
+					out = append(out, line)
 				}
-			}
-			if cmd := strings.TrimSpace(strings.Join(lines, "\n")); cmd != "" {
-				out = append(out, cmd)
 			}
 		}
 	}
