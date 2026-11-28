@@ -437,7 +437,7 @@ func TestRequest_Building(t *testing.T) {
 		{name: "missing required", tool: "aikido_snooze_issue", args: map[string]any{"issue_id": float64(1)}, wantError: "missing required argument(s): snooze_until"},
 		{name: "missing path id", tool: "aikido_get_issue", args: map[string]any{}, wantError: "missing required argument(s): issue_id"},
 		{name: "enum checked", tool: "aikido_adjust_issue_severity", args: map[string]any{"issue_id": float64(1), "adjusted_severity": "urgent", "reason": "x"}, wantError: "adjusted_severity must be one of critical, high, medium, low"},
-		{name: "empty enum entry checked", tool: "aikido_list_issues", args: map[string]any{"filter_severities": []any{"", "urgent"}}, wantError: `filter_severities must be one of`},
+		{name: "empty enum entry checked", tool: "aikido_list_issues", args: map[string]any{"filter_severities": []any{"", "high"}}, wantError: `filter_severities must be one of critical, high, medium, low (got "")`},
 		{name: "enum list checked", tool: "aikido_list_issues", args: map[string]any{"filter_severities": "high,urgent"}, wantError: `got "urgent"`},
 		{name: "per_page bounded", tool: "aikido_list_code_repos", args: map[string]any{"per_page": float64(5)}, wantError: "per_page must be between 10 and 200"},
 		{name: "wrong type", tool: "aikido_get_issue", args: map[string]any{"issue_id": "abc"}, wantError: "cannot convert"},
