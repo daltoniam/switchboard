@@ -41,3 +41,11 @@ tools:
       - updated_at
   onepassword_resolve_secret:
     spec: [reference, value]
+  onepassword_list_identities:
+    spec:
+      - default_identity
+      - identities[].id
+      - identities[].label
+      - identities[].method
+      - identities[].account
+      - identities[].default

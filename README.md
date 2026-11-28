@@ -271,6 +271,8 @@ Open `/integrations/onepassword/setup` and fill in one sign-in method:
 
 Set only one of the two; existing service account configurations keep working unchanged. Switchboard signs in on first use and keeps the session until the credentials change.
 
+To use more than one 1Password account, add named identities under **Additional 1Password Accounts** on the setup page (stored under `integrations.onepassword.identities`). Each identity has an ID, an optional label, and either a desktop app account name or a service account token. The account above stays the `default` identity, so existing configurations need no change. Every tool takes an optional `identity_id`; `onepassword_list_identities` lists the configured identities without tokens. Only one identity can use the desktop app: the 1Password SDK keeps using the first desktop app account it signs in to until Switchboard restarts, so add other accounts with service account tokens.
+
 ### GroupMe (`groupme`)
 
 Reads and sends GroupMe messages through the public v3 API at `https://api.groupme.com/v3`. Reads: `groupme_get_me`, `groupme_list_groups` (start here), `groupme_get_group`, `groupme_list_group_messages`, `groupme_list_chats`, and `groupme_list_direct_messages`. Writes, which send real messages as you or your bot: `groupme_send_group_message`, `groupme_send_direct_message`, and `groupme_post_bot_message`. Message lists page with `before_id`, `since_id`, and (groups only) `after_id`.

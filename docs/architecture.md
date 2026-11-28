@@ -96,8 +96,9 @@ integrations/
   onepassword/
     onepassword.go           1Password adapter (core, store port over the 1Password Go SDK, desktop app or service account sign-in, Close, FieldCompactionIntegration)
     desktop_cgo.go           Whether this build can sign in through the 1Password desktop app (cgo or Windows)
+    identities.go            Named identities (several 1Password accounts), identity_id routing, the one-desktop-identity limit
     compact.yaml             Field compaction specs (read tools)
-    tools.go                 1Password tool definitions and dispatch map (8 tools)
+    tools.go                 1Password tool definitions and dispatch maps (9 tools)
     handlers.go              Vaults, item list/get/create/update/archive/delete with redaction, secret references
   groupme/
     groupme.go               GroupMe integration adapter (core, HTTP envelope handling, FieldCompactionIntegration)

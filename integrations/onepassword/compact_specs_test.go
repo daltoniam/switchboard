@@ -24,7 +24,8 @@ func TestFieldCompactionSpecs_NoDuplicateTools(t *testing.T) {
 func TestFieldCompactionSpecs_NoOrphanSpecs(t *testing.T) {
 	for toolName := range fieldCompactionSpecs {
 		_, ok := dispatch[toolName]
-		assert.True(t, ok, "field compaction spec for %q has no dispatch handler", toolName)
+		_, local := adapterDispatch[toolName]
+		assert.True(t, ok || local, "field compaction spec for %q has no dispatch handler", toolName)
 	}
 }
 
@@ -58,6 +59,8 @@ func TestFieldCompactionSpecs_Shapes(t *testing.T) {
 			[]string{`"[REDACTED]"`, `"op://v1/i1/password"`, `"version":7`, `"concealed":true`}, []string{"created_at"}},
 		{"onepassword_resolve_secret", `{"reference":"op://v1/i1/password","value":"s3cret"}`,
 			[]string{`"s3cret"`}, nil},
+		{"onepassword_list_identities", `{"default_identity":"default","identities":[{"id":"default","method":"desktop_app","account":"My Team","default":true},{"id":"work","label":"Work","method":"service_account","default":false}]}`,
+			[]string{`"default_identity":"default"`, `"My Team"`, `"Work"`, `"service_account"`, `"default":true`}, nil},
 	}
 	a := &onepassword{}
 	for _, tc := range tests {
