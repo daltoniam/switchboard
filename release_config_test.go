@@ -115,7 +115,7 @@ func TestReleaseWorkflowsShareCrossImage(t *testing.T) {
 	image := regexp.MustCompile(`ghcr\.io/goreleaser/goreleaser-cross:v[0-9][0-9A-Za-z.\-]*`).Find(script)
 	require.NotNil(t, image, "scripts/goreleaser-cross.sh must pin a goreleaser-cross image tag")
 
-	releaseCmd := regexp.MustCompile(`scripts/goreleaser-cross\.sh\s+release(\s|$)`)
+	releaseCmd := regexp.MustCompile(`scripts/goreleaser-cross\.sh\s+(release)(?:[\s;&|]|$)`)
 	hostGoreleaser := regexp.MustCompile(`(^|[\s;&|(])goreleaser\s`)
 	tests := []struct {
 		workflow string
@@ -128,14 +128,9 @@ func TestReleaseWorkflowsShareCrossImage(t *testing.T) {
 		t.Run(tc.workflow, func(t *testing.T) {
 			var releaseArgs [][]string
 			for _, cmd := range workflowCommands(t, tc.workflow) {
-				if loc := releaseCmd.FindStringIndex(cmd); loc != nil {
-					// Only the script's own arguments count, not other words on
-					// the line or a command chained after it.
-					rest := cmd[loc[0]:]
-					if i := strings.IndexAny(rest, ";&|"); i >= 0 {
-						rest = rest[:i]
-					}
-					releaseArgs = append(releaseArgs, strings.Fields(rest)[1:])
+				if loc := releaseCmd.FindStringSubmatchIndex(cmd); loc != nil {
+					// Arguments start right after the "release" subcommand.
+					releaseArgs = append(releaseArgs, shellArgs(cmd[loc[3]:]))
 				}
 				assert.NotRegexp(t, hostGoreleaser, cmd, "%s must not run goreleaser with the host toolchain, which has no macOS SDK", tc.workflow)
 				assert.NotContains(t, cmd, "goreleaser/goreleaser-action", "%s must not build with the host toolchain, which has no macOS SDK", tc.workflow)
@@ -150,6 +145,47 @@ func TestReleaseWorkflowsShareCrossImage(t *testing.T) {
 					assert.False(t, a == "--snapshot" || strings.HasPrefix(a, "--skip"), "the release must publish every artifact, got %q", a)
 				}
 			}
+		})
+	}
+}
+
+// shellArgs returns the words of a command line up to the end of that
+// command: a shell comment (a word starting with #) or a control operator
+// (;, &, |) ends it, so neither a trailing comment nor a chained command
+// counts as an argument.
+func shellArgs(line string) []string {
+	var args []string
+	for _, word := range strings.Fields(line) {
+		if strings.HasPrefix(word, "#") {
+			break
+		}
+		if i := strings.IndexAny(word, ";&|"); i >= 0 {
+			if i > 0 {
+				args = append(args, word[:i])
+			}
+			break
+		}
+		args = append(args, word)
+	}
+	return args
+}
+
+func TestShellArgs(t *testing.T) {
+	tests := []struct {
+		line string
+		want []string
+	}{
+		{" --snapshot --skip=publish", []string{"--snapshot", "--skip=publish"}},
+		{" --clean # --snapshot --skip=publish", []string{"--clean"}},
+		{" --clean; echo --snapshot", []string{"--clean"}},
+		{" --clean && echo --snapshot", []string{"--clean"}},
+		{" --clean|tee log", []string{"--clean"}},
+		{"; echo --snapshot", nil},
+		{"", nil},
+	}
+	for _, tc := range tests {
+		t.Run(tc.line, func(t *testing.T) {
+			assert.Equal(t, tc.want, shellArgs(tc.line))
 		})
 	}
 }
