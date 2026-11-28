@@ -36,7 +36,7 @@ type fakeAikido struct {
 }
 
 type recorded struct {
-	method, path, query, body string
+	method, path, query, body, auth string
 }
 
 func newFake(t *testing.T, api http.HandlerFunc) *fakeAikido {
@@ -65,7 +65,7 @@ func newFake(t *testing.T, api http.HandlerFunc) *fakeAikido {
 			return
 		}
 		f.mu.Lock()
-		f.requests = append(f.requests, &recorded{r.Method, strings.TrimPrefix(r.URL.EscapedPath(), apiPath), r.URL.RawQuery, string(body)})
+		f.requests = append(f.requests, &recorded{r.Method, strings.TrimPrefix(r.URL.EscapedPath(), apiPath), r.URL.RawQuery, string(body), r.Header.Get("Authorization")})
 		f.mu.Unlock()
 		r.Body = io.NopCloser(strings.NewReader(string(body)))
 		f.api(w, r)
@@ -137,7 +137,7 @@ func TestConfigure(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			assert.Equal(t, tt.origin, a.origin)
+			assert.Equal(t, tt.origin, a.conn.origin)
 		})
 	}
 }
@@ -203,8 +203,10 @@ func TestEndpoints_PathParamsDeclared(t *testing.T) {
 				assert.True(t, p.required, "%s path param %s must be required", ep.tool, p.name)
 			}
 		}
+		required := dispatch[ep.tool].definition().Required
 		for _, m := range pathParam.FindAllStringSubmatch(ep.path, -1) {
 			assert.True(t, declared[m[1]], "%s path {%s} has no parameter", ep.tool, m[1])
+			assert.Contains(t, required, m[1], "%s does not advertise path parameter %s as required", ep.tool, m[1])
 		}
 	}
 }
@@ -265,9 +267,8 @@ func TestToken_RefreshedBeforeExpiry(t *testing.T) {
 }
 
 func TestToken_RevokedTokenRetriedOnce(t *testing.T) {
-	var calls atomic.Int32
 	f := newFake(t, func(w http.ResponseWriter, r *http.Request) {
-		if calls.Add(1) == 1 {
+		if r.Header.Get("Authorization") == "Bearer tok-1" {
 			w.WriteHeader(http.StatusUnauthorized)
 			_, _ = io.WriteString(w, `{"error":"token revoked"}`)
 			return
@@ -279,7 +280,32 @@ func TestToken_RevokedTokenRetriedOnce(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, result.IsError, result.Data)
 	assert.EqualValues(t, 2, f.tokens.Load())
-	assert.EqualValues(t, 2, calls.Load())
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	require.Len(t, f.requests, 2)
+	assert.Equal(t, "Bearer tok-1", f.requests[0].auth)
+	assert.Equal(t, "Bearer tok-2", f.requests[1].auth, "the retry uses the newly issued token")
+}
+
+// A request that snapshotted the old configuration before Configure ran
+// must keep using the old origin's own token, never the new one, and must
+// not fill the new configuration's cache.
+func TestToken_BoundToConfiguration(t *testing.T) {
+	oldFake := newFake(t, jsonHandler(`{"id":1}`))
+	newFake := newFake(t, jsonHandler(`{"id":2}`))
+	newFake.token = func() string { return "tok-new" }
+	a := configured(t, oldFake)
+	stale, ok := a.snapshot()
+	require.True(t, ok)
+	require.NoError(t, a.Configure(t.Context(), mcp.Credentials{"client_id": testClientID, "client_secret": testClientSecret, "base_url": newFake.URL}))
+	require.True(t, a.Healthy(t.Context()))
+
+	tok, err := a.token(t.Context(), stale)
+	require.NoError(t, err)
+	assert.Equal(t, "tok-1", tok, "the stale request gets a token from its own origin")
+	assert.EqualValues(t, 1, oldFake.tokens.Load())
+	current, _ := a.snapshot()
+	assert.Equal(t, "tok-new", current.accessToken, "the new configuration's cache is untouched")
 }
 
 func TestToken_PersistentUnauthorizedIsAnError(t *testing.T) {

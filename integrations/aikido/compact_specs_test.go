@@ -243,6 +243,7 @@ func TestFieldCompaction_KeepsTriageData(t *testing.T) {
 		{"aikido_list_issue_groups", []string{`"severity":"critical"`, "related_cve_ids", `"locations":[{`, "has_next_page"}, []string{"how_to_fix", "description"}},
 		{"aikido_list_issues", []string{"cve_id", "affected_package", "patched_versions", "code_repo_name", "sla_remediate_by"}, []string{"cwe_classes", "original_cvss_severity_score"}},
 		{"aikido_get_issue", []string{"how_to_fix", "reachability_status", "ignore_reasons"}, nil},
+		{"aikido_list_code_repos", []string{`"name":"sample-name"`, `"labels":[{`, "is_imported"}, nil},
 		{"aikido_list_domain_data_leaks", []string{"email", "status"}, []string{"password"}},
 		{"aikido_get_zen_event", []string{`"attack":{`, "payload", "ip_address"}, []string{"stack"}},
 	}
@@ -258,5 +259,25 @@ func TestFieldCompaction_KeepsTriageData(t *testing.T) {
 				assert.NotContains(t, string(compacted), absent)
 			}
 		})
+	}
+}
+
+// Inside an array a nested path keeps only its leaf name, so
+// results[].labels[].name would overwrite results[].name in every row.
+func TestFieldCompactionSpecs_NoLeafCollisionsInArrays(t *testing.T) {
+	for name, fields := range fieldCompactionSpecs {
+		seen := map[string]string{}
+		for _, field := range fields {
+			array, rest, ok := strings.Cut(field.Spec(), "[].")
+			if !ok {
+				continue
+			}
+			rest = strings.ReplaceAll(rest, "[]", "")
+			key := array + "/" + rest[strings.LastIndex(rest, ".")+1:]
+			if previous, dup := seen[key]; dup {
+				t.Errorf("%s: %q and %q both compact to the same key", name, previous, field.Spec())
+			}
+			seen[key] = field.Spec()
+		}
 	}
 }

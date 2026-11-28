@@ -159,7 +159,7 @@ tools:
       - results[].last_scanned_at
       - results[].sensitivity
       - results[].connectivity
-      - results[].labels[].name
+      - results[].labels
       - results[].scan_error
 
   aikido_get_code_repo:

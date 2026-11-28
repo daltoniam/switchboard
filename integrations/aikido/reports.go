@@ -48,7 +48,7 @@ var researchEndpoints = []endpoint{
 	{
 		tool: "aikido_get_cve", method: http.MethodGet, path: "/cve/{cve_id}", scope: "research:read", access: mcp.AccessRead,
 		desc:   "Look up a CVE (or Aikido Intel AIKIDO- id) in Aikido's vulnerability database: affected package and language, severity score, TL;DR, whether it affects you, patched versions and publish date.",
-		params: ps(str("cve_id", "CVE id such as CVE-2021-44228, or an AIKIDO- id.")),
+		params: ps(str("cve_id", "CVE id such as CVE-2021-44228, or an AIKIDO- id.").req()),
 	},
 	{
 		tool: "aikido_list_cwe", method: http.MethodGet, path: "/research/cwe", scope: "research:read", access: mcp.AccessRead,

@@ -59,16 +59,23 @@ var (
 )
 
 type aikido struct {
-	mu           sync.RWMutex
+	mu   sync.RWMutex
+	conn *connection
+	now  func() time.Time
+}
+
+// connection is one configuration. It owns its token cache, so a request
+// that started before Configure or Close can never use or store a token
+// issued for a different client or origin.
+type connection struct {
 	client       *http.Client
 	origin       string
 	clientID     string
 	clientSecret string
 
-	tokenMu     sync.Mutex
+	mu          sync.Mutex
 	accessToken string
 	tokenExpiry time.Time
-	now         func() time.Time
 }
 
 // New returns an unconfigured Aikido Security integration.
@@ -112,13 +119,10 @@ func (a *aikido) MaxBytes(name mcp.ToolName) (int, bool) {
 }
 
 func (a *aikido) clear() {
-	if a.client != nil {
-		a.client.CloseIdleConnections()
+	if a.conn != nil {
+		a.conn.client.CloseIdleConnections()
 	}
-	a.client, a.origin, a.clientID, a.clientSecret = nil, "", "", ""
-	a.tokenMu.Lock()
-	a.accessToken, a.tokenExpiry = "", time.Time{}
-	a.tokenMu.Unlock()
+	a.conn = nil
 }
 
 // Close drops the cached access token and idle connections. It is safe to
@@ -147,12 +151,16 @@ func (a *aikido) Configure(_ context.Context, creds mcp.Credentials) error {
 	if err != nil {
 		return err
 	}
-	a.client = &http.Client{
-		Timeout: requestTimeout,
-		// The bearer token and client secret must never follow a redirect.
-		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
+	a.conn = &connection{
+		client: &http.Client{
+			Timeout: requestTimeout,
+			// The bearer token and client secret must never follow a redirect.
+			CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
+		},
+		origin:       origin,
+		clientID:     clientID,
+		clientSecret: clientSecret,
 	}
-	a.origin, a.clientID, a.clientSecret = origin, clientID, clientSecret
 	return nil
 }
 
@@ -210,17 +218,10 @@ func isLoopback(host string) bool {
 	return ip != nil && ip.IsLoopback()
 }
 
-type connection struct {
-	client       *http.Client
-	origin       string
-	clientID     string
-	clientSecret string
-}
-
-func (a *aikido) snapshot() (connection, bool) {
+func (a *aikido) snapshot() (*connection, bool) {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
-	return connection{a.client, a.origin, a.clientID, a.clientSecret}, a.client != nil
+	return a.conn, a.conn != nil
 }
 
 func (a *aikido) Healthy(ctx context.Context) bool {
@@ -245,11 +246,11 @@ func (a *aikido) Execute(ctx context.Context, name mcp.ToolName, args map[string
 // token returns a cached access token, fetching a new one with the client
 // credentials grant when none is cached or it is about to expire. Aikido's
 // rate limit is per workspace and small, so tokens are reused until expiry.
-func (a *aikido) token(ctx context.Context, conn connection) (string, error) {
-	a.tokenMu.Lock()
-	defer a.tokenMu.Unlock()
-	if a.accessToken != "" && a.now().Add(tokenRefreshMargin).Before(a.tokenExpiry) {
-		return a.accessToken, nil
+func (a *aikido) token(ctx context.Context, conn *connection) (string, error) {
+	conn.mu.Lock()
+	defer conn.mu.Unlock()
+	if conn.accessToken != "" && a.now().Add(tokenRefreshMargin).Before(conn.tokenExpiry) {
+		return conn.accessToken, nil
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, conn.origin+tokenPath, strings.NewReader(`{"grant_type":"client_credentials"}`))
 	if err != nil {
@@ -288,15 +289,15 @@ func (a *aikido) token(ctx context.Context, conn connection) (string, error) {
 	if lifetime <= 0 {
 		lifetime = time.Hour
 	}
-	a.accessToken, a.tokenExpiry = tok.AccessToken, a.now().Add(lifetime)
-	return a.accessToken, nil
+	conn.accessToken, conn.tokenExpiry = tok.AccessToken, a.now().Add(lifetime)
+	return conn.accessToken, nil
 }
 
-func (a *aikido) dropToken(stale string) {
-	a.tokenMu.Lock()
-	defer a.tokenMu.Unlock()
-	if a.accessToken == stale {
-		a.accessToken, a.tokenExpiry = "", time.Time{}
+func dropToken(conn *connection, stale string) {
+	conn.mu.Lock()
+	defer conn.mu.Unlock()
+	if conn.accessToken == stale {
+		conn.accessToken, conn.tokenExpiry = "", time.Time{}
 	}
 }
 
@@ -336,7 +337,7 @@ func (a *aikido) do(ctx context.Context, method, path string, query url.Values, 
 			return nil, fmt.Errorf("aikido: %s %s: %w", method, path, err)
 		}
 		if resp.status == http.StatusUnauthorized && attempt == 0 {
-			a.dropToken(tok)
+			dropToken(conn, tok)
 			continue
 		}
 		return checkStatus(method, path, scope, resp)
