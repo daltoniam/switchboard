@@ -1,0 +1,63 @@
+name: Release Dry Run
+
+# Runs the release build exactly as release.yml does, without publishing, so
+# a change to the release pipeline is proven on its pull request before a
+# merge to main tags a release. Every merge to main can tag a release
+# (auto-release.yml), so a broken pipeline would block shipping.
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - .goreleaser.yml
+      - Dockerfile
+      - go.mod
+      - go.sum
+      - scripts/goreleaser-cross.sh
+      - scripts/check-release-dist.sh
+      - packaging/**
+      - scripts/postinstall.sh
+      - scripts/preremove.sh
+      - .github/workflows/release.yml
+      - .github/workflows/release-dry-run.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-dry-run-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release-dry-run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Run goreleaser (snapshot, no publish)
+        run: |
+          GORELEASER_DOCKER_CONFIG="$HOME/.docker" \
+            bash scripts/goreleaser-cross.sh release --snapshot --clean --skip=publish --timeout 50m --parallelism 2
+        env:
+          GORELEASER_GO_CACHE: "1"
+
+      - name: Check release artifacts
+        run: bash scripts/check-release-dist.sh dist
+
+      - name: Upload macOS binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: darwin-binaries
+          path: |
+            dist/switchboard-darwin_darwin_*/switchboard
+          retention-days: 7
