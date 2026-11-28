@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
+	"mvdan.cc/sh/v3/syntax"
 )
 
 type goreleaserBuild struct {
@@ -115,8 +116,6 @@ func TestReleaseWorkflowsShareCrossImage(t *testing.T) {
 	image := regexp.MustCompile(`ghcr\.io/goreleaser/goreleaser-cross:v[0-9][0-9A-Za-z.\-]*`).Find(script)
 	require.NotNil(t, image, "scripts/goreleaser-cross.sh must pin a goreleaser-cross image tag")
 
-	releaseCmd := regexp.MustCompile(`scripts/goreleaser-cross\.sh\s+(release)(?:[\s;&|]|$)`)
-	hostGoreleaser := regexp.MustCompile(`(^|[\s;&|(])goreleaser\s`)
 	tests := []struct {
 		workflow string
 		snapshot bool
@@ -126,18 +125,13 @@ func TestReleaseWorkflowsShareCrossImage(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.workflow, func(t *testing.T) {
-			var releaseArgs [][]string
-			for _, cmd := range workflowCommands(t, tc.workflow) {
-				// Every invocation on the line counts, including chained ones.
-				for _, loc := range releaseCmd.FindAllStringSubmatchIndex(cmd, -1) {
-					// Arguments start right after the "release" subcommand.
-					releaseArgs = append(releaseArgs, shellArgs(cmd[loc[3]:]))
-				}
-				assert.NotRegexp(t, hostGoreleaser, cmd, "%s must not run goreleaser with the host toolchain, which has no macOS SDK", tc.workflow)
-				assert.NotContains(t, cmd, "goreleaser/goreleaser-action", "%s must not build with the host toolchain, which has no macOS SDK", tc.workflow)
+			wf := parseWorkflowShell(t, tc.workflow)
+			for _, uses := range wf.uses {
+				assert.NotContains(t, uses, "goreleaser/goreleaser-action", "%s must not build with the host toolchain, which has no macOS SDK", tc.workflow)
 			}
-			require.Len(t, releaseArgs, 1, "%s must run `scripts/goreleaser-cross.sh release` exactly once", tc.workflow)
-			args := releaseArgs[0]
+			assert.Empty(t, wf.hostGoreleaser, "%s must not run goreleaser with the host toolchain, which has no macOS SDK", tc.workflow)
+			require.Len(t, wf.releases, 1, "%s must run `scripts/goreleaser-cross.sh release` exactly once", tc.workflow)
+			args := wf.releases[0]
 			if tc.snapshot {
 				assert.Contains(t, args, "--snapshot", "the dry run must not publish")
 				assert.Contains(t, args, "--skip=publish", "the dry run must not publish")
@@ -150,76 +144,16 @@ func TestReleaseWorkflowsShareCrossImage(t *testing.T) {
 	}
 }
 
-// shellArgs returns the words of a command line up to the end of that
-// command: a shell comment (a word starting with #) or a control operator
-// (;, &, |) ends it, so neither a trailing comment nor a chained command
-// counts as an argument.
-func shellArgs(line string) []string {
-	var args []string
-	for _, word := range strings.Fields(line) {
-		if strings.HasPrefix(word, "#") {
-			break
-		}
-		if i := strings.IndexAny(word, ";&|"); i >= 0 {
-			if i > 0 {
-				args = append(args, word[:i])
-			}
-			break
-		}
-		args = append(args, word)
-	}
-	return args
+type workflowShell struct {
+	uses           []string
+	releases       [][]string // arguments after `scripts/goreleaser-cross.sh release`
+	hostGoreleaser []string   // goreleaser run directly on the runner
 }
 
-// stripShellComment drops an unquoted # comment: a # that starts a word.
-func stripShellComment(line string) string {
-	for i, r := range line {
-		if r == '#' && (i == 0 || line[i-1] == ' ' || line[i-1] == '\t') {
-			line = line[:i]
-			break
-		}
-	}
-	return strings.TrimSpace(line)
-}
-
-func TestStripShellComment(t *testing.T) {
-	tests := []struct{ line, want string }{
-		{"# scripts/goreleaser-cross.sh release", ""},
-		{"echo hi # scripts/goreleaser-cross.sh release --snapshot", "echo hi"},
-		{"  bash run.sh --tag=v1#2  ", "bash run.sh --tag=v1#2"},
-		{"bash run.sh", "bash run.sh"},
-	}
-	for _, tc := range tests {
-		t.Run(tc.line, func(t *testing.T) {
-			assert.Equal(t, tc.want, stripShellComment(tc.line))
-		})
-	}
-}
-
-func TestShellArgs(t *testing.T) {
-	tests := []struct {
-		line string
-		want []string
-	}{
-		{" --snapshot --skip=publish", []string{"--snapshot", "--skip=publish"}},
-		{" --clean # --snapshot --skip=publish", []string{"--clean"}},
-		{" --clean; echo --snapshot", []string{"--clean"}},
-		{" --clean && echo --snapshot", []string{"--clean"}},
-		{" --clean|tee log", []string{"--clean"}},
-		{"; echo --snapshot", nil},
-		{"", nil},
-	}
-	for _, tc := range tests {
-		t.Run(tc.line, func(t *testing.T) {
-			assert.Equal(t, tc.want, shellArgs(tc.line))
-		})
-	}
-}
-
-// workflowCommands returns each step's `uses` value and each logical shell
-// command line of its `run` script, with backslash continuations joined and
-// shell comments removed, so commented-out commands don't count.
-func workflowCommands(t *testing.T, path string) []string {
+// parseWorkflowShell parses every step's `run` script with a real shell
+// parser and collects the commands that actually execute, so comments,
+// echoed text and chained commands are told apart from real invocations.
+func parseWorkflowShell(t *testing.T, path string) workflowShell {
 	t.Helper()
 	data, err := os.ReadFile(path)
 	require.NoError(t, err)
@@ -232,20 +166,79 @@ func workflowCommands(t *testing.T, path string) []string {
 		} `yaml:"jobs"`
 	}
 	require.NoError(t, yaml.Unmarshal(data, &wf))
-	var out []string
+
+	var out workflowShell
 	for _, job := range wf.Jobs {
 		for _, step := range job.Steps {
 			if step.Uses != "" {
-				out = append(out, step.Uses)
+				out.uses = append(out.uses, step.Uses)
 			}
-			script := strings.ReplaceAll(step.Run, "\\\n", " ")
-			for line := range strings.SplitSeq(script, "\n") {
-				if line = stripShellComment(line); line != "" {
-					out = append(out, line)
+			if step.Run == "" {
+				continue
+			}
+			file, err := syntax.NewParser().Parse(strings.NewReader(step.Run), path)
+			require.NoError(t, err, "%s: parse run script", path)
+			syntax.Walk(file, func(node syntax.Node) bool {
+				call, ok := node.(*syntax.CallExpr)
+				if !ok || len(call.Args) == 0 {
+					return true
 				}
-			}
+				words := make([]string, len(call.Args))
+				for i, w := range call.Args {
+					words[i] = w.Lit() // "" when the word is not a plain literal
+				}
+				if words[0] == "goreleaser" {
+					out.hostGoreleaser = append(out.hostGoreleaser, strings.Join(words, " "))
+				}
+				if args, ok := crossScriptArgs(words); ok && len(args) > 0 && args[0] == "release" {
+					out.releases = append(out.releases, args[1:])
+				}
+				return true
+			})
 		}
 	}
-	require.NotEmpty(t, out, "%s has no steps", path)
 	return out
+}
+
+// crossScriptArgs returns the arguments of a command that runs
+// scripts/goreleaser-cross.sh, directly or through bash or sh.
+func crossScriptArgs(words []string) ([]string, bool) {
+	isScript := func(w string) bool {
+		return w == "scripts/goreleaser-cross.sh" || w == "./scripts/goreleaser-cross.sh"
+	}
+	switch {
+	case isScript(words[0]):
+		return words[1:], true
+	case (words[0] == "bash" || words[0] == "sh") && len(words) > 1 && isScript(words[1]):
+		return words[2:], true
+	}
+	return nil, false
+}
+
+func TestParseWorkflowShell(t *testing.T) {
+	tests := []struct {
+		name     string
+		run      string
+		releases [][]string
+		host     int
+	}{
+		{"wrapper with env prefix and continuation", "A=\"$HOME\" \\\n  bash scripts/goreleaser-cross.sh release --snapshot --skip=publish", [][]string{{"--snapshot", "--skip=publish"}}, 0},
+		{"trailing comment is not an argument", "bash scripts/goreleaser-cross.sh release --clean # --snapshot --skip=publish", [][]string{{"--clean"}}, 0},
+		{"commented-out command", "# bash scripts/goreleaser-cross.sh release --snapshot\ngoreleaser release", nil, 1},
+		{"echo is not an invocation", "echo scripts/goreleaser-cross.sh release --snapshot --skip=publish", nil, 0},
+		{"chained invocations both count", "bash scripts/goreleaser-cross.sh release --snapshot --skip=publish; scripts/goreleaser-cross.sh release", [][]string{{"--snapshot", "--skip=publish"}, {}}, 0},
+		{"other subcommand", "bash scripts/goreleaser-cross.sh check", nil, 0},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			path := dir + "/wf.yml"
+			wf, err := yaml.Marshal(map[string]any{"jobs": map[string]any{"j": map[string]any{"steps": []map[string]string{{"run": tc.run}}}}})
+			require.NoError(t, err)
+			require.NoError(t, os.WriteFile(path, wf, 0o600))
+			got := parseWorkflowShell(t, path)
+			assert.Equal(t, tc.releases, got.releases)
+			assert.Len(t, got.hostGoreleaser, tc.host)
+		})
+	}
 }
