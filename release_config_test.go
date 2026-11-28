@@ -115,18 +115,33 @@ func TestReleaseWorkflowsShareCrossImage(t *testing.T) {
 	image := regexp.MustCompile(`ghcr\.io/goreleaser/goreleaser-cross:v[0-9][0-9A-Za-z.\-]*`).Find(script)
 	require.NotNil(t, image, "scripts/goreleaser-cross.sh must pin a goreleaser-cross image tag")
 
-	for _, wf := range []string{".github/workflows/release.yml", ".github/workflows/release-dry-run.yml"} {
-		t.Run(wf, func(t *testing.T) {
-			commands := workflowCommands(t, wf)
-			var viaScript int
-			for _, cmd := range commands {
-				if strings.Contains(cmd, "scripts/goreleaser-cross.sh") && strings.Contains(cmd, "release") {
-					viaScript++
+	releaseCmd := regexp.MustCompile(`scripts/goreleaser-cross\.sh\s+release(\s|$)`)
+	hostGoreleaser := regexp.MustCompile(`(^|[\s;&|(])goreleaser\s`)
+	tests := []struct {
+		workflow string
+		snapshot bool
+	}{
+		{".github/workflows/release.yml", false},
+		{".github/workflows/release-dry-run.yml", true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.workflow, func(t *testing.T) {
+			var releases []string
+			for _, cmd := range workflowCommands(t, tc.workflow) {
+				if releaseCmd.MatchString(cmd) {
+					releases = append(releases, cmd)
 				}
-				assert.NotRegexp(t, `(^|[\s;&|(])goreleaser\s`, cmd, "%s must not run goreleaser with the host toolchain, which has no macOS SDK", wf)
-				assert.NotContains(t, cmd, "goreleaser/goreleaser-action", "%s must not build with the host toolchain, which has no macOS SDK", wf)
+				assert.NotRegexp(t, hostGoreleaser, cmd, "%s must not run goreleaser with the host toolchain, which has no macOS SDK", tc.workflow)
+				assert.NotContains(t, cmd, "goreleaser/goreleaser-action", "%s must not build with the host toolchain, which has no macOS SDK", tc.workflow)
 			}
-			assert.Equal(t, 1, viaScript, "%s must run goreleaser release through scripts/goreleaser-cross.sh exactly once", wf)
+			require.Len(t, releases, 1, "%s must run `scripts/goreleaser-cross.sh release` exactly once", tc.workflow)
+			if tc.snapshot {
+				assert.Contains(t, releases[0], "--snapshot", "the dry run must not publish")
+				assert.Contains(t, releases[0], "--skip=publish", "the dry run must not publish")
+			} else {
+				assert.NotContains(t, releases[0], "--snapshot", "the release must publish")
+				assert.NotContains(t, releases[0], "--skip", "the release must publish every artifact")
+			}
 		})
 	}
 }
