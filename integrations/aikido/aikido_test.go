@@ -328,11 +328,18 @@ func TestToken_WaiterHonorsContext(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(t.Context(), 50*time.Millisecond)
 	defer cancel()
-	begin := time.Now()
-	_, err := a.token(ctx, conn)
-	require.Error(t, err)
-	assert.ErrorIs(t, err, context.DeadlineExceeded)
-	assert.Less(t, time.Since(begin), 2*time.Second)
+	done := make(chan error, 1)
+	go func() {
+		_, err := a.token(ctx, conn)
+		done <- err
+	}()
+	select {
+	case err := <-done:
+		require.Error(t, err)
+		assert.ErrorIs(t, err, context.DeadlineExceeded)
+	case <-time.After(2 * time.Second):
+		t.Fatal("a waiter with an expired context kept waiting for another caller's token request")
+	}
 }
 
 func TestToken_PersistentUnauthorizedIsAnError(t *testing.T) {
@@ -474,6 +481,7 @@ func unescape(t *testing.T, s string) string {
 }
 
 func TestPagedResults(t *testing.T) {
+	tenItems := `[{"id":1},{"id":2},{"id":3},{"id":4},{"id":5},{"id":6},{"id":7},{"id":8},{"id":9},{"id":10}]`
 	tests := []struct {
 		name    string
 		tool    mcp.ToolName
@@ -484,7 +492,7 @@ func TestPagedResults(t *testing.T) {
 		hasNext bool
 	}{
 		{"header true", "aikido_list_issue_groups", nil, "true", `[{"id":1}]`, `[{"id":1}]`, true},
-		{"header false", "aikido_list_issue_groups", nil, "false", `[{"id":1}]`, `[{"id":1}]`, false},
+		{"header false overrides a full page", "aikido_list_issue_groups", map[string]any{"per_page": float64(10)}, "false", tenItems, tenItems, false},
 		{"full page without header", "aikido_list_activity_log", map[string]any{"per_page": float64(2)}, "", `[{"id":1},{"id":2}]`, `[{"id":1},{"id":2}]`, true},
 		{"short page without header", "aikido_list_activity_log", map[string]any{"per_page": float64(2)}, "", `[{"id":1}]`, `[{"id":1}]`, false},
 		{"unwrapped object", "aikido_list_zen_users", map[string]any{"app_id": float64(4)}, "", `{"users":[{"id":"u1"}]}`, `[{"id":"u1"}]`, false},
@@ -572,6 +580,14 @@ func TestResponses(t *testing.T) {
 			assert.JSONEq(t, tt.wantData, result.Data)
 		})
 	}
+}
+
+func TestRedactedEndpointRejectsMalformedJSON(t *testing.T) {
+	f := newFake(t, jsonHandler(`{"dataleaks":[{"email":"dev@example.com","password":"hunter2"`))
+	result, err := configured(t, f).Execute(t.Context(), "aikido_list_domain_data_leaks", map[string]any{"domain_id": float64(9)})
+	require.NoError(t, err)
+	require.True(t, result.IsError)
+	assert.NotContains(t, result.Data, "hunter2")
 }
 
 func TestNonJSONExportReturnedAsText(t *testing.T) {

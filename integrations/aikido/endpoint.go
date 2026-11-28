@@ -357,6 +357,9 @@ func (e endpoint) run(ctx context.Context, a *aikido, args map[string]any) (*mcp
 		return mcp.JSONResult(map[string]any{"ok": true, "status": resp.status})
 	}
 	if !json.Valid(data) {
+		if e.redact != nil {
+			return mcp.ErrResult(fmt.Errorf("aikido: %s returned a response that is not valid JSON, so it cannot be checked for secrets", e.tool))
+		}
 		return mcp.RawResult(data)
 	}
 	if e.redact != nil {
