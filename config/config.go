@@ -411,6 +411,11 @@ var envMapping = map[string]map[string]string{
 		"api_key":          "ASHBY_API_KEY",
 		"api_base_url":     "ASHBY_API_BASE_URL",
 	},
+	"panther": {
+		"instance_url":     "PANTHER_INSTANCE_URL",
+		"api_token":        "PANTHER_API_TOKEN",
+		"mcp_access_token": "PANTHER_MCP_ACCESS_TOKEN",
+	},
 	"render": {
 		"api_key":      "RENDER_API_KEY",
 		"workspace_id": "RENDER_WORKSPACE_ID",
@@ -563,6 +568,10 @@ func defaultConfig() *mcp.Config {
 			"ashby": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"mcp_access_token": "", "base_url": "", "api_key": "", "api_base_url": "", mcp.CredKeyTokenSource: ""},
+			},
+			"panther": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"instance_url": "", "api_token": "", "mcp_access_token": "", mcp.CredKeyTokenSource: ""},
 			},
 			"render": {
 				Enabled:     false,

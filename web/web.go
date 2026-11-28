@@ -146,6 +146,10 @@ func (w *WebServer) Handler() http.Handler {
 	mux.HandleFunc("GET /integrations/higgsfield/setup", w.handleHiggsfieldSetup)
 	mux.HandleFunc("GET /integrations/ashby/setup", w.handleAshbySetup)
 	mux.HandleFunc("POST /integrations/ashby/api-key", w.handleAshbyAPIKeySave)
+	mux.HandleFunc("GET /integrations/panther/setup", w.handlePantherSetup)
+	mux.HandleFunc("POST /integrations/panther/instance", w.handlePantherInstanceSave)
+	mux.HandleFunc("POST /integrations/panther/api-token", w.handlePantherAPITokenSave)
+	mux.HandleFunc("POST /api/remote/panther/oauth/start", w.handlePantherOAuthStart)
 
 	mux.HandleFunc("POST /api/remote/{name}/oauth/start", w.handleRemoteMCPOAuthStart)
 	mux.HandleFunc("GET /api/remote/{name}/oauth/callback", w.handleRemoteMCPOAuthCallback)
@@ -457,6 +461,7 @@ var setupIntegrations = map[string]bool{
 	"mobbin":       true,
 	"higgsfield":   true,
 	"ashby":        true,
+	"panther":      true,
 	"sentry":       true,
 	"gmail":        true,
 	"gcal":         true,
@@ -1897,6 +1902,18 @@ var remoteOAuthProfiles = map[string]remoteOAuthProfile{
 		Options:            remotemcp.OAuthOptions{Scope: "openid mcp offline_access", Prompt: "consent"},
 		CredentialKey:      "mcp_access_token",
 		ClearCredentialKey: "api_key",
+		Renewable:          true,
+	},
+	// Panther Remote MCP lives on each instance's api. subdomain, so sign-in
+	// starts from handlePantherOAuthStart with the saved instance. Panther
+	// does not document scope strings (its consent screen picks the
+	// permissions), so the advertised scopes are requested. Signing in
+	// clears a saved API token, which would otherwise select API token mode.
+	"panther": {
+		CallbackPath:       "/api/remote/panther/oauth/callback",
+		Options:            remotemcp.OAuthOptions{AdvertisedScope: true, ClientName: "Switchboard"},
+		CredentialKey:      "mcp_access_token",
+		ClearCredentialKey: "api_token",
 		Renewable:          true,
 	},
 }

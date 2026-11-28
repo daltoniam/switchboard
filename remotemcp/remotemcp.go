@@ -460,9 +460,27 @@ func convertTools(prefix string, tools []*mcpsdk.Tool) []mcp.ToolDefinition {
 			Description: t.Description,
 			Parameters:  params,
 			Required:    required,
+			Access:      annotatedAccess(t.Annotations),
 		})
 	}
 	return defs
+}
+
+// annotatedAccess classifies a tool from the server's MCP annotations. A
+// tool that is not read-only is destructive unless the server says
+// otherwise, which is the MCP default; a tool without annotations stays
+// unclassified.
+func annotatedAccess(annotations *mcpsdk.ToolAnnotations) mcp.ToolAccess {
+	switch {
+	case annotations == nil:
+		return mcp.AccessUnspecified
+	case annotations.ReadOnlyHint:
+		return mcp.AccessRead
+	case annotations.DestructiveHint != nil && !*annotations.DestructiveHint:
+		return mcp.AccessWrite
+	default:
+		return mcp.AccessDestructive
+	}
 }
 
 func extractParams(schema any) map[string]string {

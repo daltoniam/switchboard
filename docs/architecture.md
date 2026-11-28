@@ -118,6 +118,14 @@ integrations/
     compact.yaml             Compaction specs for services, deploys, events, logs, Postgres, Key Value, Blueprints
   higgsfield/
     higgsfield.go            Higgsfield hosted MCP proxy (curated static allowlist, remotemcp OAuth)
+  panther/
+    panther.go               Panther adapter: Remote MCP proxy (per-instance api. origin, OAuth renewal, tools from the server) or API token mode
+    instance.go              Instance URL resolution (Console or API URL to REST, GraphQL, and Remote MCP endpoints)
+    client.go                API token mode: REST and GraphQL client (X-API-Key, no redirects, retryable 429/5xx)
+    tools.go                 Native tool specs, generic REST list/get builders, dispatch map
+    alerts.go detections.go  Alerts, comments, status and assignee; rules, policies, correlation rules, enable/disable
+    datalake.go platform.go  Data lake SQL with polling; log sources, schemas, data models, globals, queries, users, roles, metrics
+    compact.yaml             Compaction specs for native read tools (API token mode only)
   ashby/
     ashby.go                 Ashby adapter: hosted MCP proxy (/mcp/v1, OAuth renewal, upstream schema merge) or API key mode
     tools.go                 Reviewed hosted MCP tool allowlist with access classes

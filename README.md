@@ -307,6 +307,14 @@ Ashby's hosted server takes no API key: each user signs in with OAuth and sees o
 
 API key mode exposes 124 native tools (80 read, 37 write, 7 destructive) over jobs, job postings, openings, candidates, notes, tags, projects, applications, feedback, interviews and schedules, hiring process settings, custom fields, referrals, surveys, users, departments, locations, approvals, reports, audit logs, sequences, and offers. Start with `ashby_search_candidates`, `ashby_list_jobs`, `ashby_list_applications`, `ashby_list_interview_schedules`, or `ashby_list_offers`. Destructive tools are `ashby_set_job_status`, `ashby_set_opening_archived`, `ashby_change_application_stage`, `ashby_delete_application`, `ashby_update_interview_schedule`, `ashby_cancel_interview_schedule`, and `ashby_archive_candidate_tag`. Lists use `cursor` and `limit` (default 25) and return `nextCursor` and `syncToken`; read responses are compacted to drop phone numbers, social links, files, and custom fields.
 
+### Panther (`panther`)
+
+Connects to Panther, the cloud SIEM, for security alert triage, detections and rules, data lake log search and threat hunting with SQL, log sources, schemas, users, and metrics. Panther has two setup options on one setup page, and only one is active at a time. Both use your instance URL: the Console URL (`https://acme.runpanther.net`) or the API URL from **Settings → Developer Tools → API Tokens** (`https://api.acme.runpanther.net`, or `https://<host>/v1` for Cloud Connected and self-hosted deployments).
+
+**Sign in with Panther** proxies Panther Remote MCP (beta) at `https://api.<instance>/mcp`. It needs Panther 1.124 or later and an `api.` subdomain; no admin setup is needed, because Switchboard signs in through a `localhost` redirect, which Panther always allows. Open `/integrations/panther/setup`, save the instance URL, and select **Sign in with Panther**. OAuth uses protected resource metadata, dynamic client registration as a public client, PKCE, and resource binding to `/mcp`; Panther documents no scope strings, so Switchboard requests the scopes the server advertises (none when it advertises none) and you pick permissions on Panther's consent screen. The tool list comes from Panther's server and depends on that consent; access classes come from its MCP annotations. Sign-in saves the refresh token, so Switchboard renews the login before it expires. A token set only through `PANTHER_MCP_ACCESS_TOKEN` is not renewed.
+
+**API token** mode works on any Panther version. Create a token under **Settings → Developer Tools → API Tokens** with Read Alerts, View Rules, View Policies, Query Data Lake, View Log Sources, Read User Info, and View Overview for the read tools; add Manage Alerts and Manage Rules or Manage Policies for the write tools. Paste it in the **API token** card, or set `PANTHER_API_TOKEN`. Saving a token clears a saved sign-in, signing in clears a saved token, and a token set through `PANTHER_API_TOKEN` wins over a saved sign-in. Changing the instance URL clears both. API token mode exposes 42 native tools (37 read, 5 write) over Panther's REST API, with GraphQL for the data lake, log sources, schemas, and metrics: alerts (list, get, events, comments, status, assignee, comment), rules, scheduled rules, simple rules, policies, and correlation rules (list, get, enable or disable), data lake databases, tables, columns, SQL queries with polling, query history and cancel, log sources, schemas, data models, global helpers, scheduled queries, users, roles, token permissions, and alert and ingestion metrics. Start with `panther_list_alerts`, `panther_list_rules`, `panther_list_databases`, or `panther_list_log_sources`. Lists take `cursor` and `limit` (default 25) and return `{results, next}`. `panther_query_data_lake` counts as a read because Panther runs data lake queries as a read-only database user.
+
 ### Environment Variables
 
 Switchboard automatically reads environment variables from your shell (fish, zsh, bash, etc.) and overlays them on top of the JSON config. If an env var is set, it takes precedence over the corresponding value in `config.json`. Env-sourced values are never written back to disk.
@@ -358,6 +366,9 @@ Environment variables override credential values but do not change the durable e
 | Ashby | `base_url` | `ASHBY_MCP_BASE_URL` (optional, default `https://mcp.ashbyhq.com`; a trailing `/mcp/v1` is accepted) |
 | Ashby | `api_key` | `ASHBY_API_KEY` (selects API key mode; from Ashby Admin → API Keys) |
 | Ashby | `api_base_url` | `ASHBY_API_BASE_URL` (optional, default `https://api.ashbyhq.com`) |
+| Panther | `instance_url` | `PANTHER_INSTANCE_URL` (Console or API URL, such as `https://acme.runpanther.net`) |
+| Panther | `api_token` | `PANTHER_API_TOKEN` (selects API token mode; from Settings → Developer Tools → API Tokens) |
+| Panther | `mcp_access_token` | `PANTHER_MCP_ACCESS_TOKEN` (Remote MCP OAuth token; not renewed when set only here) |
 | [Render](docs/render.md) | `api_key` | `RENDER_API_KEY` (from Render Dashboard → Account Settings → API Keys) |
 | Render | `workspace_id` | `RENDER_WORKSPACE_ID` (optional default workspace, `tea-...` or `usr-...`) |
 | Render | `base_url` | `RENDER_MCP_BASE_URL` (optional, default `https://mcp.render.com`; a trailing `/mcp` is accepted) |
@@ -498,6 +509,7 @@ Some integrations support OAuth flows through the web UI at `http://localhost:38
 | Mobbin | Hosted MCP OAuth (PKCE) | Web UI → Mobbin → Setup, or set `MOBBIN_MCP_ACCESS_TOKEN` and enable explicitly |
 | Higgsfield | Hosted MCP OAuth (PKCE) | Web UI → higgsfield → Setup, or set `HIGGSFIELD_MCP_ACCESS_TOKEN` and enable explicitly |
 | Ashby | Hosted MCP OAuth (PKCE) or API key | Web UI → ashby → Setup (Sign in with Ashby, or the API key card), or set `ASHBY_MCP_ACCESS_TOKEN` or `ASHBY_API_KEY` and enable explicitly |
+| Panther | Remote MCP OAuth (PKCE) or API token | Web UI → panther → Setup (instance URL, then Sign in with Panther or the API token card), or set `PANTHER_INSTANCE_URL` with `PANTHER_API_TOKEN` and enable explicitly |
 | Render | API Key (hosted MCP) | Create a key in Render Dashboard → Account Settings → API Keys, then set `RENDER_API_KEY` or enter it in the web UI; enable explicitly |
 | Sentry | OAuth Device Flow | Web UI → Sentry → Setup, or set `SENTRY_AUTH_TOKEN` |
 | Slack | Session Token | Web UI → Slack → Setup (auto-extracts from Chrome), or set `SLACK_TOKEN` |

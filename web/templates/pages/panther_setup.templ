@@ -1,0 +1,190 @@
+package pages
+
+import (
+	"github.com/daltoniam/switchboard/web/templates/components"
+	"github.com/daltoniam/switchboard/web/templates/layouts"
+)
+
+type PantherSetupData struct {
+	Enabled     bool
+	InstanceURL string
+	// HasToken is a saved Sign in with Panther (Remote MCP OAuth).
+	HasToken bool
+	// HasAPIToken selects API token mode; it wins over a saved sign-in.
+	HasAPIToken   bool
+	HealthChecked bool
+	Healthy       bool
+	FlashResult   string
+	FlashError    string
+}
+
+func (d PantherSetupData) configured() bool { return d.HasToken || d.HasAPIToken }
+
+func (d PantherSetupData) signInActive() bool { return d.HasToken && !d.HasAPIToken }
+
+func (d PantherSetupData) savedLabel() string {
+	if d.HasAPIToken {
+		return "API Token Saved"
+	}
+	return "Token Saved"
+}
+
+func (d PantherSetupData) apiTokenPlaceholder() string {
+	if d.HasAPIToken {
+		return "Saved; leave blank to keep the current token"
+	}
+	return "Paste your Panther API token"
+}
+
+templ PantherSetup(page layouts.PageData, data PantherSetupData) {
+	@layouts.Base(page) {
+		<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem;">
+			<a href="/integrations" class="btn btn-sm btn-outline" style="min-height: 44px;">← Back</a>
+			<h1 class="page-title" style="margin-bottom: 0;">Panther Setup</h1>
+			if !data.configured() {
+				@components.Badge("Not Connected", "muted")
+			} else if !data.Enabled {
+				@components.Badge("Disabled", "muted")
+			} else if data.HealthChecked && data.Healthy {
+				@components.Badge("Connected", "green")
+			} else if data.HealthChecked {
+				@components.Badge("Connection Error", "red")
+			} else {
+				@components.Badge(data.savedLabel(), "muted")
+			}
+		</div>
+		<div aria-live="polite" aria-atomic="true">
+			if data.FlashError != "" {
+				<div class="flash flash-error">{ data.FlashError }</div>
+			} else if data.FlashResult != "" {
+				<div class="flash flash-success">{ data.FlashResult }</div>
+			}
+		</div>
+		<p style="color: var(--text-secondary); margin-bottom: 1rem;">
+			Connect Panther, the cloud SIEM, for security alert triage, detections and rules, data lake log search and threat hunting with SQL, log sources, schemas, and users. Save your instance URL, then choose one of the two options below; only one is active at a time.
+		</p>
+		if data.configured() {
+			<p id="panther-mode" style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+				if data.HasAPIToken {
+					Active option: <strong>API token</strong>. Tools call Panther's REST and GraphQL APIs with the token's permissions.
+				} else {
+					Active option: <strong>Sign in with Panther</strong>. Tools come from Panther Remote MCP with the permissions you granted on Panther's consent screen.
+				}
+			</p>
+		}
+		<section aria-labelledby="panther-instance" style="border-top: 1px solid var(--border-subtle); padding-top: 1.5rem; margin-bottom: 1.5rem;">
+			<h2 id="panther-instance" class="card-title" style="margin-bottom: 0.75rem;">Your Panther instance</h2>
+			<p style="color: var(--text-secondary); margin-bottom: 0.75rem;">
+				Enter the URL you open the Panther Console at, such as <code>https://acme.runpanther.net</code>, or the <strong>API URL</strong> shown under <strong>Settings → Developer Tools → API Tokens</strong>. Both options use it. Changing it signs out and clears a saved API token, because they belong to the old instance.
+			</p>
+			<div style="max-width: 32rem;">
+				<div class="form-group">
+					<label class="form-label" for="cred_instance_url">Instance URL</label>
+					<input class="form-input" type="text" name="cred_instance_url" id="cred_instance_url" form="panther-api-token-form" value={ data.InstanceURL } placeholder="https://acme.runpanther.net" autocomplete="url"/>
+				</div>
+				<button type="submit" class="btn" form="panther-api-token-form" formaction="/integrations/panther/instance" style="min-height: 44px;">Save Instance URL</button>
+			</div>
+		</section>
+		<section aria-labelledby="panther-sign-in" style="border-top: 1px solid var(--border-subtle); padding-top: 1.5rem; margin-bottom: 1.5rem;">
+			<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem;">
+				<h2 id="panther-sign-in" class="card-title" style="margin-bottom: 0;">Option 1: Sign in with Panther</h2>
+				if data.signInActive() {
+					@components.Badge("Active", "green")
+				}
+			</div>
+			<p style="color: var(--text-secondary); margin-bottom: 0.75rem;">Uses Panther Remote MCP (beta). Before you sign in:</p>
+			<ol style="color: var(--text-secondary); padding-left: 1.25rem; line-height: 1.6; margin-bottom: 1rem;">
+				<li>Your Panther instance runs version <strong>1.124</strong> or later and has an <strong>api.</strong> subdomain (for example <code>api.acme.runpanther.net</code>). If it does not, use the API token option instead.</li>
+				<li>No admin setup is needed: Switchboard signs in through a <code>localhost</code> redirect, which Panther always allows.</li>
+				<li>Sign in with SSO, then choose on Panther's consent screen which of your own role's permissions to share. Every call is audited as you.</li>
+			</ol>
+			<div style="display: flex; flex-wrap: wrap; align-items: flex-start; gap: 1.5rem;">
+				<p style="flex: 1 1 18rem; min-width: 0; color: var(--text-muted);">
+					Switchboard saves the access and refresh tokens in this plugin's configuration and renews the login before it expires; tokens are never displayed here. Signing in replaces a saved API token and enables this plugin.
+				</p>
+				<div style="flex: 1 1 14rem; min-width: 0;">
+					<button type="button" class="btn btn-green" id="panther-oauth-start" onclick="startPantherOAuth()" style="min-height: 44px;" disabled?={ data.InstanceURL == "" }>
+						if data.signInActive() {
+							Re-authorize with Panther
+						} else {
+							Sign in with Panther →
+						}
+					</button>
+					if data.InstanceURL == "" {
+						<p style="color: var(--text-muted); margin-top: 0.75rem;">Save your instance URL first.</p>
+					}
+					<div aria-live="polite" aria-atomic="true" style="margin-top: 0.75rem;">
+						<p id="panther-oauth-status" style="color: var(--text-secondary);"></p>
+						<div id="panther-oauth-error" class="flash flash-error" hidden></div>
+					</div>
+					<button type="button" class="btn btn-outline" id="panther-oauth-retry" onclick="startPantherOAuth()" style="display: none; min-height: 44px;">Try Again</button>
+					<noscript><p style="color: var(--text-secondary); margin-top: 0.75rem;">Enable JavaScript to sign in with Panther.</p></noscript>
+				</div>
+			</div>
+		</section>
+		<section aria-labelledby="panther-api-token" style="border-top: 1px solid var(--border-subtle); padding-top: 1.5rem;">
+			<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem;">
+				<h2 id="panther-api-token" class="card-title" style="margin-bottom: 0;">Option 2: API token</h2>
+				if data.HasAPIToken {
+					@components.Badge("Active", "green")
+				}
+			</div>
+			<p style="color: var(--text-secondary); margin-bottom: 0.75rem;">
+				Works on any Panther version and for headless or shared servers. Tools call Panther's REST and GraphQL APIs and see whatever the token's permissions allow.
+			</p>
+			<ol style="color: var(--text-secondary); padding-left: 1.25rem; line-height: 1.6; margin-bottom: 1rem;">
+				<li>In the Panther Console, open <strong>Settings → Developer Tools → API Tokens</strong> and create a token.</li>
+				<li>For the read-only tools, grant <strong>Read Alerts</strong>, <strong>View Rules</strong> (rules, data models, global helpers, schemas), <strong>View Policies</strong>, <strong>Query Data Lake</strong> (SQL and scheduled queries), <strong>View Log Sources</strong>, <strong>Read User Info</strong> (users and roles), and <strong>View Overview</strong> (metrics). Add <strong>Manage Alerts</strong> to change alert status, assignees, and comments, and <strong>Manage Rules</strong> or <strong>Manage Policies</strong> to enable or disable detections.</li>
+				<li>If the token has an allowed IP range, include the address Switchboard calls from.</li>
+				<li>Paste the token below, enable, and save; the instance URL above is saved with it. Saving replaces a sign-in with Panther; <code>PANTHER_API_TOKEN</code> can set the token instead.</li>
+			</ol>
+			<form id="panther-api-token-form" method="POST" action="/integrations/panther/api-token" style="max-width: 32rem;">
+				<div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;">
+					<span class="form-label" style="margin-bottom: 0;">Enabled</span>
+					@components.Toggle("enabled", data.Enabled || !data.configured())
+				</div>
+				@components.FormGroup("API token", "cred_api_token", "password", "", data.apiTokenPlaceholder())
+				<button type="submit" class="btn" style="min-height: 44px;">Save Configuration</button>
+			</form>
+		</section>
+		<script>
+			async function startPantherOAuth() {
+				var button = document.getElementById('panther-oauth-start');
+				var retry = document.getElementById('panther-oauth-retry');
+				var status = document.getElementById('panther-oauth-status');
+				var error = document.getElementById('panther-oauth-error');
+				if (button.getAttribute('aria-busy') === 'true') return;
+				button.disabled = true;
+				button.setAttribute('aria-busy', 'true');
+				retry.style.display = 'none';
+				error.hidden = true;
+				status.textContent = 'Starting secure sign-in…';
+				var controller = new AbortController();
+				var timeout = setTimeout(function() { controller.abort(); }, 30000);
+				try {
+					var response = await fetch('/api/remote/panther/oauth/start', { method: 'POST', signal: controller.signal });
+					if (!response.ok) throw new Error('Could not start sign-in. Please try again.');
+					var data = await response.json();
+					if (data.error) throw new Error(data.error);
+					if (!data.authorize_url) throw new Error('No sign-in URL was returned. Please try again.');
+					var authorizeURL = new URL(data.authorize_url);
+					if (authorizeURL.protocol !== 'https:' && authorizeURL.protocol !== 'http:') {
+						throw new Error('Invalid sign-in URL. Please try again.');
+					}
+					status.textContent = 'Redirecting to Panther…';
+					window.location.assign(authorizeURL.href);
+				} catch (err) {
+					status.textContent = '';
+					error.textContent = err.name === 'AbortError' ? 'Sign-in timed out. Please try again.' : err.message;
+					error.hidden = false;
+					button.disabled = false;
+					button.removeAttribute('aria-busy');
+					retry.style.display = 'inline-flex';
+					retry.focus();
+				} finally {
+					clearTimeout(timeout);
+				}
+			}
+		</script>
+	}
+}

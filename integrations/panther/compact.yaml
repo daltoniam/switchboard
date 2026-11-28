@@ -1,0 +1,239 @@
+# Switchboard compaction specs for the panther integration (API token mode).
+#
+# Schema: tools.<tool_name>: { spec: [<spec_lines>], max_bytes?: <int> }
+#
+# Full spec syntax (paths, arrays, aliases, exclusions): docs/field-compaction.md.
+#
+# Every list tool returns {results, next}: REST lists keep Panther's own shape
+# and GraphQL connections are reshaped to match, with next null on the last
+# page. Inside results[] a nested path keeps only its leaf, so small objects
+# (an alert's detection, a comment's author, a user's role) are kept whole
+# rather than projected, which would collide with the record's own id.
+#
+# Sign in with Panther never uses these specs: Remote MCP responses are shaped
+# by Panther's server.
+#
+# Get tools that return the record's content (rule bodies, schema specs, data
+# model mappings, global helper code) drop only bulky unit tests and spec
+# discovery output. Tools whose GraphQL query already selects a small field
+# set, single users and roles, and the token permission check have no spec.
+
+version: 1
+tools:
+  # ── Alerts ────────────────────────────────────────────────────────
+  panther_list_alerts:
+    spec:
+      - results[].id
+      - results[].title
+      - results[].severity
+      - results[].status
+      - results[].type
+      - results[].detection
+      - results[].eventCount
+      - results[].createdAt
+      - results[].lastReceivedEventAt
+      - next
+  panther_get_alert:
+    spec:
+      - -deliveries
+  panther_list_alert_events:
+    spec:
+      - results
+      - next
+  panther_list_alert_comments:
+    spec:
+      - results[].id
+      - results[].body
+      - results[].format
+      - results[].createdAt
+      - results[].createdBy
+      - next
+
+  # ── Detections ────────────────────────────────────────────────────
+  panther_list_rules:
+    spec:
+      - results[].id
+      - results[].displayName
+      - results[].enabled
+      - results[].severity
+      - results[].logTypes
+      - results[].tags
+      - results[].managed
+      - results[].lastModified
+      - next
+  panther_get_rule:
+    spec:
+      - -tests
+  panther_list_scheduled_rules:
+    spec:
+      - results[].id
+      - results[].displayName
+      - results[].enabled
+      - results[].severity
+      - results[].scheduledQueries
+      - results[].tags
+      - results[].managed
+      - results[].lastModified
+      - next
+  panther_get_scheduled_rule:
+    spec:
+      - -tests
+  panther_list_simple_rules:
+    spec:
+      - results[].id
+      - results[].displayName
+      - results[].enabled
+      - results[].severity
+      - results[].logTypes
+      - results[].tags
+      - results[].managed
+      - results[].lastModified
+      - next
+  panther_get_simple_rule:
+    spec:
+      - -tests
+  panther_list_policies:
+    spec:
+      - results[].id
+      - results[].displayName
+      - results[].enabled
+      - results[].severity
+      - results[].resourceTypes
+      - results[].tags
+      - results[].managed
+      - results[].lastModified
+      - next
+  panther_get_policy:
+    spec:
+      - -tests
+  panther_list_correlation_rules:
+    spec:
+      - results[].id
+      - results[].displayName
+      - results[].enabled
+      - results[].severity
+      - results[].tags
+      - results[].managed
+      - results[].lastModified
+      - next
+  panther_get_correlation_rule:
+    spec:
+      - -tests
+
+  # ── Data lake ─────────────────────────────────────────────────────
+  panther_list_database_tables:
+    spec:
+      - results[].name
+      - results[].logType
+      - next
+  panther_query_data_lake:
+    spec:
+      - -columnTypes
+      - -sql
+  panther_get_data_lake_query:
+    spec:
+      - -columnTypes
+      - -sql
+  panther_list_data_lake_queries:
+    spec:
+      - results[].id
+      - results[].sql
+      - results[].status
+      - results[].startedAt
+      - results[].completedAt
+      - results[].isScheduled
+      - results[].issuedBy
+      - next
+
+  # ── Log sources, schemas, data models, globals, queries ───────────
+  panther_list_log_sources:
+    spec:
+      - results[].integrationId
+      - results[].integrationLabel
+      - results[].integrationType
+      - results[].isHealthy
+      - results[].logTypes
+      - results[].lastEventReceivedAtTime
+      - results[].lastEventProcessedAtTime
+      - next
+  panther_list_schemas:
+    spec:
+      - results[].name
+      - results[].description
+      - results[].revision
+      - results[].isArchived
+      - results[].isManaged
+      - results[].updatedAt
+      - next
+  panther_get_schema:
+    spec:
+      - -discoveredSpec
+  panther_list_data_models:
+    spec:
+      - results[].id
+      - results[].displayName
+      - results[].enabled
+      - results[].logTypes
+      - results[].lastModified
+      - next
+  panther_list_global_helpers:
+    spec:
+      - results[].id
+      - results[].description
+      - results[].lastModified
+      - next
+  panther_list_scheduled_queries:
+    spec:
+      - results[].id
+      - results[].name
+      - results[].sql
+      - results[].schedule
+      - results[].updatedAt
+      - next
+
+  # ── Users and roles ───────────────────────────────────────────────
+  panther_list_users:
+    spec:
+      - results[].id
+      - results[].email
+      - results[].givenName
+      - results[].familyName
+      - results[].role
+      - results[].status
+      - results[].enabled
+      - results[].lastLoggedInAt
+      - next
+  panther_list_roles:
+    spec:
+      - results[].id
+      - results[].name
+      - results[].permissions
+      - results[].logTypeAccessKind
+      - next
+
+  # ── Metrics ───────────────────────────────────────────────────────
+  # The per-interval breakdowns are time series for charts; scripts keep
+  # them, the LLM gets the totals per label.
+  panther_get_alert_metrics:
+    spec:
+      - fromDate
+      - toDate
+      - metrics.totalAlerts
+      - metrics.alertsPerSeverity[].label
+      - metrics.alertsPerSeverity[].value
+      - metrics.alertsPerRule[].entityId
+      - metrics.alertsPerRule[].label
+      - metrics.alertsPerRule[].value
+  panther_get_data_metrics:
+    spec:
+      - fromDate
+      - toDate
+      - metrics.totalEventsProcessed
+      - metrics.totalBytesProcessed
+      - metrics.totalBytesQueried
+      - metrics.eventsProcessedPerLogType[].label
+      - metrics.eventsProcessedPerLogType[].value
+      - metrics.bytesProcessedPerSource[].label
+      - metrics.bytesProcessedPerSource[].value
+      - metrics.bytesQueriedPerSource[].label
+      - metrics.bytesQueriedPerSource[].value
