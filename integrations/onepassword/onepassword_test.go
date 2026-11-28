@@ -203,7 +203,7 @@ func TestConfigure(t *testing.T) {
 			a := New().(*onepassword)
 			a.desktopAvailable = true
 			require.NoError(t, a.Configure(context.Background(), tc.creds))
-			assert.Equal(t, tc.want, a.auth)
+			assert.Equal(t, tc.want, a.top)
 		})
 	}
 }
@@ -215,7 +215,6 @@ func TestConfigure_Rejects(t *testing.T) {
 		desktop bool
 		want    string
 	}{
-		{"nothing set", mcp.Credentials{}, true, "set account_name"},
 		{"both set", mcp.Credentials{"account_name": "My Team", "service_account_token": "ops_abc"}, true, "not both"},
 		{"not a service account token", mcp.Credentials{"service_account_token": "dop_v1_abc"}, true, "service account token (ops_...)"},
 		{"token with a line break", mcp.Credentials{"service_account_token": "ops_a\nb"}, true, "service account token (ops_...)"},
@@ -230,15 +229,15 @@ func TestConfigure_Rejects(t *testing.T) {
 			a.connect = func(context.Context, auth) (store, error) { return newFake(), nil }
 			require.NoError(t, a.Configure(context.Background(), mcp.Credentials{"service_account_token": "ops_previous"}))
 			require.True(t, a.Healthy(context.Background()))
-			err := a.Configure(context.Background(), tc.creds)
+			err := mcp.ConfigureIntegration(context.Background(), a, &mcp.IntegrationConfig{Credentials: tc.creds})
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), tc.want)
 			if token := tc.creds["service_account_token"]; token != "" {
 				assert.NotContains(t, err.Error(), token, "errors must not echo the token")
 				assert.NotContains(t, err.Error(), strconv.Quote(token), "errors must not echo the token, quoted or not")
 			}
-			assert.Equal(t, auth{}, a.auth, "a rejected configuration clears the previous one")
-			assert.Nil(t, a.client, "a rejected configuration drops the signed-in client")
+			assert.Equal(t, auth{}, a.top, "a rejected configuration clears the previous one")
+			assert.Empty(t, a.sessions, "a rejected configuration drops the signed-in client")
 			assert.False(t, a.Healthy(context.Background()))
 		})
 	}
@@ -328,7 +327,7 @@ func TestClose_IsRepeatable(t *testing.T) {
 	require.True(t, a.Healthy(context.Background()))
 	require.NoError(t, a.Close())
 	require.NoError(t, a.Close())
-	assert.Nil(t, a.client)
+	assert.Empty(t, a.sessions)
 }
 
 func TestTools_Metadata(t *testing.T) {
@@ -363,7 +362,8 @@ func TestTools_Access(t *testing.T) {
 func TestDispatchMap_AllToolsCovered(t *testing.T) {
 	for _, tool := range tools {
 		_, ok := dispatch[tool.Name]
-		assert.True(t, ok, "tool %s has no dispatch handler", tool.Name)
+		_, local := adapterDispatch[tool.Name]
+		assert.True(t, ok != local, "tool %s needs exactly one dispatch handler", tool.Name)
 	}
 }
 
@@ -373,6 +373,9 @@ func TestDispatchMap_NoOrphanHandlers(t *testing.T) {
 		names[tool.Name] = true
 	}
 	for name := range dispatch {
+		assert.True(t, names[name], "dispatch handler %s has no tool definition", name)
+	}
+	for name := range adapterDispatch {
 		assert.True(t, names[name], "dispatch handler %s has no tool definition", name)
 	}
 }

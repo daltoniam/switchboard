@@ -34,6 +34,8 @@ func init() {
 		Provision:   liveOnePasswordProvision,
 		Cases: []liveCase{
 			{Tool: "onepassword_list_vaults", Expect: []string{"${vault}"}},
+			{Tool: "onepassword_list_vaults", Args: map[string]any{"identity_id": "default"}, Expect: []string{"${vault}"}},
+			{Tool: "onepassword_list_identities", Expect: []string{`"default_identity":"default"`, `"method":"service_account"`}},
 			{Tool: "onepassword_list_items", Args: map[string]any{"vault": "${vault}"}, Expect: []string{"${item}"}},
 			{Tool: "onepassword_get_item", Args: map[string]any{"vault": "${vault}", "item": "${item}"}, Expect: []string{"${item}", "[REDACTED]", "op://"}},
 			{Tool: "onepassword_get_item", Args: map[string]any{"vault": "${vault}", "item": "${item}", "reveal": true}, Expect: []string{"${item}", "${password}", `"otp_code"`}},

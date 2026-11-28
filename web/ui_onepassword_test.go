@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 	"time"
 
@@ -15,7 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const uiOnePasswordTools = 8
+const uiOnePasswordTools = 9
 
 // uiOnePasswordMCP searches for 1Password tools over MCP and, when they are
 // enabled, lists vaults through execute. It returns the tool names and the
@@ -41,6 +43,34 @@ func uiOnePasswordMCP(t *testing.T, app *uiApp) ([]string, *mcpsdk.CallToolResul
 	result, err = session.CallTool(ctx, &mcpsdk.CallToolParams{Name: "execute", Arguments: map[string]any{"tool_name": "onepassword_list_vaults", "arguments": map[string]any{}}})
 	require.NoError(t, err)
 	return names, result
+}
+
+// uiOnePasswordExecute runs one 1Password tool through the execute meta-tool.
+func uiOnePasswordExecute(t *testing.T, app *uiApp, tool string, args map[string]any) *mcpsdk.CallToolResult {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(t.Context(), 60*time.Second)
+	defer cancel()
+	client := mcpsdk.NewClient(&mcpsdk.Implementation{Name: "onepassword-ui", Version: "1"}, nil)
+	session, err := client.Connect(ctx, &mcpsdk.StreamableClientTransport{Endpoint: app.URL + "/mcp", DisableStandaloneSSE: true}, nil)
+	require.NoError(t, err)
+	defer func() { require.NoError(t, session.Close()) }()
+	result, err := session.CallTool(ctx, &mcpsdk.CallToolParams{Name: "execute", Arguments: map[string]any{"tool_name": tool, "arguments": args}})
+	require.NoError(t, err)
+	return result
+}
+
+// uiOnePasswordAddIdentity submits the add identity form on the setup page.
+func uiOnePasswordAddIdentity(t *testing.T, page playwright.Page, id, label, account, token string) {
+	t.Helper()
+	form := page.Locator("#onepassword-identity-add")
+	require.NoError(t, form.Locator("#identity_id").Fill(id))
+	require.NoError(t, form.Locator("#identity_meta_label").Fill(label))
+	require.NoError(t, form.Locator("#identity_cred_account_name").Fill(account))
+	require.NoError(t, form.Locator("#identity_cred_service_account_token").Fill(token))
+	_, err := page.ExpectNavigation(func() error {
+		return form.GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Save identity"}).Click()
+	}, playwright.PageExpectNavigationOptions{URL: "**/integrations/onepassword/setup?*"})
+	require.NoError(t, err)
 }
 
 func uiResultText(t *testing.T, result *mcpsdk.CallToolResult) string {
@@ -207,6 +237,89 @@ func TestUIOnePassword(t *testing.T) {
 	require.Empty(t, saved.Integrations["onepassword"].Credentials["account_name"])
 	// Compared as a bool so a failure never prints the token into CI logs.
 	require.True(t, saved.Integrations["onepassword"].Credentials["service_account_token"] == wantToken, "saved service account token differs from the one entered")
+
+	uiOnePasswordIdentities(t, app, page)
+}
+
+// uiOnePasswordIdentities adds named identities while the integration is
+// disabled, so no desktop app sign-in or approval prompt runs, then enables
+// it and lists them over MCP.
+func uiOnePasswordIdentities(t *testing.T, app *uiApp, page playwright.Page) {
+	t.Helper()
+	page.OnDialog(func(dialog playwright.Dialog) { require.NoError(t, dialog.Accept()) })
+	identities := page.Locator("#onepassword-identities")
+	uiText(t, identities, "0 configured")
+	uiText(t, identities.Locator("#onepassword-desktop-limit"), "Only one identity can sign in through the 1Password desktop app")
+
+	uiOnePasswordAddIdentity(t, page, "work", "Work vaults", "", "ops_not-a-real-work-token")
+	work := identities.Locator(`[data-onepassword-identity="work"]`)
+	uiText(t, work, "Work vaults")
+	uiText(t, work.Locator(".onepassword-identity-method"), "Service account token")
+	require.NotContains(t, uiResultTextOf(t, page.Locator("body")), "ops_not-a-real-work-token", "identity tokens are never rendered")
+
+	uiOnePasswordAddIdentity(t, page, "me", "", "Switchboard UI Test", "")
+	if msg := page.Locator(".toast.flash-error"); uiCount(t, msg) > 0 {
+		uiText(t, msg, "without CGO")
+		t.Log("this Switchboard build cannot use the 1Password desktop app; skipping the second desktop identity case")
+	} else {
+		uiText(t, identities.Locator(`[data-onepassword-identity="me"] .onepassword-identity-method`), "Desktop app as Switchboard UI Test")
+		uiText(t, identities.Locator("#onepassword-desktop-limit"), "The me identity uses the desktop app")
+		uiOnePasswordAddIdentity(t, page, "family", "Family", "Family", "")
+		rejection := page.Locator(".toast.flash-error")
+		uiText(t, rejection, "only one identity can sign in through the 1Password desktop app")
+		uiText(t, rejection, `identities "family" and "me"`)
+		uiText(t, rejection, "service account token instead")
+		require.Zero(t, uiCount(t, identities.Locator(`[data-onepassword-identity="family"]`)))
+		uiCapture(t, page, "onepassword-identity-rejected")
+		_, err := page.ExpectNavigation(func() error {
+			return identities.Locator(`[data-onepassword-identity="me"] .identity-delete`).Click()
+		}, playwright.PageExpectNavigationOptions{URL: "**/integrations/onepassword/setup?success=*"})
+		require.NoError(t, err)
+		require.Zero(t, uiCount(t, identities.Locator(`[data-onepassword-identity="me"]`)))
+	}
+	uiText(t, identities, "1 configured")
+
+	require.NoError(t, page.Locator("#integration-configuration .toggle").Click())
+	uiSave(t, page)
+	uiCapture(t, page, "onepassword-identities-desktop")
+	require.NoError(t, page.SetViewportSize(390, 844))
+	require.NoError(t, page.Locator("[data-sidebar-close]").Click())
+	uiCapture(t, page, "onepassword-identities-mobile")
+	require.NoError(t, page.SetViewportSize(1280, 900))
+
+	names, _ := uiOnePasswordMCP(t, app)
+	require.Contains(t, names, "onepassword_list_identities")
+	listed := uiResultText(t, uiOnePasswordExecute(t, app, "onepassword_list_identities", map[string]any{}))
+	for _, want := range []string{`"work"`, "Work vaults", "service_account", `"default"`} {
+		require.Contains(t, listed, want)
+	}
+	require.NotContains(t, listed, "ops_not-a-real")
+	unknown := uiOnePasswordExecute(t, app, "onepassword_list_vaults", map[string]any{"identity_id": "nope"})
+	require.True(t, unknown.IsError)
+	require.Contains(t, uiResultText(t, unknown), `unknown identity "nope"`)
+	routed := uiOnePasswordExecute(t, app, "onepassword_list_vaults", map[string]any{"identity_id": "work"})
+	require.True(t, routed.IsError, "the fake work token cannot sign in")
+	require.Contains(t, uiResultText(t, routed), "cannot sign in with the service account token")
+	require.NotContains(t, uiResultText(t, routed), "ops_not-a-real-work-token")
+
+	app.restart()
+	uiNavigate(t, page, app.URL+"/integrations/onepassword/setup")
+	uiText(t, page.Locator(`#onepassword-identities [data-onepassword-identity="work"]`), "Work vaults")
+	data, err := os.ReadFile(filepath.Join(app.home, ".config", "switchboard", "config.json"))
+	require.NoError(t, err)
+	var saved mcp.Config
+	require.NoError(t, json.Unmarshal(data, &saved))
+	ic := saved.Integrations["onepassword"]
+	require.Equal(t, []string{"work"}, slices.Sorted(maps.Keys(ic.Identities)))
+	require.Equal(t, "Work vaults", ic.Identities["work"].Metadata["label"])
+	require.True(t, ic.Identities["work"].Credentials["service_account_token"] == "ops_not-a-real-work-token", "saved identity token differs from the one entered")
+}
+
+func uiCount(t *testing.T, locator playwright.Locator) int {
+	t.Helper()
+	n, err := locator.Count()
+	require.NoError(t, err)
+	return n
 }
 
 func uiResultTextOf(t *testing.T, locator playwright.Locator) string {

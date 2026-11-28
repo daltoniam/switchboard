@@ -61,14 +61,23 @@ type connectFunc func(ctx context.Context, a auth) (store, error)
 
 type handlerFunc func(ctx context.Context, s store, args map[string]any) (*mcp.ToolResult, error)
 
+// session is the signed-in client for one credential set. Identities with
+// the same credentials share it, and it outlives reconfiguration while the
+// credentials stay, so reloading settings does not prompt again.
+type session struct {
+	mu      sync.Mutex
+	client  store
+	lastErr error
+}
+
 type onepassword struct {
 	connect          connectFunc
 	desktopAvailable bool
 
-	mu      sync.Mutex
-	auth    auth
-	client  store
-	lastErr error
+	mu       sync.Mutex
+	top      auth
+	named    []identity
+	sessions map[auth]*session
 }
 
 var (
@@ -105,120 +114,193 @@ func (*onepassword) Placeholders() map[string]string {
 }
 func (*onepassword) PlainTextKeys() []string { return []string{"account_name"} }
 
-// Configure stores one sign-in method. Signing in happens on first use,
-// because it starts the SDK core and may show a 1Password approval prompt.
-// The signed-in client is kept when the credentials do not change, so
-// reloading settings does not prompt again.
+// Configure stores the default identity's sign-in method, which may be empty
+// when named identities provide every account; ConfigureIdentities checks
+// that at least one exists. Signing in happens on first use, because it
+// starts the SDK core and may show a 1Password approval prompt.
 func (a *onepassword) Configure(_ context.Context, creds mcp.Credentials) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	next, err := a.parseAuth(creds)
 	if err != nil {
-		a.auth, a.client, a.lastErr = auth{}, nil, nil
-		return err
+		a.top, a.named = auth{}, nil
+		a.pruneSessions()
+		return fmt.Errorf("onepassword: %w", err)
 	}
-	if next != a.auth {
-		a.auth, a.client, a.lastErr = next, nil, nil
-	}
+	a.top = next
+	a.pruneSessions()
 	return nil
 }
 
+// parseAuth reads one sign-in method; no credentials at all give a zero auth.
 func (a *onepassword) parseAuth(creds mcp.Credentials) (auth, error) {
 	account := strings.TrimSpace(creds["account_name"])
 	token := strings.TrimSpace(creds["service_account_token"])
 	switch {
 	case account == "" && token == "":
-		return auth{}, fmt.Errorf("onepassword: set account_name to sign in through the 1Password desktop app, or service_account_token for a service account")
+		return auth{}, nil
 	case account != "" && token != "":
-		return auth{}, fmt.Errorf("onepassword: set account_name or service_account_token, not both; clear one (the OP_ACCOUNT_NAME and OP_SERVICE_ACCOUNT_TOKEN environment variables also set them)")
+		return auth{}, fmt.Errorf("set account_name or service_account_token, not both; clear one (the OP_ACCOUNT_NAME and OP_SERVICE_ACCOUNT_TOKEN environment variables also set them)")
 	case token != "":
 		if !strings.HasPrefix(token, "ops_") || strings.ContainsAny(token, " \t\r\n") {
-			return auth{}, fmt.Errorf("onepassword: service_account_token must be a 1Password service account token (ops_...)")
+			return auth{}, fmt.Errorf("service_account_token must be a 1Password service account token (ops_...)")
 		}
 		return auth{token: token}, nil
 	}
 	if len(account) > maxAccountNameLen || strings.ContainsFunc(account, unicode.IsControl) {
-		return auth{}, fmt.Errorf("onepassword: account_name must be the account name shown in the 1Password app sidebar, or the account ID")
+		return auth{}, fmt.Errorf("account_name must be the account name shown in the 1Password app sidebar, or the account ID")
 	}
 	if !a.desktopAvailable {
-		return auth{}, fmt.Errorf("onepassword: this Switchboard build cannot use the 1Password desktop app, because it was built without CGO. Build Switchboard on this computer with go install or make build, or use a service account token")
+		return auth{}, fmt.Errorf("this Switchboard build cannot use the 1Password desktop app, because it was built without CGO. Build Switchboard on this computer with go install or make build, or use a service account token")
 	}
 	return auth{account: account}, nil
 }
 
-// signedIn returns the signed-in client, signing in once per credential set.
-func (a *onepassword) signedIn(ctx context.Context) (store, error) {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	if a.auth == (auth{}) {
-		return nil, fmt.Errorf("onepassword: integration is not configured")
+// pruneSessions drops signed-in clients no identity uses any more. The
+// caller holds a.mu.
+func (a *onepassword) pruneSessions() {
+	used := map[auth]bool{}
+	for _, ident := range a.identitiesLocked() {
+		used[ident.auth] = true
 	}
-	if a.client == nil {
-		client, err := a.connect(ctx, a.auth)
+	for au := range a.sessions {
+		if !used[au] {
+			delete(a.sessions, au)
+		}
+	}
+}
+
+func (a *onepassword) sessionLocked(au auth) *session {
+	if a.sessions == nil {
+		a.sessions = map[auth]*session{}
+	}
+	s, ok := a.sessions[au]
+	if !ok {
+		s = &session{}
+		a.sessions[au] = s
+	}
+	return s
+}
+
+// signedIn returns the signed-in client for the selected identity, signing
+// in once per credential set. Sign-ins for different identities do not wait
+// on each other, so a pending desktop approval never blocks a service
+// account.
+func (a *onepassword) signedIn(ctx context.Context, id string) (store, error) {
+	a.mu.Lock()
+	ident, err := a.resolveLocked(id)
+	if err != nil {
+		a.mu.Unlock()
+		return nil, err
+	}
+	sess := a.sessionLocked(ident.auth)
+	a.mu.Unlock()
+	return a.signIn(ctx, ident.auth, sess)
+}
+
+func (a *onepassword) signIn(ctx context.Context, au auth, sess *session) (store, error) {
+	sess.mu.Lock()
+	defer sess.mu.Unlock()
+	if sess.client == nil {
+		client, err := a.connect(ctx, au)
 		if err != nil {
-			err = fmt.Errorf("onepassword: cannot sign in %s: %w", a.auth.method(), err)
-			if a.auth.account != "" {
+			err = fmt.Errorf("onepassword: cannot sign in %s: %w", au.method(), err)
+			if au.account != "" {
 				err = fmt.Errorf("%w. %s", err, desktopHint)
 			}
-			a.lastErr = err
+			sess.lastErr = err
 			return nil, err
 		}
-		a.client = client
-		a.lastErr = nil
+		sess.client = client
+		sess.lastErr = nil
 	}
-	return a.client, nil
+	return sess.client, nil
 }
 
 // SignInError returns why the last sign-in or health check failed, or "" when
-// it succeeded, so the setup page can say what to fix.
+// it succeeded, so the setup page can say what to fix. With several
+// identities each failure names its identity.
 func (a *onepassword) SignInError() string {
 	a.mu.Lock()
-	defer a.mu.Unlock()
-	if a.lastErr == nil {
-		return ""
+	all := a.identitiesLocked()
+	sessions := make([]*session, len(all))
+	for i, ident := range all {
+		sessions[i] = a.sessions[ident.auth]
 	}
-	return a.lastErr.Error()
+	a.mu.Unlock()
+	var msgs []string
+	for i, sess := range sessions {
+		if sess == nil {
+			continue
+		}
+		sess.mu.Lock()
+		err := sess.lastErr
+		sess.mu.Unlock()
+		if err == nil {
+			continue
+		}
+		if len(all) == 1 {
+			return err.Error()
+		}
+		msgs = append(msgs, fmt.Sprintf("identity %q: %s", all[i].id, err))
+	}
+	return strings.Join(msgs, "\n")
 }
 
-func (a *onepassword) setLastErr(err error) {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	a.lastErr = err
-}
-
-// Healthy signs in and lists vaults, which any account or service account
-// may do.
+// Healthy signs in to every identity and lists its vaults, which any
+// account or service account may do.
 func (a *onepassword) Healthy(ctx context.Context) bool {
-	s, err := a.signedIn(ctx)
-	if err != nil {
-		return false
+	a.mu.Lock()
+	all := a.identitiesLocked()
+	sessions := make([]*session, len(all))
+	for i, ident := range all {
+		sessions[i] = a.sessionLocked(ident.auth)
 	}
-	if _, err = s.ListVaults(ctx); err != nil {
-		a.setLastErr(sdkErr(err))
-		return false
+	a.mu.Unlock()
+	healthy := len(all) > 0
+	for i, sess := range sessions {
+		s, err := a.signIn(ctx, all[i].auth, sess)
+		if err == nil {
+			_, err = s.ListVaults(ctx)
+			sess.mu.Lock()
+			sess.lastErr = nil
+			if err != nil {
+				sess.lastErr = sdkErr(err)
+			}
+			sess.mu.Unlock()
+		}
+		if err != nil {
+			healthy = false
+		}
 	}
-	a.setLastErr(nil)
-	return true
+	return healthy
 }
 
 func (a *onepassword) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
+	if fn, ok := adapterDispatch[toolName]; ok {
+		return fn(a)
+	}
 	fn, ok := dispatch[toolName]
 	if !ok {
 		return mcp.ErrResult(fmt.Errorf("onepassword: unknown tool: %s", toolName))
 	}
-	s, err := a.signedIn(ctx)
+	id, args, err := identityArg(args)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	s, err := a.signedIn(ctx, id)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
 	return fn(ctx, s, args)
 }
 
-// Close drops the signed-in client; the SDK releases it when it is
+// Close drops every signed-in client; the SDK releases them when they are
 // garbage-collected. Safe to call more than once.
 func (a *onepassword) Close() error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	a.client = nil
+	a.sessions = nil
 	return nil
 }
 
@@ -248,6 +330,9 @@ type sdkStore struct{ client *op.Client }
 func connectSDK(ctx context.Context, a auth) (store, error) {
 	signIn := op.WithServiceAccountToken(a.token)
 	if a.account != "" {
+		if err := processDesktop.bind(a.account); err != nil {
+			return nil, err
+		}
 		signIn = op.WithDesktopAppIntegration(a.account)
 	}
 	client, err := op.NewClient(ctx, signIn, op.WithIntegrationInfo("Switchboard", version.String()))

@@ -72,3 +72,59 @@ func TestOnePasswordSetup_FormPostsBothCredentials(t *testing.T) {
 	}
 	assert.Contains(t, doc.Text(), "Available Tools (1)")
 }
+
+func TestOnePasswordSetup_Identities(t *testing.T) {
+	tests := []struct {
+		name         string
+		data         OnePasswordSetupData
+		badge        string
+		identities   []string
+		methods      []string
+		desktopInUse string
+	}{
+		{"none yet", OnePasswordSetupData{DesktopAvailable: true}, "Not Configured", nil, nil, ""},
+		{"named identities only",
+			OnePasswordSetupData{Enabled: true, Healthy: true, DesktopAvailable: true, Identities: []OnePasswordIdentity{
+				{ID: "me", Account: "My Team"},
+				{ID: "work", Label: "Work vaults"},
+			}, DesktopIdentity: "me"},
+			"Connected", []string{"me", "work"}, []string{"Desktop app as My Team", "Service account token"}, "me"},
+		{"default desktop app and a service account",
+			OnePasswordSetupData{Enabled: true, AccountName: "My Team", DesktopAvailable: true, Identities: []OnePasswordIdentity{{ID: "work"}}, DesktopIdentity: "default"},
+			"Not Verified", []string{"work"}, []string{"Service account token"}, "default"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			doc := renderOnePasswordSetup(t, tc.data)
+			assert.Equal(t, tc.badge, strings.TrimSpace(doc.Find(".badge").First().Text()))
+			card := doc.Find("#onepassword-identities")
+			require.Equal(t, 1, card.Length())
+			var ids, methods []string
+			card.Find("[data-onepassword-identity]").Each(func(_ int, s *goquery.Selection) {
+				ids = append(ids, s.AttrOr("data-onepassword-identity", ""))
+				methods = append(methods, strings.TrimSpace(s.Find(".onepassword-identity-method").Text()))
+				form := s.Find("form")
+				assert.Equal(t, "/integrations/onepassword/identities/"+s.AttrOr("data-onepassword-identity", "")+"/delete", form.AttrOr("action", ""))
+			})
+			assert.Equal(t, tc.identities, ids)
+			assert.Equal(t, tc.methods, methods)
+			limit := card.Find("#onepassword-desktop-limit").Text()
+			assert.Contains(t, limit, "Only one identity can sign in through the 1Password desktop app")
+			if tc.desktopInUse != "" {
+				assert.Contains(t, limit, tc.desktopInUse+" identity uses the desktop app")
+			}
+
+			add := card.Find("form#onepassword-identity-add")
+			assert.Equal(t, "/integrations/onepassword/identities", add.AttrOr("action", ""))
+			assert.Equal(t, "POST", add.AttrOr("method", ""))
+			for name, typ := range map[string]string{
+				"identity_id":                         "text",
+				"identity_meta_label":                 "text",
+				"identity_cred_account_name":          "text",
+				"identity_cred_service_account_token": "password",
+			} {
+				assert.Equal(t, typ, add.Find(`input[name="`+name+`"]`).AttrOr("type", ""), name)
+			}
+		})
+	}
+}
