@@ -389,3 +389,39 @@ func TestListVaults_BuiltInVaultDescriptions(t *testing.T) {
 	}
 	assert.True(t, strings.Contains(res.Data, `"type":"personal"`))
 }
+
+func TestIdentities_SignInFailureNamesTheIdentity(t *testing.T) {
+	tests := []struct {
+		name       string
+		identities map[string]mcp.IntegrationIdentity
+		args       map[string]any
+		want       string
+		unwanted   string
+		signedIn   auth
+	}{
+		{"single identity keeps the plain message", nil, nil, "onepassword: cannot sign in with the service account token", "identity", auth{token: "ops_default"}},
+		{"default of several", map[string]mcp.IntegrationIdentity{"work": tokenIdentity("ops_work", "")}, nil, `onepassword: identity "default": cannot sign in with the service account token`, `"work"`, auth{token: "ops_default"}},
+		{"named identity", map[string]mcp.IntegrationIdentity{"work": tokenIdentity("ops_work", "")}, map[string]any{identityParam: "work"}, `onepassword: identity "work": cannot sign in with the service account token`, `"default"`, auth{token: "ops_work"}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var signIns []auth
+			a := New().(*onepassword)
+			a.connect = func(_ context.Context, au auth) (store, error) {
+				signIns = append(signIns, au)
+				return nil, errors.New("invalid token")
+			}
+			require.NoError(t, mcp.ConfigureIntegration(context.Background(), a, &mcp.IntegrationConfig{
+				Credentials: mcp.Credentials{"service_account_token": "ops_default"},
+				Identities:  tc.identities,
+			}))
+			res := run(t, a, "onepassword_list_vaults", tc.args)
+			assert.Equal(t, []auth{tc.signedIn}, signIns, "the selected identity's credentials reach the SDK")
+			require.True(t, res.IsError)
+			assert.Contains(t, res.Data, tc.want)
+			assert.Contains(t, res.Data, "invalid token")
+			assert.NotContains(t, res.Data, tc.unwanted)
+			assert.NotContains(t, res.Data, "onepassword: onepassword:")
+		})
+	}
+}

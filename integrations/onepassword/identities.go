@@ -134,6 +134,19 @@ func (a *onepassword) resolveLocked(id string) (identity, error) {
 	return identity{}, fmt.Errorf("onepassword: unknown identity %q; available: %s (see %s)", id, strings.Join(ids, ", "), listIdentitiesTool)
 }
 
+// identityError names the identity a failure belongs to when several are
+// configured, so the caller can tell which account to fix.
+type identityError struct {
+	id  string
+	err error
+}
+
+func (e identityError) Error() string {
+	return fmt.Sprintf("onepassword: identity %q: %s", e.id, strings.TrimPrefix(e.err.Error(), "onepassword: "))
+}
+
+func (e identityError) Unwrap() error { return e.err }
+
 // identityArg removes the identity argument from args and returns its value.
 func identityArg(args map[string]any) (string, map[string]any, error) {
 	if _, ok := args[identityParam]; !ok {

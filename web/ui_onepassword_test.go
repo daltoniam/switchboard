@@ -297,10 +297,12 @@ func uiOnePasswordIdentities(t *testing.T, app *uiApp, page playwright.Page) {
 	unknown := uiOnePasswordExecute(t, app, "onepassword_list_vaults", map[string]any{"identity_id": "nope"})
 	require.True(t, unknown.IsError)
 	require.Contains(t, uiResultText(t, unknown), `unknown identity "nope"`)
-	routed := uiOnePasswordExecute(t, app, "onepassword_list_vaults", map[string]any{"identity_id": "work"})
-	require.True(t, routed.IsError, "the fake work token cannot sign in")
-	require.Contains(t, uiResultText(t, routed), "cannot sign in with the service account token")
-	require.NotContains(t, uiResultText(t, routed), "ops_not-a-real-work-token")
+	for id, args := range map[string]map[string]any{"work": {"identity_id": "work"}, "default": {}} {
+		routed := uiOnePasswordExecute(t, app, "onepassword_list_vaults", args)
+		require.True(t, routed.IsError, "the fake %s token cannot sign in", id)
+		require.Contains(t, uiResultText(t, routed), fmt.Sprintf("identity %q: cannot sign in with the service account token", id), "the call must run as the %s identity", id)
+		require.NotContains(t, uiResultText(t, routed), "ops_not-a-real")
+	}
 
 	app.restart()
 	uiNavigate(t, page, app.URL+"/integrations/onepassword/setup")

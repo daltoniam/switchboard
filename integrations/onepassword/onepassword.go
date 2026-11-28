@@ -193,9 +193,14 @@ func (a *onepassword) signedIn(ctx context.Context, id string) (store, error) {
 		a.mu.Unlock()
 		return nil, err
 	}
+	several := len(a.identitiesLocked()) > 1
 	sess := a.sessionLocked(ident.auth)
 	a.mu.Unlock()
-	return a.signIn(ctx, ident.auth, sess)
+	s, err := a.signIn(ctx, ident.auth, sess)
+	if err != nil && several {
+		err = identityError{id: ident.id, err: err}
+	}
+	return s, err
 }
 
 func (a *onepassword) signIn(ctx context.Context, au auth, sess *session) (store, error) {
@@ -242,7 +247,7 @@ func (a *onepassword) SignInError() string {
 		if len(all) == 1 {
 			return err.Error()
 		}
-		msgs = append(msgs, fmt.Sprintf("identity %q: %s", all[i].id, err))
+		msgs = append(msgs, identityError{id: all[i].id, err: err}.Error())
 	}
 	return strings.Join(msgs, "\n")
 }
