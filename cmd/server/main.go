@@ -87,6 +87,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/ollama"
 	"github.com/daltoniam/switchboard/integrations/onepassword"
 	"github.com/daltoniam/switchboard/integrations/openbao"
+	"github.com/daltoniam/switchboard/integrations/openproject"
 	"github.com/daltoniam/switchboard/integrations/pagerduty"
 	"github.com/daltoniam/switchboard/integrations/paperless"
 	"github.com/daltoniam/switchboard/integrations/pganalyze"
@@ -360,6 +361,7 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 		influxdb.New(),
 		airflow.New(),
 		jenkins.New(),
+		openproject.New(),
 		argoworkflows.New(),
 		semaphoreui.New(),
 		nexus.New(),

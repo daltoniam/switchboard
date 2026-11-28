@@ -21,6 +21,12 @@ const (
 // When an env var is set, it overrides the corresponding JSON config value.
 // These use standard/conventional env var names where they exist.
 var envMapping = map[string]map[string]string{
+	"openproject": {
+		"base_url":     "OPENPROJECT_BASE_URL",
+		"api_token":    "OPENPROJECT_API_TOKEN",
+		"workspace_id": "OPENPROJECT_WORKSPACE_ID",
+		"ca_cert":      "OPENPROJECT_CA_CERT",
+	},
 	"jenkins": {
 		"base_url":  "JENKINS_BASE_URL",
 		"username":  "JENKINS_USERNAME",
@@ -480,6 +486,10 @@ func configPath() (string, error) {
 func defaultConfig() *mcp.Config {
 	return &mcp.Config{
 		Integrations: map[string]*mcp.IntegrationConfig{
+			"openproject": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"base_url": "", "api_token": "", "workspace_id": "", "ca_cert": ""},
+			},
 			"jenkins": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"base_url": "", "username": "", "api_token": "", "ca_cert": ""},
