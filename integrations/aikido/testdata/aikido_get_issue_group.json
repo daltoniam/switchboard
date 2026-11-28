@@ -1,0 +1,1 @@
+{"id":7,"title":"sample-title","description":"sample-description","type":"open_source","severity_score":7,"severity":"critical","group_status":"new","time_to_fix_minutes":7,"locations":[{"id":7,"name":"sample-name","type":"cloud"}],"how_to_fix":"sample-how_to_fix","related_cve_ids":["sample-related_cve_ids"]}

@@ -1,0 +1,1 @@
+{"custom_rules":[{"semgrep_rule":"sample-semgrep_rule","issue_title":"sample-issue_title","tldr":"sample-tldr","how_to_fix":"sample-how_to_fix","priority":7,"language":"JS","has_error":true}]}

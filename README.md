@@ -450,6 +450,10 @@ Environment variables override credential values but do not change the durable e
 | ntfy | `topic` | `NTFY_TOPIC` (required fixed private topic) |
 | ntfy | `api_token` | `NTFY_API_TOKEN` (dedicated non-admin user token with read-only topic ACL) |
 | ntfy | `ca_cert` | `NTFY_CA_CERT` (optional PEM CA certificate; TLS verification stays enabled) |
+| Aikido Security | `client_id` | `AIKIDO_CLIENT_ID` (REST API client ID from Aikido Settings > Integrations > REST API; grant `basics:read` plus the read or write scopes for the tools you use) |
+| Aikido Security | `client_secret` | `AIKIDO_CLIENT_SECRET` (client secret shown once when the REST API client is created) |
+| Aikido Security | `region` | `AIKIDO_REGION` (optional: `eu` default `app.aikido.dev`, `us`, `au`, `me`) |
+| Aikido Security | `base_url` | `AIKIDO_BASE_URL` (optional Aikido app URL override, for example `https://app.us.aikido.dev`; overrides `region`) |
 | [GrowthBook](docs/growthbook.md) | `api_key` | `GROWTHBOOK_API_KEY` (Secret Key or Personal Access Token; SDK client keys cannot call the REST API) |
 | GrowthBook | `base_url` | `GROWTHBOOK_BASE_URL` (optional HTTPS API URL; default `https://api.growthbook.io/api`, self-hosted `API_HOST`) |
 | GrowthBook | `ca_cert` | `GROWTHBOOK_CA_CERT` (optional PEM CA certificate for a self-hosted API) |

@@ -172,3 +172,23 @@ func TestIntegrationDetail_OmitsIdentityEditorWhenUnsupported(t *testing.T) {
 	assert.NotContains(t, out, "Named identities")
 	assert.NotContains(t, out, "Add identity")
 }
+
+func TestIntegrationDetail_RendersSetupStepsInOrder(t *testing.T) {
+	out := renderIntegrationDetail(t, IntegrationDetailData{
+		Name:       "aikido",
+		SetupSteps: []string{"Open Settings > Integrations > REST API.", "Grant <basics:read>."},
+	})
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(out))
+	require.NoError(t, err)
+	steps := doc.Find("#integration-setup-steps ol li")
+	require.Equal(t, 2, steps.Length())
+	assert.Equal(t, "Open Settings > Integrations > REST API.", steps.Eq(0).Text())
+	assert.Equal(t, "Grant <basics:read>.", steps.Eq(1).Text(), "steps are escaped text, not HTML")
+	assert.NotContains(t, out, "<basics:read>")
+	assert.Less(t, strings.Index(out, "integration-setup-steps"), strings.Index(out, "integration-configuration"), "steps come before the credential form")
+}
+
+func TestIntegrationDetail_OmitsSetupStepsWhenEmpty(t *testing.T) {
+	out := renderIntegrationDetail(t, IntegrationDetailData{Name: "github"})
+	assert.NotContains(t, out, "integration-setup-steps")
+}

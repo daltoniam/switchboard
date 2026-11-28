@@ -1,0 +1,633 @@
+# Switchboard compaction specs for the aikido integration.
+#
+# Schema: tools.<tool_name>: { spec: [<spec_lines>], max_bytes?: <int> }
+#
+# The `spec` array is a WHITELIST: only fields whose paths are listed survive
+# compaction; everything else is stripped from the response. Scripts always
+# get the raw response.
+#
+# Paginated list tools return {"results": [...], "page", "per_page",
+# "has_next_page"}; every other tool returns Aikido's JSON as is. Inside
+# results[] a nested path keeps only its leaf name, so two nested fields with
+# the same leaf would overwrite each other, and several fields of one nested
+# array (results[].locations[].id and .name) overwrite each other too; such
+# small nested arrays are kept whole.
+#
+# Lists keep identifiers, names, severities, statuses, CVE ids, affected
+# packages and files, owning resources and timestamps, which is what triage
+# needs to pick the next call. Long remediation text (how_to_fix) and raw
+# metadata objects are left to the get_* tools.
+#
+# Override at runtime: set $SWITCHBOARD_COMPACT_DIR=/path; place aikido.yaml
+# there with only the tools you want to change.
+#
+# Full spec syntax: docs/field-compaction.md.
+
+version: 1
+tools:
+  # ── Issues ──────────────────────────────────────────────────────────
+  aikido_list_issue_groups:
+    spec:
+      - page
+      - per_page
+      - has_next_page
+      - results[].id
+      - results[].title
+      - results[].type
+      - results[].severity
+      - results[].severity_score
+      - results[].group_status
+      - results[].time_to_fix_minutes
+      - results[].related_cve_ids
+      - results[].first_detected_at
+      - results[].locations
+
+  aikido_get_issue_group:
+    spec:
+      - id
+      - title
+      - description
+      - type
+      - severity
+      - severity_score
+      - group_status
+      - time_to_fix_minutes
+      - how_to_fix
+      - related_cve_ids
+      - locations[].id
+      - locations[].name
+      - locations[].type
+
+  aikido_list_issues:
+    spec:
+      - page
+      - per_page
+      - has_next_page
+      - results[].id
+      - results[].group_id
+      - results[].type
+      - results[].rule
+      - results[].severity
+      - results[].severity_score
+      - results[].status
+      - results[].cve_id
+      - results[].affected_package
+      - results[].installed_version
+      - results[].patched_versions
+      - results[].affected_file
+      - results[].start_line
+      - results[].code_repo_id
+      - results[].code_repo_name
+      - results[].container_repo_id
+      - results[].container_repo_name
+      - results[].cloud_name
+      - results[].domain_name
+      - results[].virtual_machine_name
+      - results[].first_detected_at
+      - results[].sla_remediate_by
+      - results[].ignored_at
+      - results[].snooze_until
+      - results[].closed_at
+      - results[].exploitability
+
+  aikido_get_issue:
+    spec:
+      - id
+      - group_id
+      - type
+      - rule
+      - attack_surface
+      - severity
+      - severity_score
+      - status
+      - cve_id
+      - cve_id_alias
+      - cwe_classes
+      - affected_package
+      - affected_file
+      - programming_language
+      - code_repo_id
+      - code_repo_name
+      - container_repo_id
+      - container_repo_name
+      - cloud_id
+      - cloud_name
+      - domain_id
+      - domain_name
+      - virtual_machine_id
+      - virtual_machine_name
+      - first_detected_at
+      - sla_remediate_by
+      - reachability_status
+      - how_to_fix
+      - epss
+      - ignored_at
+      - ignore_reasons
+      - snooze_until
+      - snooze_reason
+      - closed_at
+      - issue_type_metadata
+
+  aikido_get_issue_cve_exploitability:
+    spec:
+      - cve_exploitability_results[].cve_id
+      - cve_exploitability_results[].proposed_action
+      - cve_exploitability_results[].action_executed
+      - cve_exploitability_results[].reasoning
+      - cve_exploitability_results[].from_severity
+      - cve_exploitability_results[].target_severity
+      - cve_exploitability_results[].created_at
+
+  aikido_list_issue_group_notes:
+    spec: [id, note, cve_id, created_by_name, created_at]
+
+  aikido_list_issue_group_tasks:
+    spec: [id, title, url, status, assignee.name, scope]
+
+  # ── Code repositories, PR checks, code quality ─────────────────────
+  aikido_list_code_repos:
+    spec:
+      - page
+      - per_page
+      - has_next_page
+      - results[].id
+      - results[].name
+      - results[].provider
+      - results[].external_repo_id
+      - results[].branch
+      - results[].url
+      - results[].last_scanned_at
+      - results[].sensitivity
+      - results[].connectivity
+      - results[].labels[].name
+      - results[].scan_error
+
+  aikido_get_code_repo:
+    spec:
+      - id
+      - name
+      - provider
+      - external_repo_id
+      - active
+      - branch
+      - url
+      - last_scanned_at
+      - connectivity
+      - sensitivity
+      - linked_teams[].id
+      - linked_teams[].name
+      - excluded_paths[].path
+      - labels[].name
+
+  aikido_list_pr_checks:
+    spec:
+      - page
+      - per_page
+      - has_next_page
+      - results[].scan_id
+      - results[].gate_status
+      - results[].new_issues_count
+      - results[].solved_issues_count
+      - results[].started_at
+      - results[].code_repo_id
+      - results[].code_repo_name
+      - results[].branch_name
+      - results[].pull_request_title
+      - results[].pull_request_url
+      - results[].related_commit_sha
+
+  aikido_get_pr_check:
+    spec:
+      - pull_request_title
+      - pull_request_url
+      - branch_name
+      - code_repo_id
+      - container_repo_id
+      - start_commit_id
+      - end_commit_id
+      - timestamp
+      - completed_scans
+      - changed_files[].file_path
+      - changed_files[].status
+      - issues_added[].title
+      - issues_added[].severity
+      - issues_added[].cve_id
+      - issues_added[].package_name
+      - issues_added[].installed_version
+      - issues_added[].patched_versions
+      - issues_added[].file
+      - issues_added[].start_line
+      - issues_added[].status
+      - issues_removed[].id
+      - issues_removed[].title
+      - issues_removed[].severity
+      - issues_removed[].cve_id
+      - issues_removed[].file
+
+  aikido_list_code_quality_findings:
+    spec:
+      - page
+      - per_page
+      - has_next_page
+      - results[].id
+      - results[].rule_id
+      - results[].description
+      - results[].severity
+      - results[].file
+      - results[].start_line
+      - results[].end_line
+      - results[].language
+      - results[].state
+      - results[].timestamp
+
+  aikido_list_scanner_rules:
+    spec: [id, title, base_score, language, open_issues_count]
+
+  aikido_list_pr_check_actions:
+    spec:
+      - page
+      - per_page
+      - has_next_page
+      - results[].id
+      - results[].type
+      - results[].reason
+      - results[].timestamp
+      - results[].user_name
+      - results[].snooze_until_timestamp
+      - results[].issue_metadata
+
+  aikido_list_pr_check_configs:
+    spec:
+      - page
+      - per_page
+      - has_next_page
+      - results[].id
+      - results[].code_repo_id
+      - results[].minimum_severity
+      - results[].fail_on_dependency_scan
+      - results[].fail_on_sast_scan
+      - results[].fail_on_iac_scan
+      - results[].fail_on_secrets_scan
+      - results[].fail_on_malware_scan
+      - results[].minimum_license_severity
+      - results[].enable_code_quality_scan
+      - results[].fail_on_code_quality_scan
+
+  aikido_list_pr_code_quality_findings:
+    spec:
+      - findings[].id
+      - findings[].rule_id
+      - findings[].description
+      - findings[].file
+      - findings[].start_line
+      - findings[].end_line
+      - findings[].language
+
+  aikido_list_code_coverage:
+    spec:
+      - page
+      - per_page
+      - has_next_page
+      - results[].code_repo_id
+      - results[].code_repo_name
+      - results[].branch
+      - results[].coverage_percentage
+      - results[].total_lines
+      - results[].covered_lines
+      - results[].updated_at
+
+  aikido_list_custom_rules:
+    spec:
+      - custom_rules[].issue_title
+      - custom_rules[].tldr
+      - custom_rules[].language
+      - custom_rules[].priority
+      - custom_rules[].has_error
+
+  aikido_list_autofix_history:
+    spec:
+      - page
+      - per_page
+      - has_next_page
+      - results[].id
+      - results[].type
+      - results[].status
+      - results[].autofix_target
+      - results[].triggered_at
+      - results[].finished_at
+      - results[].pull_request
+
+  aikido_get_autofix_task:
+    spec: [id, type, status, triggered_by, autofix_target, triggered_at, finished_at, pull_request]
+
+  # ── Containers, clouds, VMs, domains, devices ──────────────────────
+  aikido_list_containers:
+    spec:
+      - page
+      - per_page
+      - has_next_page
+      - results[].id
+      - results[].name
+      - results[].provider
+      - results[].registry_name
+      - results[].tag
+      - results[].distro
+      - results[].distro_version
+      - results[].last_scanned_at
+      - results[].last_scanned_tag
+      - results[].linked_code_repo_id
+      - results[].is_active
+      - results[].is_running
+      - results[].exposed_via
+      - results[].sensitivity
+      - results[].connectivity
+
+  aikido_get_container:
+    spec:
+      - id
+      - name
+      - provider
+      - cloud_id
+      - registry_id
+      - registry_name
+      - tag
+      - distro
+      - distro_version
+      - last_scanned_at
+      - last_scanned_tag
+      - last_scanned_digest
+      - linked_code_repo_id
+      - is_active
+      - labels[].name
+      - linked_teams[].id
+      - linked_teams[].name
+
+  aikido_list_container_runners:
+    spec: [id, name, type, region, runner_id, image, tag, digest]
+
+  aikido_list_clouds:
+    spec:
+      - page
+      - per_page
+      - has_next_page
+      - results[].id
+      - results[].name
+      - results[].provider
+      - results[].environment
+      - results[].external_id
+      - results[].last_scanned_at
+
+  aikido_list_cloud_assets:
+    spec:
+      - totalCount
+      - hasMore
+      - assets[].id
+      - assets[].asset_type
+      - assets[].asset_name
+      - assets[].source_id
+      - assets[].region
+      - assets[].cloud_id
+      - assets[].provider
+      - assets[].selected_metadata
+
+  aikido_list_cloud_rules:
+    spec: [id, title, cloud_type, open_issues_count]
+
+  aikido_list_virtual_machines:
+    spec:
+      - page
+      - per_page
+      - has_next_page
+      - results[].id
+      - results[].name
+      - results[].region
+      - results[].cloud_id
+      - results[].cloud_kind
+      - results[].environment
+      - results[].os
+      - results[].os_version
+      - results[].count_open_issues
+      - results[].count_ignored_issues
+      - results[].last_scanned_at
+
+  aikido_list_domains:
+    spec:
+      - page
+      - per_page
+      - has_next_page
+      - results[].id
+      - results[].domain
+      - results[].kind
+      - results[].is_auth_configured
+      - results[].scan_frequency
+      - results[].last_scanned_at
+      - results[].linked_resource
+
+  aikido_list_subdomains:
+    spec:
+      - page
+      - per_page
+      - has_next_page
+      - results[].id
+      - results[].name
+      - results[].ip_addresses
+      - results[].open_ports
+      - results[].is_responsive
+      - results[].is_excluded
+
+  aikido_list_domain_data_leaks:
+    spec:
+      - dataleaks[].id
+      - dataleaks[].email
+      - dataleaks[].status
+      - dataleaks[].last_breach_date
+
+  aikido_list_endpoint_devices:
+    spec: [id, name, os, version, user, permission_group_name, status, last_heartbeat_at]
+
+  aikido_list_endpoint_installed_packages:
+    spec:
+      - page
+      - per_page
+      - has_next_page
+      - results[].package_name
+      - results[].ecosystem
+      - results[].devices
+
+  aikido_list_endpoint_activity:
+    spec:
+      - page
+      - per_page
+      - has_next_page
+      - results[].timestamp
+      - results[].action
+      - results[].device_name
+      - results[].ecosystem
+      - results[].package_id
+      - results[].package_version
+
+  aikido_list_endpoint_exceptions:
+    spec: [id, ecosystem, package_name, status, permission_group_name, bypass_default_minimum_allowed_age]
+
+  # ── Workspace, teams, users, audit ─────────────────────────────────
+  aikido_get_workspace_config_errors:
+    spec: [id, kind, title, severity, location_type, location_id, location_name, detected_at]
+
+  aikido_list_teams:
+    spec:
+      - page
+      - per_page
+      - has_next_page
+      - results[].id
+      - results[].name
+      - results[].active
+      - results[].external_source
+      - results[].responsibilities
+
+  aikido_list_users:
+    spec: [id, full_name, email, role, active, auth_type, last_login_timestamp]
+
+  aikido_get_user:
+    spec: [id, full_name, email, role, active, read_only, auth_type, last_login_timestamp, permissions]
+
+  aikido_list_user_login_history:
+    spec:
+      - page
+      - per_page
+      - has_next_page
+      - results[].user_id
+      - results[].user_name
+      - results[].login_timestamp
+
+  aikido_list_pending_invites:
+    spec: [id, email, type, role, invited_at, expires_at]
+
+  aikido_list_activity_log:
+    spec:
+      - page
+      - per_page
+      - has_next_page
+      - results[].id
+      - results[].timestamp
+      - results[].action
+      - results[].source
+      - results[].comment
+      - results[].user_id
+      - results[].user_name
+      - results[].issue_id
+      - results[].grouped_issue_id
+
+  aikido_list_ide_adoption:
+    spec: [id, full_name, installed_plugins, token_last_used_at, has_enabled_safe_chain, has_enabled_pre_commit]
+
+  aikido_list_webhooks:
+    spec: [id, target_url, event_type, health_status, latest_http_status_code]
+
+  aikido_list_user_requests:
+    spec: [id, action, status, reason, timestamp, related_issue_id, related_grouped_issue_id, requested_by_id, reviewed_by_id, reviewed_at]
+
+  aikido_list_task_tracking_projects:
+    spec: [id, name, code_repository_ids]
+
+  aikido_list_task_tracking_tasks:
+    spec: [id, key, subject, assignees]
+
+  # ── Licenses, research ─────────────────────────────────────────────
+  aikido_list_licenses:
+    spec:
+      - page
+      - per_page
+      - has_next_page
+      - results[].package_name
+      - results[].license_type
+      - results[].language
+      - results[].code_repo_id
+      - results[].container_repo_id
+      - results[].location
+
+  aikido_get_cve:
+    spec: [cve, related_cve_id, package_name, language, severity, severity_score, tldr, short_description, does_this_affect_me, patch_versions, published]
+
+  aikido_list_malware_packages:
+    spec:
+      - page
+      - per_page
+      - has_next_page
+      - results[].package_name
+      - results[].ecosystem
+      - results[].version
+      - results[].status
+      - results[].detected_on
+
+  aikido_list_eol_runtimes:
+    spec:
+      - page
+      - per_page
+      - has_next_page
+      - results[].package_name
+      - results[].runtime_name
+      - results[].package_version
+      - results[].eol_date
+      - results[].is_eol
+
+  # ── Zen runtime protection ─────────────────────────────────────────
+  aikido_list_zen_apps:
+    spec: [id, name, environment, blocking, code_repo_id, code_repo_name, created_at]
+
+  aikido_get_zen_app:
+    spec: [id, name, environment, amount_instances, code_repo_id, code_repo_name, has_token, created_at]
+
+  aikido_get_zen_event:
+    spec:
+      - eventId
+      - type
+      - received_at
+      - url
+      - attack.kind
+      - attack.blocked
+      - attack.source
+      - attack.path
+      - attack.payload
+      - attack.operation
+      - attack.module
+      - request.method
+      - request.route
+      - request.ip_address
+      - request.user_agent
+      - service.name
+      - service.environment
+      - user.id
+      - user.name
+
+  aikido_list_zen_users:
+    spec:
+      - page
+      - per_page
+      - has_next_page
+      - results[].id
+      - results[].user_name
+      - results[].blocked
+      - results[].last_ip_address
+      - results[].first_seen_at
+      - results[].last_seen_at
+
+  # ── Pentests and AI code analysis ──────────────────────────────────
+  aikido_list_pentest_assessments:
+    spec:
+      - page
+      - per_page
+      - has_next_page
+      - results[].id
+      - results[].name
+      - results[].status
+      - results[].created_at
+
+  aikido_list_code_audits:
+    spec:
+      - page
+      - per_page
+      - has_next_page
+      - results[].id
+      - results[].name
+      - results[].status
+      - results[].created_at

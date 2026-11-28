@@ -1,0 +1,1 @@
+[{"id":"sample-id","name":"sample-name","ip_addresses":["sample-ip_addresses"],"open_ports":[{"port":7,"protocol":"sample-protocol","service":"sample-service"}],"is_responsive":true,"is_excluded":true,"dns_last_resolved_at":7}]

@@ -1,0 +1,1 @@
+[{"scan_id":7,"gate_status":7,"new_issues_count":7,"solved_issues_count":7,"started_at":7,"related_commit_sha":"sample-related_commit_sha","code_repo_id":7,"code_repo_name":7,"pull_request_title":"sample-pull_request_title","pull_request_url":"sample-pull_request_url","branch_name":"sample-branch_name","is_release_gating":true}]

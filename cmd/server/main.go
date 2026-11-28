@@ -23,6 +23,7 @@ import (
 	"github.com/daltoniam/switchboard/daemon"
 	acpInt "github.com/daltoniam/switchboard/integrations/acp"
 	agentsInt "github.com/daltoniam/switchboard/integrations/agents"
+	"github.com/daltoniam/switchboard/integrations/aikido"
 	"github.com/daltoniam/switchboard/integrations/airflow"
 	"github.com/daltoniam/switchboard/integrations/amazon"
 	"github.com/daltoniam/switchboard/integrations/argoworkflows"
@@ -369,6 +370,7 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 		ntfy.New(),
 		authentik.New(),
 		growthbook.New(),
+		aikido.New(),
 		recoll.New(),
 		imessage.New(),
 		awsInt.New(),

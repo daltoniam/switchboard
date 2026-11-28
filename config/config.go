@@ -121,6 +121,12 @@ var envMapping = map[string]map[string]string{
 		"ca_cert":                  "OBSIDIAN_CA_CERT",
 		"insecure_skip_tls_verify": "OBSIDIAN_INSECURE_SKIP_TLS_VERIFY",
 	},
+	"aikido": {
+		"client_id":     "AIKIDO_CLIENT_ID",
+		"client_secret": "AIKIDO_CLIENT_SECRET",
+		"region":        "AIKIDO_REGION",
+		"base_url":      "AIKIDO_BASE_URL",
+	},
 	"airflow": {
 		"base_url":     "AIRFLOW_BASE_URL",
 		"username":     "AIRFLOW_USERNAME",
@@ -583,6 +589,10 @@ func defaultConfig() *mcp.Config {
 			"influxdb": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"base_url": "", "api_token": "", "org_id": "", "ca_cert": ""},
+			},
+			"aikido": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"client_id": "", "client_secret": "", "region": "", "base_url": ""},
 			},
 			"airflow": {
 				Enabled:     false,

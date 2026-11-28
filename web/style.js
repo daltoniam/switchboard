@@ -52,6 +52,7 @@ const simpleLogoAliases = {
   argoworkflows: 'argo', druid: 'apachedruid',
 };
 const logoSources = {
+  aikido: 'https://cdn.jsdelivr.net/gh/AikidoSec/aikido-cursor-plugin@47410c0c4de89a049caed4ef2f8c6e3b8e7f24f5/assets/aikido-logo.svg',
   growthbook: 'https://cdn.jsdelivr.net/gh/gilbarbara/logos@4a5b550414be64d5c007574cd395d910d50e8950/logos/growth-book-icon.svg',
   launchdarkly: 'https://cdn.jsdelivr.net/gh/gilbarbara/logos@4a5b550414be64d5c007574cd395d910d50e8950/logos/launchdarkly-icon.svg',
   netsuite: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons@519c5834ec021db50db5a0db16a510f5679ae887/svg/netsuite.svg',
