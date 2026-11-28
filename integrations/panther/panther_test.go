@@ -30,6 +30,8 @@ type remoteFixture struct {
 	mu        sync.Mutex
 	calls     []string
 	listCalls int
+	// mcpRequests counts every request to /mcp, including rejected ones.
+	mcpRequests int
 	// listGate, when set, holds tools/list until it is closed.
 	listGate chan struct{}
 	// oauth, when set, serves every path other than /mcp.
@@ -66,6 +68,9 @@ func newRemoteFixture(t *testing.T) *remoteFixture {
 			http.NotFound(w, r)
 			return
 		}
+		f.mu.Lock()
+		f.mcpRequests++
+		f.mu.Unlock()
 		if r.Header.Get("Authorization") != "Bearer "+fixtureToken {
 			http.Error(w, `{"error":"Unauthorized"}`, http.StatusUnauthorized)
 			return
@@ -77,7 +82,11 @@ func newRemoteFixture(t *testing.T) *remoteFixture {
 			gate := f.listGate
 			f.mu.Unlock()
 			if gate != nil {
-				<-gate
+				select {
+				case <-gate:
+				case <-r.Context().Done():
+					return
+				}
 			}
 		}
 		r.Body = io.NopCloser(strings.NewReader(string(body)))
@@ -487,4 +496,65 @@ func TestSignIn_RenewsTokenBeforeExpiry(t *testing.T) {
 	saved := store.saved()
 	assert.Equal(t, fixtureToken, saved[remotemcp.CredKeyAccessToken])
 	assert.Equal(t, "refresh-2", saved[remotemcp.CredKeyRefreshToken])
+}
+
+func TestSignIn_ExecuteBacksOffAfterFailedListing(t *testing.T) {
+	f := newRemoteFixture(t)
+	p := New().(*panther)
+	t.Cleanup(func() { assert.NoError(t, p.Close()) })
+	require.NoError(t, p.Configure(context.Background(), mcp.Credentials{"instance_url": f.server.URL, "mcp_access_token": "revoked-token"}))
+
+	result, err := p.Execute(context.Background(), "panther_list_alerts", nil)
+	require.NoError(t, err)
+	require.True(t, result.IsError)
+	assert.Contains(t, result.Data, "list Remote MCP tools")
+	f.mu.Lock()
+	first := f.mcpRequests
+	f.mu.Unlock()
+	require.Positive(t, first)
+
+	var wg sync.WaitGroup
+	for range 5 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			again, err := p.Execute(context.Background(), "panther_list_alerts", nil)
+			assert.NoError(t, err)
+			assert.True(t, again.IsError)
+		}()
+	}
+	wg.Wait()
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	assert.Equal(t, first, f.mcpRequests, "a failed listing is not retried before toolRetryAfter")
+}
+
+func TestSignIn_ToolsRenewExpiredLoginBeforeListing(t *testing.T) {
+	f := newRemoteFixture(t)
+	f.oauth = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		origin := f.server.URL
+		switch r.URL.Path {
+		case "/.well-known/oauth-protected-resource/mcp":
+			_ = json.NewEncoder(w).Encode(map[string]any{"resource": origin + mcpPath, "authorization_servers": []string{origin}})
+		case "/.well-known/oauth-authorization-server":
+			_ = json.NewEncoder(w).Encode(map[string]any{"issuer": origin, "authorization_endpoint": origin + "/authorize", "token_endpoint": origin + "/token"})
+		case "/token":
+			_ = json.NewEncoder(w).Encode(map[string]any{"access_token": fixtureToken, "refresh_token": "refresh-2", "expires_in": 3600})
+		default:
+			http.NotFound(w, r)
+		}
+	})
+	expired := mcp.Credentials{
+		"instance_url":                f.server.URL,
+		remotemcp.CredKeyAccessToken:  "expired-token",
+		remotemcp.CredKeyRefreshToken: "refresh-1",
+		remotemcp.CredKeyTokenExpiry:  time.Now().Add(-time.Minute).UTC().Format(time.RFC3339),
+		remotemcp.CredKeyClientID:     "client-1",
+	}
+	p := New().(*panther)
+	t.Cleanup(func() { _ = p.Close() })
+	SetConfigService(p, &sharedStore{creds: maps.Clone(expired)})
+	require.NoError(t, p.Configure(context.Background(), expired))
+
+	assert.Len(t, p.Tools(), 4, "search lists tools with the renewed login")
 }

@@ -222,7 +222,7 @@ func (p *panther) Healthy(ctx context.Context) bool {
 	if hosted == nil || !hosted.remote.Healthy(ctx) {
 		return false
 	}
-	_ = hosted.fetchTools(ctx)
+	_ = hosted.awaitTools(ctx)
 	return true
 }
 
@@ -237,12 +237,17 @@ func (p *panther) Tools() []mcp.ToolDefinition {
 	}
 	tools, known := hosted.cachedTools()
 	if !known {
-		if done := hosted.startFetch(); done != nil {
-			select {
-			case <-done:
-			case <-time.After(firstListWait):
-			}
+		ctx, cancel := context.WithTimeout(context.Background(), firstListWait)
+		defer cancel()
+		// An expired login would fail the listing although its refresh
+		// token still works.
+		if err := p.renewIfDue(ctx); err != nil {
+			log.Printf("WARN: %v", err)
 		}
+		if _, hosted = p.active(); hosted == nil {
+			return cloneTools(nativeTools)
+		}
+		_ = hosted.awaitTools(ctx)
 		tools, _ = hosted.cachedTools()
 	}
 	return decorateHosted(tools)
@@ -335,6 +340,7 @@ type hostedSession struct {
 	// fetchDone is closed when the running background fetch ends.
 	fetchDone     chan struct{}
 	fetchFailedAt time.Time
+	fetchErr      error
 	// toolsGen changes when the list is reset, so a fetch that started for
 	// an older login does not store its result.
 	toolsGen uint64
@@ -356,7 +362,7 @@ func (h *hostedSession) cachedTools() ([]mcp.ToolDefinition, bool) {
 func (h *hostedSession) resetTools() {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	h.tools, h.known, h.fetching, h.fetchFailedAt = nil, false, false, time.Time{}
+	h.tools, h.known, h.fetching, h.fetchFailedAt, h.fetchErr = nil, false, false, time.Time{}, nil
 	h.toolsGen++
 }
 
@@ -405,23 +411,47 @@ func (h *hostedSession) fetchTools(ctx context.Context) error {
 	}
 	h.fetching = false
 	if err != nil {
-		h.fetchFailedAt = time.Now()
+		h.fetchFailedAt, h.fetchErr = time.Now(), err
 		return err
 	}
-	h.tools, h.known = slices.Clone(listed), true
+	h.tools, h.known, h.fetchErr = slices.Clone(listed), true, nil
 	return nil
+}
+
+// awaitTools waits, at most until ctx ends, for the shared background fetch
+// when the list is not known yet, so concurrent callers make one ListTools
+// call and a recent failure is not retried before toolRetryAfter. It
+// returns why the list is still unknown.
+func (h *hostedSession) awaitTools(ctx context.Context) error {
+	if _, known := h.cachedTools(); known {
+		return nil
+	}
+	if done := h.startFetch(); done != nil {
+		select {
+		case <-done:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	switch {
+	case h.known:
+		return nil
+	case h.fetchErr != nil:
+		return h.fetchErr
+	default:
+		return fmt.Errorf("the tool list is not available yet")
+	}
 }
 
 // execute forwards a call only for a tool Panther's server listed, so a
 // name the consent screen did not grant fails here with a clear error.
 func (h *hostedSession) execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
-	tools, known := h.cachedTools()
-	if !known {
-		if err := h.fetchTools(ctx); err != nil {
-			return mcp.ErrResult(fmt.Errorf("panther: list Remote MCP tools: %w", err))
-		}
-		tools, _ = h.cachedTools()
+	if err := h.awaitTools(ctx); err != nil {
+		return mcp.ErrResult(fmt.Errorf("panther: list Remote MCP tools: %w", err))
 	}
+	tools, _ := h.cachedTools()
 	if !slices.ContainsFunc(tools, func(t mcp.ToolDefinition) bool { return t.Name == toolName }) {
 		return mcp.ErrResult(fmt.Errorf("unknown tool: %s (signed in to Panther Remote MCP, which offers only the tools your consent granted; search again or sign in again to grant more)", toolName))
 	}

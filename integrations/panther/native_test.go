@@ -512,7 +512,9 @@ func TestMetrics(t *testing.T) {
 
 // dataLakeFake answers the execute mutation and then reports the query as
 // running for runningPolls status checks before it finishes with status.
-func dataLakeFake(runningPolls int, final string) func(w http.ResponseWriter, rec recorded) {
+// polling, when set, receives the number of each status check as it
+// arrives.
+func dataLakeFake(runningPolls int, final string, polling ...chan<- int) func(w http.ResponseWriter, rec recorded) {
 	var mu sync.Mutex
 	polls := 0
 	return func(w http.ResponseWriter, rec recorded) {
@@ -524,6 +526,12 @@ func dataLakeFake(runningPolls int, final string) func(w http.ResponseWriter, re
 			polls++
 			n := polls
 			mu.Unlock()
+			for _, ch := range polling {
+				select {
+				case ch <- n:
+				default:
+				}
+			}
 			if n <= runningPolls {
 				_, _ = io.WriteString(w, `{"data":{"dataLakeQuery":{"id":"q-123","status":"running","message":"","sql":"select 1","startedAt":"t","results":null}}}`)
 				return
@@ -583,14 +591,38 @@ func TestQueryDataLake_FailedQueryIsError(t *testing.T) {
 }
 
 func TestQueryDataLake_ContextCanceled(t *testing.T) {
-	p, _ := newNativeAdapter(t, dataLakeFake(1_000_000, succeededQuery))
-	p.native.pollInterval = time.Second
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	polling := make(chan int, 1)
+	p, _ := newNativeAdapter(t, dataLakeFake(1_000_000, succeededQuery, polling))
+	p.native.pollInterval = time.Minute
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	go func() {
+		// Cancel only once the query was submitted and polling began.
+		<-polling
+		cancel()
+	}()
 	result, err := p.Execute(ctx, "panther_query_data_lake", map[string]any{"sql": "select 1", "timeout_seconds": 60})
 	require.NoError(t, err)
 	require.True(t, result.IsError)
 	assert.Contains(t, result.Data, "stopped waiting for query q-123")
+}
+
+func TestQueryDataLake_StalledStatusCheckHonorsTimeout(t *testing.T) {
+	p, _ := newNativeAdapter(t, func(w http.ResponseWriter, rec recorded) {
+		if rec.Body["operationName"] == "ExecuteQuery" {
+			_, _ = io.WriteString(w, `{"data":{"executeDataLakeQuery":{"id":"q-123"}}}`)
+			return
+		}
+		time.Sleep(3 * time.Second)
+		_, _ = io.WriteString(w, succeededQuery)
+	})
+	start := time.Now()
+	result := run(t, p, "panther_query_data_lake", map[string]any{"sql": "select 1", "timeout_seconds": 1})
+	assert.Less(t, time.Since(start), 2500*time.Millisecond, "a stalled status check cannot hold the caller past timeout_seconds")
+	require.False(t, result.IsError, result.Data)
+	out := decode(t, result)
+	assert.Equal(t, "running", out["status"])
+	assert.Equal(t, "q-123", out["queryId"])
 }
 
 func TestGetDataLakeQuery_NextPage(t *testing.T) {

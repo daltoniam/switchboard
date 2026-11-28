@@ -15,14 +15,19 @@ import (
 
 // scopeDiscovery serves protected resource metadata for /mcp and
 // authorization server metadata at the origin, each advertising the given
-// scopes (nil leaves scopes_supported out).
-func scopeDiscovery(t *testing.T, resourceScopes, serverScopes []string) *httptest.Server {
+// scopes (nil leaves scopes_supported out). Without namedIssuer the
+// resource metadata names no authorization server, so discovery falls back
+// to the origin's metadata.
+func scopeDiscovery(t *testing.T, resourceScopes, serverScopes []string, namedIssuer bool) *httptest.Server {
 	t.Helper()
 	var srv *httptest.Server
 	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/.well-known/oauth-protected-resource/mcp":
-			body := map[string]any{"resource": srv.URL + "/mcp", "authorization_servers": []string{srv.URL}}
+			body := map[string]any{"resource": srv.URL + "/mcp"}
+			if namedIssuer {
+				body["authorization_servers"] = []string{srv.URL}
+			}
 			if resourceScopes != nil {
 				body["scopes_supported"] = resourceScopes
 			}
@@ -54,16 +59,18 @@ func TestOAuth_AdvertisedScope(t *testing.T) {
 		name           string
 		resourceScopes []string
 		serverScopes   []string
+		originFallback bool
 		wantScope      string
 		wantPresent    bool
 	}{
 		{name: "protected resource scopes win", resourceScopes: []string{"alerts:read", "offline_access"}, serverScopes: []string{"openid"}, wantScope: "alerts:read offline_access", wantPresent: true},
 		{name: "authorization server scopes as fallback", serverScopes: []string{"mcp", "offline_access"}, wantScope: "mcp offline_access", wantPresent: true},
 		{name: "no advertised scopes omits the parameter", wantPresent: false},
+		{name: "resource scopes survive the origin fallback", resourceScopes: []string{"alerts:read"}, serverScopes: []string{"openid"}, originFallback: true, wantScope: "alerts:read", wantPresent: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			srv := scopeDiscovery(t, tt.resourceScopes, tt.serverScopes)
+			srv := scopeDiscovery(t, tt.resourceScopes, tt.serverScopes, !tt.originFallback)
 			authorizeURL, err := StartOAuth("scope-"+tt.name, srv.URL, "http://localhost/callback", OAuthOptions{
 				AdvertisedScope: true,
 				Resource:        srv.URL + "/mcp",
@@ -79,7 +86,7 @@ func TestOAuth_AdvertisedScope(t *testing.T) {
 }
 
 func TestOAuth_DefaultScopeIgnoresAdvertisedScopes(t *testing.T) {
-	srv := scopeDiscovery(t, []string{"alerts:read"}, nil)
+	srv := scopeDiscovery(t, []string{"alerts:read"}, nil, true)
 	authorizeURL, err := StartOAuth("scope-default", srv.URL, "http://localhost/callback", OAuthOptions{Resource: srv.URL + "/mcp"})
 	require.NoError(t, err)
 	parsed, err := url.Parse(authorizeURL)

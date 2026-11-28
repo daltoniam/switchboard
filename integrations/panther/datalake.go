@@ -320,19 +320,31 @@ func queryDataLake(ctx context.Context, c *client, args map[string]any) (*mcp.To
 	if started.Execute.ID == "" {
 		return mcp.ErrResult(fmt.Errorf("panther: the data lake did not return a query id"))
 	}
-	deadline := time.Now().Add(time.Duration(timeoutSeconds) * time.Second)
+	id := started.Execute.ID
+	// Status checks share the wait deadline, so a stalled request cannot
+	// hold the caller past timeout_seconds; the query keeps running.
+	pollCtx, cancel := context.WithTimeout(ctx, time.Duration(timeoutSeconds)*time.Second)
+	defer cancel()
+	stillRunning := queryStatus{ID: id, Status: "running", SQL: sql}
 	wait := c.pollInterval
 	for {
-		status, err := c.fetchQuery(ctx, started.Execute.ID, pageSize, nil)
-		if err != nil {
-			return mcp.ErrResult(fmt.Errorf("%w (query id %s)", err, started.Execute.ID))
+		status, err := c.fetchQuery(pollCtx, id, pageSize, nil)
+		switch {
+		case err != nil && ctx.Err() != nil:
+			return mcp.ErrResult(fmt.Errorf("panther: stopped waiting for query %s: %w", id, ctx.Err()))
+		case err != nil && pollCtx.Err() != nil:
+			return queryResult(stillRunning)
+		case err != nil:
+			return mcp.ErrResult(fmt.Errorf("%w (query id %s)", err, id))
 		}
-		if status.Status != "running" || !time.Now().Add(wait).Before(deadline) {
+		if status.Status != "running" {
 			return queryResult(status)
 		}
 		select {
 		case <-ctx.Done():
-			return mcp.ErrResult(fmt.Errorf("panther: stopped waiting for query %s: %w", started.Execute.ID, ctx.Err()))
+			return mcp.ErrResult(fmt.Errorf("panther: stopped waiting for query %s: %w", id, ctx.Err()))
+		case <-pollCtx.Done():
+			return queryResult(status)
 		case <-time.After(wait):
 		}
 		wait = min(wait*2, c.maxPollInterval)

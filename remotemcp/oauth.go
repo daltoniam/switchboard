@@ -120,7 +120,9 @@ func discoverOAuth(serverURL string, expectedResource ...string) (*oauthServerMe
 	if len(expectedResource) > 0 {
 		expected = expectedResource[0]
 	}
+	var resourceScopes []string
 	if resource, ok := fetch.protectedResource(serverURL, expected); ok {
+		resourceScopes = resource.ScopesSupported
 		if resource.Resource != "" && resource.Resource != serverURL+"/mcp" && resource.Resource != serverURL && (expected == "" || resource.Resource != expected) {
 			return nil, fmt.Errorf("protected resource metadata is for %q, not %q", resource.Resource, serverURL+"/mcp")
 		}
@@ -141,6 +143,7 @@ func discoverOAuth(serverURL string, expectedResource ...string) (*oauthServerMe
 	if !origin.hasEndpoints() {
 		return nil, errMissingEndpoints
 	}
+	origin.resourceScopes = resourceScopes
 	return &origin, nil
 }
 

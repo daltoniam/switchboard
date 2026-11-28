@@ -104,7 +104,7 @@ func TestUIPanther(t *testing.T) {
 	uiText(t, page.Locator(".badge").First(), "Not Connected")
 	uiText(t, page.Locator("#panther-api-token"), "Option 2: API token")
 	uiText(t, page.Locator("body"), "Settings → Developer Tools → API Tokens")
-	inputs, err := page.Locator("main input").Count()
+	inputs, err := page.Locator("main input:not([type=hidden])").Count()
 	require.NoError(t, err)
 	require.Equal(t, 3, inputs)
 	for id, placeholder := range map[string]string{"#cred_instance_url": "https://acme.runpanther.net", "#cred_api_token": "Paste your Panther API token"} {
@@ -129,17 +129,20 @@ func TestUIPanther(t *testing.T) {
 	// Option 2: API token against the fixture REST API.
 	uiPantherSaveInstance(t, page, "http://acme.runpanther.net")
 	uiText(t, page.Locator(".flash-error").First(), "must use https")
-	uiPantherSaveInstance(t, page, api.URL+"/public/graphql")
-	uiText(t, page.Locator(".flash-success"), "Instance URL saved")
-	value, err := page.Locator("#cred_instance_url").InputValue()
-	require.NoError(t, err)
-	require.Equal(t, api.URL, value, "the saved instance is normalized")
+	// One Save Configuration stores the instance typed above with the token.
+	require.NoError(t, page.Locator("#cred_instance_url").Fill(api.URL+"/public/graphql"))
 	uiPantherSaveAPIToken(t, page, "wrong-fixture-token")
 	uiText(t, page.Locator(".badge").First(), "Connection Error")
 	uiText(t, page.Locator(".flash-success"), "Panther did not accept the API token")
 	uiText(t, page.Locator("#panther-mode"), "API token")
+	value, err := page.Locator("#cred_instance_url").InputValue()
+	require.NoError(t, err)
+	require.Equal(t, api.URL, value, "the saved instance is normalized")
 
-	uiPantherSaveAPIToken(t, page, "fixture-api-token")
+	// Enter in the token field submits the token form, not the instance form.
+	require.NoError(t, page.Locator("#cred_api_token").Fill("fixture-api-token"))
+	require.NoError(t, page.Locator("#cred_api_token").Press("Enter"))
+	uiText(t, page.Locator(".flash-success"), "Configuration saved")
 	uiText(t, page.Locator(".badge").First(), "Connected")
 	content, err := page.Content()
 	require.NoError(t, err)

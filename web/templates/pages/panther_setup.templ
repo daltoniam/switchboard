@@ -77,13 +77,10 @@ templ PantherSetup(page layouts.PageData, data PantherSetupData) {
 			<p style="color: var(--text-secondary); margin-bottom: 0.75rem;">
 				Enter the URL you open the Panther Console at, such as <code>https://acme.runpanther.net</code>, or the <strong>API URL</strong> shown under <strong>Settings → Developer Tools → API Tokens</strong>. Both options use it. Changing it signs out and clears a saved API token, because they belong to the old instance.
 			</p>
-			<div style="max-width: 32rem;">
-				<div class="form-group">
-					<label class="form-label" for="cred_instance_url">Instance URL</label>
-					<input class="form-input" type="text" name="cred_instance_url" id="cred_instance_url" form="panther-api-token-form" value={ data.InstanceURL } placeholder="https://acme.runpanther.net" autocomplete="url"/>
-				</div>
-				<button type="submit" class="btn" form="panther-api-token-form" formaction="/integrations/panther/instance" style="min-height: 44px;">Save Instance URL</button>
-			</div>
+			<form id="panther-instance-form" method="POST" action="/integrations/panther/instance" style="max-width: 32rem;">
+				@components.FormGroup("Instance URL", "cred_instance_url", "text", data.InstanceURL, "https://acme.runpanther.net")
+				<button type="submit" class="btn" style="min-height: 44px;">Save Instance URL</button>
+			</form>
 		</section>
 		<section aria-labelledby="panther-sign-in" style="border-top: 1px solid var(--border-subtle); padding-top: 1.5rem; margin-bottom: 1.5rem;">
 			<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem;">
@@ -138,7 +135,8 @@ templ PantherSetup(page layouts.PageData, data PantherSetupData) {
 				<li>If the token has an allowed IP range, include the address Switchboard calls from.</li>
 				<li>Paste the token below, enable, and save; the instance URL above is saved with it. Saving replaces a sign-in with Panther; <code>PANTHER_API_TOKEN</code> can set the token instead.</li>
 			</ol>
-			<form id="panther-api-token-form" method="POST" action="/integrations/panther/api-token" style="max-width: 32rem;">
+			<form id="panther-api-token-form" method="POST" action="/integrations/panther/api-token" style="max-width: 32rem;" onsubmit="document.getElementById('panther-api-token-instance').value = document.getElementById('cred_instance_url').value">
+				<input type="hidden" name="cred_instance_url" id="panther-api-token-instance" value={ data.InstanceURL }/>
 				<div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;">
 					<span class="form-label" style="margin-bottom: 0;">Enabled</span>
 					@components.Toggle("enabled", data.Enabled || !data.configured())
