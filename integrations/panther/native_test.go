@@ -25,6 +25,7 @@ type recorded struct {
 	Path   string
 	Query  url.Values
 	Body   map[string]any
+	Raw    string
 	Key    string
 }
 
@@ -36,6 +37,7 @@ type fakePanther struct {
 func (f *fakePanther) record(r *http.Request) recorded {
 	rec := recorded{Method: r.Method, Path: r.URL.Path, Query: r.URL.Query(), Key: r.Header.Get("X-API-Key")}
 	if data, _ := io.ReadAll(r.Body); len(data) > 0 {
+		rec.Raw = string(data)
 		_ = json.Unmarshal(data, &rec.Body)
 	}
 	f.mu.Lock()
@@ -308,7 +310,7 @@ func TestSetDetectionEnabled_ReadModifyWrite(t *testing.T) {
 		t.Run(tt.kind, func(t *testing.T) {
 			p, fake := newNativeAdapter(t, func(w http.ResponseWriter, rec recorded) {
 				if rec.Method == http.MethodGet {
-					_, _ = io.WriteString(w, `{"id":"r1","enabled":true,"severity":"HIGH","body":"def rule(e): return True","tests":[{"name":"t"}]}`)
+					_, _ = io.WriteString(w, `{"id":"r1","enabled":true,"severity":"HIGH","body":"def rule(e): return True","tests":[{"name":"t"}],"dedupPeriodMinutes":9007199254740993}`)
 					return
 				}
 				_ = json.NewEncoder(w).Encode(rec.Body)
@@ -323,6 +325,8 @@ func TestSetDetectionEnabled_ReadModifyWrite(t *testing.T) {
 			assert.Equal(t, http.MethodPut, put.Method)
 			assert.Equal(t, tt.path, put.Path)
 			assert.Equal(t, "false", put.Query.Get("run-tests-first"))
+			assert.Contains(t, put.Raw, `"dedupPeriodMinutes":9007199254740993`, "large integers go back exactly")
+			delete(put.Body, "dedupPeriodMinutes")
 			assert.Equal(t, map[string]any{"id": "r1", "enabled": false, "severity": "HIGH", "body": "def rule(e): return True", "tests": []any{map[string]any{"name": "t"}}}, put.Body, "every other field goes back unchanged")
 		})
 	}

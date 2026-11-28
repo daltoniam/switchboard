@@ -387,3 +387,24 @@ func TestPantherOAuthStartErrors(t *testing.T) {
 		})
 	}
 }
+
+func TestPantherHealthIgnoresSupersededChecks(t *testing.T) {
+	current := &mcp.IntegrationConfig{Enabled: true, Credentials: mcp.Credentials{"instance_url": "https://acme.runpanther.net", "api_token": "new-token"}}
+	for _, tc := range []struct {
+		name    string
+		checked *mcp.IntegrationConfig
+		want    bool
+	}{
+		{name: "check of the saved configuration is recorded", checked: current, want: true},
+		{name: "check of an older token is dropped", checked: &mcp.IntegrationConfig{Enabled: true, Credentials: mcp.Credentials{"instance_url": "https://acme.runpanther.net", "api_token": "old-token"}}},
+		{name: "check from before a disable is dropped", checked: &mcp.IntegrationConfig{Enabled: false, Credentials: maps.Clone(current.Credentials)}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ws, _, cfg := setupTestWeb()
+			cfg.cfg.Integrations["panther"] = &mcp.IntegrationConfig{Enabled: current.Enabled, Credentials: maps.Clone(current.Credentials)}
+			ws.publishPantherHealth(tc.checked, healthEntry{Enabled: tc.checked.Enabled, Healthy: true, CheckedAt: time.Now()})
+			_, recorded := ws.health.get("panther")
+			assert.Equal(t, tc.want, recorded)
+		})
+	}
+}

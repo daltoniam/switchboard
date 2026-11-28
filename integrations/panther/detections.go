@@ -1,6 +1,7 @@
 package panther
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -90,8 +91,11 @@ func setDetectionEnabled(ctx context.Context, c *client, args map[string]any) (*
 	}
 	// The detection is decoded as a generic object so every field Panther
 	// returned goes back unchanged; PUT replaces the whole detection.
+	// UseNumber keeps large integers exact on the way back.
+	decoder := json.NewDecoder(bytes.NewReader(current))
+	decoder.UseNumber()
 	var detection map[string]any
-	if err := json.Unmarshal(current, &detection); err != nil || detection == nil {
+	if err := decoder.Decode(&detection); err != nil || detection == nil {
 		return mcp.ErrResult(fmt.Errorf("panther: %s %s is not a JSON object", kind, id))
 	}
 	detection["enabled"] = enabled

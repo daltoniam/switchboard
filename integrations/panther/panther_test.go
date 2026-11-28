@@ -32,6 +32,8 @@ type remoteFixture struct {
 	listCalls int
 	// mcpRequests counts every request to /mcp, including rejected ones.
 	mcpRequests int
+	// bearers records the Authorization header of every /mcp request.
+	bearers []string
 	// listGate, when set, holds tools/list until it is closed.
 	listGate chan struct{}
 	// oauth, when set, serves every path other than /mcp.
@@ -70,6 +72,7 @@ func newRemoteFixture(t *testing.T) *remoteFixture {
 		}
 		f.mu.Lock()
 		f.mcpRequests++
+		f.bearers = append(f.bearers, r.Header.Get("Authorization"))
 		f.mu.Unlock()
 		if r.Header.Get("Authorization") != "Bearer "+fixtureToken {
 			http.Error(w, `{"error":"Unauthorized"}`, http.StatusUnauthorized)
@@ -522,6 +525,9 @@ func TestSignIn_RenewsTokenBeforeExpiry(t *testing.T) {
 	require.Len(t, refreshes, 1, "the expiring login was renewed once")
 	assert.Equal(t, "refresh_token", refreshes[0].Get("grant_type"))
 	assert.Equal(t, "refresh-1", refreshes[0].Get("refresh_token"))
+	f.mu.Lock()
+	assert.NotContains(t, f.bearers, "Bearer old-token", "the login is renewed before the expiring token is used, not after a rejection")
+	f.mu.Unlock()
 	assert.Equal(t, f.server.URL+mcpPath, refreshes[0].Get("resource"))
 	saved := store.saved()
 	assert.Equal(t, fixtureToken, saved[remotemcp.CredKeyAccessToken])
@@ -587,6 +593,9 @@ func TestSignIn_ToolsRenewExpiredLoginBeforeListing(t *testing.T) {
 	require.NoError(t, p.Configure(context.Background(), expired))
 
 	assert.Len(t, p.Tools(), 4, "search lists tools with the renewed login")
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	assert.NotContains(t, f.bearers, "Bearer expired-token", "the expired token is never sent")
 }
 
 func TestHostedSession_MarkedMissingListReindexesWhenStored(t *testing.T) {

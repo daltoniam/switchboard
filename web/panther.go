@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"net/url"
 	"strings"
@@ -96,12 +97,12 @@ func (w *WebServer) handlePantherInstanceSave(rw http.ResponseWriter, r *http.Re
 				_ = closer.Close()
 			}
 		}
-	}
-	w.configMu.Unlock()
-	if changed {
 		w.health.mu.Lock()
 		delete(w.health.entries, "panther")
 		w.health.mu.Unlock()
+	}
+	w.configMu.Unlock()
+	if changed {
 		w.notifyConfigChanged()
 		pantherRedirect(rw, r, "result", "Instance URL saved. Sign in with Panther or save an API token to connect.")
 		return
@@ -194,12 +195,25 @@ func (w *WebServer) handlePantherAPITokenSave(rw http.ResponseWriter, r *http.Re
 			}
 			cancel()
 		}
-		w.health.mu.Lock()
-		w.health.entries["panther"] = entry
-		w.health.mu.Unlock()
+		w.publishPantherHealth(next, entry)
 	}
 	w.notifyConfigChanged()
 	pantherRedirect(rw, r, "result", result)
+}
+
+// publishPantherHealth records a health result only while the saved
+// configuration is still the one that was checked, so a slow check cannot
+// overwrite the status of a newer save or a cleared instance.
+func (w *WebServer) publishPantherHealth(checked *mcp.IntegrationConfig, entry healthEntry) {
+	w.configMu.Lock()
+	defer w.configMu.Unlock()
+	current, ok := w.services.Config.GetIntegration("panther")
+	if !ok || current.Enabled != checked.Enabled || !maps.Equal(current.Credentials, checked.Credentials) {
+		return
+	}
+	w.health.mu.Lock()
+	w.health.entries["panther"] = entry
+	w.health.mu.Unlock()
 }
 
 // handlePantherOAuthStart begins Sign in with Panther against the saved
