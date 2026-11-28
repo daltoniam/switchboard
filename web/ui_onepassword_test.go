@@ -260,7 +260,10 @@ func uiOnePasswordIdentities(t *testing.T, app *uiApp, page playwright.Page, liv
 	work := identities.Locator(`[data-onepassword-identity="work"]`)
 	uiText(t, work, "Work vaults")
 	uiText(t, work.Locator(".onepassword-identity-method"), "Service account token")
-	require.NotContains(t, uiResultTextOf(t, page.Locator("body")), "ops_not-a-real-work-token", "identity tokens are never rendered")
+	html, err := page.Content()
+	require.NoError(t, err)
+	require.NotContains(t, html, "ops_not-a-real-work-token", "identity tokens are never rendered, including in input values")
+	require.Empty(t, uiValue(t, page.Locator("#identity_cred_service_account_token")))
 
 	uiOnePasswordAddIdentity(t, page, "me", "", "Switchboard UI Test", "")
 	if msg := page.Locator(".toast.flash-error"); uiCount(t, msg) > 0 {
