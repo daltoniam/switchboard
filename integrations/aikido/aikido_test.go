@@ -308,6 +308,33 @@ func TestToken_BoundToConfiguration(t *testing.T) {
 	assert.Equal(t, "tok-new", current.accessToken, "the new configuration's cache is untouched")
 }
 
+// A caller whose context ends while another caller is fetching the token
+// returns at once instead of waiting for the shared token request.
+func TestToken_WaiterHonorsContext(t *testing.T) {
+	release := make(chan struct{})
+	started := make(chan struct{})
+	slow := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		close(started)
+		<-release
+		_, _ = io.WriteString(w, `{"access_token":"tok-slow","expires_in":3600}`)
+	}))
+	defer slow.Close()
+	defer close(release)
+	a := New().(*aikido)
+	require.NoError(t, a.Configure(t.Context(), mcp.Credentials{"client_id": testClientID, "client_secret": testClientSecret, "base_url": slow.URL}))
+	conn, _ := a.snapshot()
+	go func() { _, _ = a.token(context.Background(), conn) }()
+	<-started
+
+	ctx, cancel := context.WithTimeout(t.Context(), 50*time.Millisecond)
+	defer cancel()
+	begin := time.Now()
+	_, err := a.token(ctx, conn)
+	require.Error(t, err)
+	assert.ErrorIs(t, err, context.DeadlineExceeded)
+	assert.Less(t, time.Since(begin), 2*time.Second)
+}
+
 func TestToken_PersistentUnauthorizedIsAnError(t *testing.T) {
 	f := newFake(t, func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)

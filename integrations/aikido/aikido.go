@@ -73,7 +73,10 @@ type connection struct {
 	clientID     string
 	clientSecret string
 
-	mu          sync.Mutex
+	// refresh is a one-slot semaphore guarding the token fields. Unlike a
+	// mutex, a caller waiting on another caller's token request can give up
+	// when its own context ends.
+	refresh     chan struct{}
 	accessToken string
 	tokenExpiry time.Time
 }
@@ -160,6 +163,7 @@ func (a *aikido) Configure(_ context.Context, creds mcp.Credentials) error {
 		origin:       origin,
 		clientID:     clientID,
 		clientSecret: clientSecret,
+		refresh:      make(chan struct{}, 1),
 	}
 	return nil
 }
@@ -247,8 +251,12 @@ func (a *aikido) Execute(ctx context.Context, name mcp.ToolName, args map[string
 // credentials grant when none is cached or it is about to expire. Aikido's
 // rate limit is per workspace and small, so tokens are reused until expiry.
 func (a *aikido) token(ctx context.Context, conn *connection) (string, error) {
-	conn.mu.Lock()
-	defer conn.mu.Unlock()
+	select {
+	case conn.refresh <- struct{}{}:
+	case <-ctx.Done():
+		return "", fmt.Errorf("aikido: waiting for an access token: %w", ctx.Err())
+	}
+	defer func() { <-conn.refresh }()
 	if conn.accessToken != "" && a.now().Add(tokenRefreshMargin).Before(conn.tokenExpiry) {
 		return conn.accessToken, nil
 	}
@@ -293,9 +301,13 @@ func (a *aikido) token(ctx context.Context, conn *connection) (string, error) {
 	return conn.accessToken, nil
 }
 
-func dropToken(conn *connection, stale string) {
-	conn.mu.Lock()
-	defer conn.mu.Unlock()
+func dropToken(ctx context.Context, conn *connection, stale string) {
+	select {
+	case conn.refresh <- struct{}{}:
+	case <-ctx.Done():
+		return
+	}
+	defer func() { <-conn.refresh }()
 	if conn.accessToken == stale {
 		conn.accessToken, conn.tokenExpiry = "", time.Time{}
 	}
@@ -337,7 +349,7 @@ func (a *aikido) do(ctx context.Context, method, path string, query url.Values, 
 			return nil, fmt.Errorf("aikido: %s %s: %w", method, path, err)
 		}
 		if resp.status == http.StatusUnauthorized && attempt == 0 {
-			dropToken(conn, tok)
+			dropToken(ctx, conn, tok)
 			continue
 		}
 		return checkStatus(method, path, scope, resp)
