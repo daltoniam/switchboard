@@ -787,8 +787,18 @@ func identityConfigTarget(
 	return integration, hints, cloneIntegrationConfig(existing), nil
 }
 
+// redirectIdentityResult returns to the page that edits identities: the
+// setup page when the integration has one, since the detail page redirects
+// there without the result.
 func redirectIdentityResult(rw http.ResponseWriter, r *http.Request, name, kind, message string) {
-	location := "/integrations/" + name + "?" + kind + "=" + url.QueryEscape(message)
+	page := "/integrations/" + name
+	if setupIntegrations[name] {
+		page += "/setup"
+		if googleWorkspaceServices[name] {
+			page = googleSetupPath
+		}
+	}
+	location := page + "?" + kind + "=" + url.QueryEscape(message)
 	http.Redirect(rw, r, location, http.StatusSeeOther)
 }
 

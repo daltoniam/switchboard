@@ -2,7 +2,7 @@ package onepassword
 
 import mcp "github.com/daltoniam/switchboard"
 
-var tools = []mcp.ToolDefinition{
+var tools = withIdentities([]mcp.ToolDefinition{
 	{
 		Name:        "onepassword_list_vaults",
 		Description: "List the 1Password vaults Switchboard can access, with id, title, description and item count. Start here for 1Password passwords, secrets, credentials and logins: pick a vault for onepassword_list_items.",
@@ -102,6 +102,26 @@ var tools = []mcp.ToolDefinition{
 		Required: []string{"reference"},
 		Access:   mcp.AccessRead,
 	},
+})
+
+// withIdentities adds the optional identity argument to every tool, then the
+// tool that lists identities.
+func withIdentities(defs []mcp.ToolDefinition) []mcp.ToolDefinition {
+	desc := "Optional 1Password identity id from " + string(listIdentitiesTool) + " (default: the default identity). Use it when more than one 1Password account is configured"
+	for i := range defs {
+		params := make(map[string]string, len(defs[i].Parameters)+1)
+		for k, v := range defs[i].Parameters {
+			params[k] = v
+		}
+		params[identityParam] = desc
+		defs[i].Parameters = params
+	}
+	return append(defs, mcp.ToolDefinition{
+		Name: listIdentitiesTool,
+		Description: "List the 1Password identities (accounts) Switchboard can use: id, label, sign-in method (desktop_app or service_account), desktop account name and which one is the default. Never returns tokens. " +
+			"Use it when the user has more than one 1Password account, then pass the id as identity_id to any onepassword_* tool.",
+		Access: mcp.AccessRead,
+	})
 }
 
 var dispatch = map[mcp.ToolName]handlerFunc{
@@ -113,4 +133,10 @@ var dispatch = map[mcp.ToolName]handlerFunc{
 	"onepassword_archive_item":   archiveItem,
 	"onepassword_delete_item":    deleteItem,
 	"onepassword_resolve_secret": resolveSecret,
+}
+
+// adapterDispatch holds tools answered from configuration, without signing
+// in.
+var adapterDispatch = map[mcp.ToolName]func(*onepassword) (*mcp.ToolResult, error){
+	listIdentitiesTool: (*onepassword).listIdentities,
 }

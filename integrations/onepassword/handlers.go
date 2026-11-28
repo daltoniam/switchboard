@@ -79,9 +79,20 @@ func listVaults(ctx context.Context, s store, _ map[string]any) (*mcp.ToolResult
 	}
 	out := make([]vaultView, 0, len(vaults))
 	for _, v := range vaults {
-		out = append(out, vaultView{ID: v.ID, Title: v.Title, Description: v.Description, Type: string(v.VaultType), Items: v.ActiveItemCount, UpdatedAt: v.UpdatedAt})
+		out = append(out, vaultView{ID: v.ID, Title: v.Title, Description: vaultDescription(v), Type: string(v.VaultType), Items: v.ActiveItemCount, UpdatedAt: v.UpdatedAt})
 	}
 	return mcp.JSONResult(out)
+}
+
+// vaultDescription drops the description of the built-in Personal, Private
+// and Shared vaults. 1Password returns an opaque value there (a live account
+// showed the same 16-letter string for both) rather than text a person wrote.
+func vaultDescription(v op.VaultOverview) string {
+	switch v.VaultType {
+	case op.VaultTypePersonal, op.VaultTypeEveryone:
+		return ""
+	}
+	return v.Description
 }
 
 func listItems(ctx context.Context, s store, args map[string]any) (*mcp.ToolResult, error) {
