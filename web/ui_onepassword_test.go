@@ -238,13 +238,18 @@ func TestUIOnePassword(t *testing.T) {
 	// Compared as a bool so a failure never prints the token into CI logs.
 	require.True(t, saved.Integrations["onepassword"].Credentials["service_account_token"] == wantToken, "saved service account token differs from the one entered")
 
-	uiOnePasswordIdentities(t, app, page)
+	live := ""
+	if liveToken != "" && liveVault != "" {
+		live = liveVault
+	}
+	uiOnePasswordIdentities(t, app, page, live)
 }
 
 // uiOnePasswordIdentities adds named identities while the integration is
 // disabled, so no desktop app sign-in or approval prompt runs, then enables
-// it and lists them over MCP.
-func uiOnePasswordIdentities(t *testing.T, app *uiApp, page playwright.Page) {
+// it and lists them over MCP. liveVault is set when the default identity uses
+// a real service account token.
+func uiOnePasswordIdentities(t *testing.T, app *uiApp, page playwright.Page, liveVault string) {
 	t.Helper()
 	page.OnDialog(func(dialog playwright.Dialog) { require.NoError(t, dialog.Accept()) })
 	identities := page.Locator("#onepassword-identities")
@@ -297,10 +302,17 @@ func uiOnePasswordIdentities(t *testing.T, app *uiApp, page playwright.Page) {
 	unknown := uiOnePasswordExecute(t, app, "onepassword_list_vaults", map[string]any{"identity_id": "nope"})
 	require.True(t, unknown.IsError)
 	require.Contains(t, uiResultText(t, unknown), `unknown identity "nope"`)
-	for id, args := range map[string]map[string]any{"work": {"identity_id": "work"}, "default": {}} {
-		routed := uiOnePasswordExecute(t, app, "onepassword_list_vaults", args)
-		require.True(t, routed.IsError, "the fake %s token cannot sign in", id)
-		require.Contains(t, uiResultText(t, routed), fmt.Sprintf("identity %q: cannot sign in with the service account token", id), "the call must run as the %s identity", id)
+	routed := uiOnePasswordExecute(t, app, "onepassword_list_vaults", map[string]any{"identity_id": "work"})
+	require.True(t, routed.IsError, "the fake work token cannot sign in")
+	require.Contains(t, uiResultText(t, routed), `identity "work": cannot sign in with the service account token`, "the call must run as the work identity")
+	require.NotContains(t, uiResultText(t, routed), "ops_not-a-real")
+	routed = uiOnePasswordExecute(t, app, "onepassword_list_vaults", map[string]any{})
+	if liveVault != "" {
+		require.False(t, routed.IsError, "the default identity keeps the live token: %s", uiResultText(t, routed))
+		require.Contains(t, uiResultText(t, routed), liveVault)
+	} else {
+		require.True(t, routed.IsError, "the fake default token cannot sign in")
+		require.Contains(t, uiResultText(t, routed), `identity "default": cannot sign in with the service account token`, "the call must run as the default identity")
 		require.NotContains(t, uiResultText(t, routed), "ops_not-a-real")
 	}
 

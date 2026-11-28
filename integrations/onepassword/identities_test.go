@@ -278,18 +278,17 @@ func TestIdentities_ListIdentities(t *testing.T) {
 }
 
 func TestIdentities_SignInOncePerCredentialSet(t *testing.T) {
-	a, signIns := storesByAuth(t, map[auth]*fakeStore{{token: "ops_default"}: newFake(), {token: "ops_work"}: newFake()})
+	a, signIns := storesByAuth(t, map[auth]*fakeStore{{token: "ops_default"}: vaultStore("Default"), {token: "ops_work"}: vaultStore("Work")})
 	cfg := &mcp.IntegrationConfig{
 		Credentials: mcp.Credentials{"service_account_token": "ops_default"},
 		Identities:  map[string]mcp.IntegrationIdentity{"work": tokenIdentity("ops_work", "")},
 	}
 	ctx := context.Background()
-	require.NoError(t, mcp.ConfigureIntegration(ctx, a, cfg))
-	run(t, a, "onepassword_list_vaults", map[string]any{identityParam: "work"})
-	run(t, a, "onepassword_list_vaults", nil)
-	require.NoError(t, mcp.ConfigureIntegration(ctx, a, cfg))
-	run(t, a, "onepassword_list_vaults", map[string]any{identityParam: "work"})
-	run(t, a, "onepassword_list_vaults", nil)
+	for range 2 {
+		require.NoError(t, mcp.ConfigureIntegration(ctx, a, cfg))
+		assert.Equal(t, []string{"Work"}, vaultTitles(t, run(t, a, "onepassword_list_vaults", map[string]any{identityParam: "work"})))
+		assert.Equal(t, []string{"Default"}, vaultTitles(t, run(t, a, "onepassword_list_vaults", nil)))
+	}
 	assert.Equal(t, []auth{{token: "ops_work"}, {token: "ops_default"}}, *signIns, "reloading the same settings keeps every signed-in client")
 }
 
