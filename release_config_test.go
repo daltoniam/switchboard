@@ -36,13 +36,16 @@ func loadGoreleaserBuilds(t *testing.T) []goreleaserBuild {
 	return cfg.Builds
 }
 
+// envValue returns the last value of key, as later entries override earlier
+// ones.
 func envValue(env []string, key string) (string, bool) {
+	val, found := "", false
 	for _, kv := range env {
 		if k, v, ok := strings.Cut(kv, "="); ok && k == key {
-			return v, true
+			val, found = v, true
 		}
 	}
-	return "", false
+	return val, found
 }
 
 // TestGoreleaserCgoTargets guards the release build split. macOS binaries
@@ -76,20 +79,24 @@ func TestGoreleaserCgoTargets(t *testing.T) {
 			require.Len(t, matched, 1, "exactly one build must produce %s/%s, or archives and packages get duplicate binaries", tc.goos, tc.goarch)
 			b := matched[0]
 
-			cgo, ok := envValue(b.Env, "CGO_ENABLED")
+			// goreleaser appends a matching override's env to the build env,
+			// so the last value of a key wins.
+			env := slices.Clone(b.Env)
+			for _, o := range b.Overrides {
+				if o.Goos == tc.goos && o.Goarch == tc.goarch {
+					env = append(env, o.Env...)
+				}
+			}
+
+			cgo, ok := envValue(env, "CGO_ENABLED")
 			require.True(t, ok, "build %q must set CGO_ENABLED explicitly", b.ID)
-			assert.Equal(t, tc.cgo, cgo, "build %q CGO_ENABLED", b.ID)
+			assert.Equal(t, tc.cgo, cgo, "build %q CGO_ENABLED for %s/%s", b.ID, tc.goos, tc.goarch)
 
 			if tc.cgo == "1" {
 				assert.Len(t, b.Goos, 1, "cgo build %q must only target %s, so other platforms stay static", b.ID, tc.goos)
 			}
 
-			var cc string
-			for _, o := range b.Overrides {
-				if o.Goos == tc.goos && o.Goarch == tc.goarch {
-					cc, _ = envValue(o.Env, "CC")
-				}
-			}
+			cc, _ := envValue(env, "CC")
 			if tc.needsCC {
 				assert.NotEmpty(t, cc, "build %q needs a per-target CC override (osxcross clang) for %s/%s", b.ID, tc.goos, tc.goarch)
 			} else {
@@ -109,9 +116,53 @@ func TestReleaseWorkflowsShareCrossImage(t *testing.T) {
 	require.NotNil(t, image, "scripts/goreleaser-cross.sh must pin a goreleaser-cross image tag")
 
 	for _, wf := range []string{".github/workflows/release.yml", ".github/workflows/release-dry-run.yml"} {
-		data, err := os.ReadFile(wf)
-		require.NoError(t, err)
-		assert.Contains(t, string(data), "scripts/goreleaser-cross.sh", "%s must run goreleaser through scripts/goreleaser-cross.sh", wf)
-		assert.NotContains(t, string(data), "goreleaser/goreleaser-action", "%s must not build with the host toolchain, which has no macOS SDK", wf)
+		t.Run(wf, func(t *testing.T) {
+			commands := workflowCommands(t, wf)
+			var viaScript int
+			for _, cmd := range commands {
+				if strings.Contains(cmd, "scripts/goreleaser-cross.sh") && strings.Contains(cmd, "release") {
+					viaScript++
+				}
+				assert.NotRegexp(t, `(^|[\s;&|(])goreleaser\s`, cmd, "%s must not run goreleaser with the host toolchain, which has no macOS SDK", wf)
+				assert.NotContains(t, cmd, "goreleaser/goreleaser-action", "%s must not build with the host toolchain, which has no macOS SDK", wf)
+			}
+			assert.Equal(t, 1, viaScript, "%s must run goreleaser release through scripts/goreleaser-cross.sh exactly once", wf)
+		})
 	}
+}
+
+// workflowCommands returns each step's `uses` value and its `run` script
+// with shell comment lines removed, so commented-out commands don't count.
+func workflowCommands(t *testing.T, path string) []string {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	var wf struct {
+		Jobs map[string]struct {
+			Steps []struct {
+				Uses string `yaml:"uses"`
+				Run  string `yaml:"run"`
+			} `yaml:"steps"`
+		} `yaml:"jobs"`
+	}
+	require.NoError(t, yaml.Unmarshal(data, &wf))
+	var out []string
+	for _, job := range wf.Jobs {
+		for _, step := range job.Steps {
+			if step.Uses != "" {
+				out = append(out, step.Uses)
+			}
+			var lines []string
+			for line := range strings.SplitSeq(step.Run, "\n") {
+				if !strings.HasPrefix(strings.TrimSpace(line), "#") {
+					lines = append(lines, line)
+				}
+			}
+			if cmd := strings.TrimSpace(strings.Join(lines, "\n")); cmd != "" {
+				out = append(out, cmd)
+			}
+		}
+	}
+	require.NotEmpty(t, out, "%s has no steps", path)
+	return out
 }

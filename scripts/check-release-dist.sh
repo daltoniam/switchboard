@@ -9,6 +9,7 @@
 set -euo pipefail
 
 dist="${1:-dist}"
+dist="${dist%/}"
 fail=0
 bad() { echo "FAIL: $*" >&2; fail=1; }
 ok() { echo "ok: $*"; }
